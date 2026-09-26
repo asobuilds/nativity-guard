@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { User, Camera, Trash2, Loader2 } from 'lucide-react'
-import { api } from '@/lib/apiClient'
+import { api, mediaURL } from '@/lib/apiClient'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 
@@ -72,6 +72,7 @@ export function AvatarUpload({
 
   const hasImage = Boolean(currentUrl)
   const diameter = `${size}px`
+  const displayUrl = mediaURL(currentUrl)
 
   return (
     <div className={cn('relative inline-flex flex-col items-center gap-2', className)}>
@@ -79,7 +80,7 @@ export function AvatarUpload({
         <label htmlFor="avatar-upload" className="cursor-pointer">
           {hasImage ? (
             <img
-              src={currentUrl}
+              src={displayUrl}
               alt="Avatar"
               className={cn('rounded-full object-cover border border-border', diameter)}
               width={size}

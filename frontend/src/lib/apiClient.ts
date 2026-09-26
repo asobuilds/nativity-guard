@@ -300,15 +300,38 @@ async function requestUpload<T>(
 }
 
 export const api = {
-  get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal }),
-  post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
-  postAnonymous: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body, anonymous: true }),
-  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-  upload: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
-    requestUpload<T>(path, file, fieldName, false),
-  uploadAnonymous: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
-    requestUpload<T>(path, file, fieldName, true),
+	get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal }),
+	post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+	postAnonymous: <T>(path: string, body?: unknown) =>
+		request<T>(path, { method: 'POST', body, anonymous: true }),
+	put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+	patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+	delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+	upload: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
+		requestUpload<T>(path, file, fieldName, false),
+	uploadAnonymous: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
+		requestUpload<T>(path, file, fieldName, true),
+}
+
+/**
+ * Constructs a full media URL from a relative path returned by the backend.
+ *
+ * The backend returns avatarPath/coverPath as relative paths like
+ * "avatars/2026/09/hash.jpg". The frontend must prefix these with the
+ * backend's public media base (e.g. Supabase storage public URL) to render
+ * them correctly.
+ *
+ * If the path is already a full URL (starts with http:// or https://), it is
+ * returned as-is. If VITE_MEDIA_BASE is not set, the original path is returned
+ * as a graceful fallback (may not render if the frontend and media are on
+ * different origins).
+ */
+export function mediaURL(path: string | null | undefined): string | null {
+	if (!path) return null
+	// If it's already a full URL, use it as-is
+	if (/^https?:\/\//i.test(path)) return path
+	// Otherwise prefix with the backend's public media base
+	const base = (import.meta.env.VITE_MEDIA_BASE ?? '').replace(/\/+$/, '')
+	if (!base) return path // graceful fallback
+	return `${base}/${path.replace(/^\/+/, '')}`
 }

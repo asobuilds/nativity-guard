@@ -203,3 +203,50 @@ func UpdateUserPreferences(c *gin.Context) {
 		"error": "Preference persistence is not yet implemented",
 	})
 }
+
+// UpdateMe — PUT /api/v1/users/me
+// Body: { firstName, lastName, phone } — all optional
+// Only writes provided (non-empty) fields.
+// Returns the updated user object.
+func UpdateMe(c *gin.Context) {
+	userInterface, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	userObj := userInterface.(*models.User)
+
+	var input struct {
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+		Phone     string `json:"phone"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if input.FirstName != "" {
+		updates["first_name"] = input.FirstName
+	}
+	if input.LastName != "" {
+		updates["last_name"] = input.LastName
+	}
+	if input.Phone != "" {
+		updates["phone"] = input.Phone
+	}
+
+	if len(updates) > 0 {
+		if err := config.DB.Model(&models.User{}).
+			Where("id = ?", userObj.ID).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+			return
+		}
+	}
+
+	// Reload and return
+	var fresh models.User
+	config.DB.First(&fresh, "id = ?", userObj.ID)
+	c.JSON(http.StatusOK, fresh)
+}

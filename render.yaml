@@ -53,6 +53,8 @@ services:
         value: https://nativityguard-backend.onrender.com
       - key: VITE_USE_MOCKS
         value: "false"
+      - key: VITE_MEDIA_BASE
+        sync: false
     headers:
       - path: /assets/*
         name: Cache-Control

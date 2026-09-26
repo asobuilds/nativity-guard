@@ -97,6 +97,7 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 		users.POST("/me/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadCover)
 		users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
 		users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
+		users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
 	}
 
 		files := api.Group("/files")
