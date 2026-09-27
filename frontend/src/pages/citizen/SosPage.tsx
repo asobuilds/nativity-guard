@@ -107,7 +107,7 @@ export function SosPage() {
         longitude,
         priority,
         ...(unitId ? { unitId } : {}),
-        ...(contacts.trim() ? { emergencyContacts: contacts.trim() } : {}),
+        ...(contacts.trim() ? { emergencyContacts: contacts.split(",").map(function(s){ return s.trim(); }).filter(Boolean) } : {}),
         ...(medical.trim() ? { medicalInfo: medical.trim() } : {}),
         // SOS keeps the precise coordinates internally for responders; this only
         // strips the reporter's identity from public feeds.

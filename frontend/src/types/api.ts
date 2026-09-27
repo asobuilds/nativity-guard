@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Nativity Guard API types.
  *
  * Hand-written from the verified Go contract in backend/ (handlers + models).
@@ -119,7 +119,7 @@ export interface SosAlert {
   longitude: number
   priority: 'high' | 'critical'
   unitId?: string
-  emergencyContacts?: string
+  emergencyContacts?: string[]
   medicalInfo?: string
   createdAt: string
 }
@@ -129,7 +129,7 @@ export interface SendSosInput {
   longitude: number
   priority: SosAlert['priority']
   unitId?: string
-  emergencyContacts?: string
+  emergencyContacts?: string[]
   medicalInfo?: string
   /**
    * Opt out of exposing the reporter's identity on the public feed. Responders
