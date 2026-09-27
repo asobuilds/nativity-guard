@@ -23,6 +23,7 @@ import { OfficerCasePage } from '@/pages/officer/OfficerCasePage'
 import { MapPage } from '@/pages/MapPage'
 import { AdminCaseQueuePage } from '@/pages/admin/AdminCaseQueuePage'
 import { AdminCaseReviewPage } from '@/pages/admin/AdminCaseReviewPage'
+import { AdminOfficersPage } from '@/pages/admin/AdminOfficersPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
@@ -201,8 +202,9 @@ export function App() {
                   }
                 />
 
-                {/* Scheduled, not yet built — named rather than 404'd. */}
-                {['overview','officers','analytics','finance','settings'].map((section) => <Route key={section} path={`/admin/${section}`} element={<RequireRole roles={ADMIN_ROLES}><AdminDemoPage section={section} /></RequireRole>} />)}
+                <Route path="/admin/officers" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
+                {/* Remaining admin sections still use demo data. */}
+                {['overview','analytics','finance','settings'].map((section) => <Route key={section} path={`/admin/${section}`} element={<RequireRole roles={ADMIN_ROLES}><AdminDemoPage section={section} /></RequireRole>} />)}
                 {['overview','audit','analytics','settings'].map((section) => <Route key={section} path={`/super/${section}`} element={<RequireRole roles={['super_admin']}><AdminDemoPage section={section} platform /></RequireRole>} />)}
                 {/* The unit registry is built — it left the demo stub and reads real
                     data. Listed before the `/super/*` fallback so the real page
