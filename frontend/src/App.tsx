@@ -34,6 +34,7 @@ import { AdminDemoPage } from '@/pages/AdminDemoPage'
 import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { SessionsPage } from '@/pages/SessionsPage'
 import { AppealsPage } from '@/pages/AppealsPage'
 import type { Role } from '@/types/api'
 
@@ -139,6 +140,7 @@ export function App() {
               <Route element={<ProtectedShell />}>
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/sessions" element={<SessionsPage />} />
                 <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
                 <Route path="/alerts/:id" element={<RequireRole roles={['citizen']}><AlertDetailPage /></RequireRole>} />
                 <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
