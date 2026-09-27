@@ -38,12 +38,14 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
+    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
   ],
   officer: [
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/officer/comms', label: 'Comms', icon: <Users className="size-4" />, soon: true },
+    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
   ],
   unit_admin: [
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
@@ -52,6 +54,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/admin/finance', label: 'Finance demo', icon: <FileText className="size-4" /> },
     { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
+    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
   ],
   // A super admin sees the citizen actions, the officer queue and the platform
@@ -71,6 +74,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/super/overview', label: 'Governance', icon: <ShieldAlert className="size-4" /> },
     { to: '/super/units', label: 'Units', icon: <Shield className="size-4" /> },
+    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/super/users', label: 'Users', icon: <Users className="size-4" />, soon: true },
     { to: '/super/audit', label: 'Audit', icon: <FileText className="size-4" /> },
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },

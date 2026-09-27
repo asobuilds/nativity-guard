@@ -160,7 +160,7 @@ func DecideAppeal(c *gin.Context) {
 	}
 
 	resp := appealResponse(appeal)
-	if appeal.Status == "overturn" {
+	if appeal.Status == "overturned" {
 		resp["restored"] = true
 	} else {
 		resp["restored"] = false
@@ -174,6 +174,7 @@ func appealResponse(a *models.Appeal) gin.H {
 		"revocationCycleId": a.RevocationCycleID,
 		"appellantUserId":   a.AppellantUserID,
 		"status":            a.Status,
+		"reason":            a.Reason,
 		"filedAt":           a.FiledAt,
 		"decisionReason":    a.DecisionReason,
 		"decidedBy":         a.DecidedBy,
