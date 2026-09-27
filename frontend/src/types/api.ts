@@ -113,11 +113,14 @@ export interface CaseFeedback {
 export interface SosAlert {
   id: string
   userId: string
-  trackingId: string
+
   status: 'pending' | 'dispatched' | 'resolved' | 'escalated'
   latitude: number
   longitude: number
   priority: 'high' | 'critical'
+  locationGeohash?: string
+  isAnonymous?: boolean
+  description?: string
   unitId?: string
   emergencyContacts?: string[]
   medicalInfo?: string

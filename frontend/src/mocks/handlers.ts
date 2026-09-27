@@ -1397,7 +1397,6 @@ export const handlers: MockRoute[] = [
       const alert: SosAlert = {
         id,
         userId: user.id,
-        trackingId: `SOS-${Date.now().toString(36).toUpperCase()}`,
         status: 'pending',
         latitude: input.latitude,
         longitude: input.longitude,

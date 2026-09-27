@@ -17,7 +17,7 @@ export function useMySos(enabled = true) {
 export function useSendSos() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: SendSosInput) => api.post<{ alert: SosAlert }>('/sos/send', input),
+    mutationFn: (input: SendSosInput) => api.post<{ message: string; sos: SosAlert; escalationTime: string }>('/sos/send', input),
     onSuccess: () => client.invalidateQueries({ queryKey: sosKey }),
   })
 }

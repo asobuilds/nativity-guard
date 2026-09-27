@@ -102,7 +102,7 @@ export function SosPage() {
   async function confirmSend() {
     if (!hasLocation || send.isPending) return
     try {
-      const { alert } = await send.mutateAsync({
+      const resp = await send.mutateAsync({
         latitude,
         longitude,
         priority,
@@ -113,7 +113,7 @@ export function SosPage() {
         // strips the reporter's identity from public feeds.
         ...(hideLocation ? { hideLocation: true } : {}),
       })
-      setReceipt({ trackingId: alert.trackingId, status: alert.status })
+      setReceipt({ trackingId: (resp as any).sos?.id ?? 'unknown', status: (resp as any).sos?.status ?? 'pending' })
       setConfirming(false)
       setContacts('')
       setMedical('')
@@ -271,7 +271,7 @@ export function SosPage() {
             {alerts.data.map((alert) => (
               <li key={alert.id}>
                 <Card className="flex flex-wrap items-center justify-between gap-2 p-4">
-                  <div><p className="text-sm font-medium text-ink">{alert.trackingId}</p>
+                  <div><p className="text-sm font-medium text-ink">{alert.id}</p>
                     <p className="text-xs text-ink-muted">{formatDateTime(alert.createdAt)}</p></div>
                   <span className="text-sm font-semibold text-ink">{statusLabel[alert.status] ?? alert.status}</span>
                 </Card>
