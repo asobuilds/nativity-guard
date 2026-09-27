@@ -12,7 +12,6 @@ import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { MapView } from '@/components/map/MapView'
 import { ApiError } from '@/lib/apiClient'
-import { USE_MOCKS } from '@/mocks/config'
 import { formatDateTime } from '@/lib/format'
 
 const statusLabel = {
@@ -36,7 +35,7 @@ export function SosPage() {
   const [unitId, setUnitId] = useState('')
   const [hideLocation, setHideLocation] = useState(false)
   const [receipt, setReceipt] = useState<{ trackingId: string; status: string } | null>(null)
-  const alerts = useMySos(USE_MOCKS)
+  const alerts = useMySos(false)
   const units = useUnits()
   const send = useSendSos()
 
@@ -101,7 +100,7 @@ export function SosPage() {
   }
 
   async function confirmSend() {
-    if (!USE_MOCKS || !hasLocation || send.isPending) return
+    if (!hasLocation || send.isPending) return
     try {
       const { alert } = await send.mutateAsync({
         latitude,
@@ -150,12 +149,7 @@ export function SosPage() {
         </p>
       </header>
 
-      {!USE_MOCKS ? (
-        <Card className="border-warn p-5" >
-          <p className="text-sm font-semibold text-ink">SOS is not available in this environment</p>
-          <p className="mt-2 text-sm text-ink-muted">The live emergency service has not been verified with this app. Use your local emergency contact channels for immediate help.</p>
-        </Card>
-      ) : null}
+      
 
       {receipt ? (
         <Card className="border-ok/50 p-5">
@@ -248,7 +242,7 @@ export function SosPage() {
         </label>
 
         <p className="text-xs text-ink-muted">The optional details are sent only when you confirm; they are cleared from this form after success.</p>
-        <Button variant="danger" size="lg" disabled={!USE_MOCKS || !hasLocation} onClick={() => setConfirming(true)} icon={<AlertTriangle className="size-5" />}>
+        <Button variant="danger" size="lg" disabled={!hasLocation} onClick={() => setConfirming(true)} icon={<AlertTriangle className="size-5" />}>
           Prepare SOS
         </Button>
 
@@ -267,7 +261,7 @@ export function SosPage() {
 
       <section aria-label="Your SOS history">
         <h2 className="mb-3 text-lg font-semibold text-ink">Your SOS history</h2>
-        {!USE_MOCKS ? <Card className="p-5 text-sm text-ink-muted">SOS history is unavailable until the live service is connected.</Card> : alerts.isLoading ? <Skeleton className="h-24 w-full" /> : alerts.isError ? (
+        {alerts.isLoading ? <Skeleton className="h-24 w-full" /> : alerts.isError ? (
           <Card><ErrorState title="Could not load SOS history" description="Reconnect and try again." onRetry={() => void alerts.refetch()} /></Card>
         ) : !alerts.data?.length ? (
           <Card className="p-5 text-sm text-ink-muted">No SOS requests on record.</Card>
