@@ -49,6 +49,7 @@ const NAV: Record<Role, NavItem[]> = {
   ],
   unit_admin: [
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+    { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
     { to: '/admin/officers', label: 'Officers', icon: <Users className="size-4" /> },
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
@@ -72,6 +73,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/notifications', label: 'Notifications', icon: <Megaphone className="size-4" /> },
 
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+    { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/super/overview', label: 'Governance', icon: <ShieldAlert className="size-4" /> },
     { to: '/super/units', label: 'Units', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
