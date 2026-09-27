@@ -2,14 +2,54 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"security-solution/config"
 	"security-solution/models"
 )
+
+// Community responses explicitly allow public fields; never serialize a User model.
+func communityAuthor(user models.User) gin.H {
+	return gin.H{"name": strings.TrimSpace(user.FirstName + " " + user.LastName)}
+}
+
+func forumPostResponse(post models.ForumPost, includeReplies bool) gin.H {
+	result := gin.H{
+		"id": post.ID, "unitId": post.UnitID, "title": post.Title,
+		"content": post.Content, "category": post.Category,
+		"author": communityAuthor(post.Author), "createdAt": post.CreatedAt,
+		"isPinned": post.IsPinned, "isLocked": post.IsLocked,
+		"replyCount": post.ReplyCount, "viewCount": post.ViewCount,
+	}
+	if includeReplies {
+		replies := make([]gin.H, 0, len(post.Replies))
+		for _, reply := range post.Replies {
+			if reply.Status != "published" { continue }
+			replies = append(replies, gin.H{"id": reply.ID, "content": reply.Content, "author": communityAuthor(reply.Author), "createdAt": reply.CreatedAt})
+		}
+		result["replies"] = replies
+	}
+	return result
+}
+
+func communityAnnouncementResponse(item models.CommunityAnnouncement) gin.H {
+	return gin.H{"id": item.ID, "unitId": item.UnitID, "title": item.Title,
+		"content": item.Content, "type": item.Type, "priority": item.Priority,
+		"createdAt": item.CreatedAt, "publishedAt": item.PublishedAt, "expiresAt": item.ExpiresAt}
+}
+
+func communityEventResponse(item models.CommunityEvent) gin.H {
+	return gin.H{"id": item.ID, "unitId": item.UnitID, "title": item.Title,
+		"description": item.Description, "location": item.Location,
+		"eventDate": item.EventDate, "endDate": item.EndDate, "type": item.Type,
+		"attendeeCount": item.AttendeeCount, "maxAttendees": item.MaxAttendees,
+		"createdAt": item.CreatedAt}
+}
 
 // CreateForumPost creates a new forum post
 func CreateForumPost(c *gin.Context) {
@@ -65,7 +105,7 @@ func CreateForumPost(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Post created successfully",
-		"post":    post,
+		"post":    forumPostResponse(post, false),
 	})
 }
 
@@ -79,7 +119,7 @@ func GetForumPosts(c *gin.Context) {
 	userObj := user.(*models.User)
 
 	var posts []models.ForumPost
-	query := config.DB.Preload("Author").Preload("Unit").Where("status = ?", "published")
+	query := config.DB.Preload("Author", func(db *gorm.DB) *gorm.DB { return db.Select("id", "first_name", "last_name") }).Where("status = ?", "published")
 
 	// Filter by role
 	if userObj.Role == "citizen" {
@@ -104,9 +144,9 @@ func GetForumPosts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"posts": posts,
-	})
+	results := make([]gin.H, 0, len(posts))
+	for _, post := range posts { results = append(results, forumPostResponse(post, false)) }
+	c.JSON(http.StatusOK, gin.H{"posts": results})
 }
 
 // GetForumPostByID gets a specific forum post
@@ -126,7 +166,7 @@ func GetForumPostByID(c *gin.Context) {
 	userObj := user.(*models.User)
 
 	var post models.ForumPost
-	if err := config.DB.Preload("Author").Preload("Unit").Preload("Replies").First(&post, "id = ?", postID).Error; err != nil {
+	if err := config.DB.Preload("Author", func(db *gorm.DB) *gorm.DB { return db.Select("id", "first_name", "last_name") }).Preload("Replies", "status = ?", "published").Preload("Replies.Author", func(db *gorm.DB) *gorm.DB { return db.Select("id", "first_name", "last_name") }).First(&post, "id = ? AND status = ?", postID, "published").Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
 	}
@@ -144,7 +184,7 @@ func GetForumPostByID(c *gin.Context) {
 	config.DB.Save(&post)
 
 	c.JSON(http.StatusOK, gin.H{
-		"post": post,
+		"post": forumPostResponse(post, true),
 	})
 }
 
@@ -212,7 +252,7 @@ func CreateForumReply(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Reply created successfully",
-		"reply":   reply,
+		"reply":   gin.H{"id": reply.ID, "postId": reply.PostID, "content": reply.Content, "createdAt": reply.CreatedAt},
 	})
 }
 
@@ -298,7 +338,7 @@ func CreateCommunityAnnouncement(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":      "Announcement created successfully",
-		"announcement": announcement,
+		"announcement": communityAnnouncementResponse(announcement),
 	})
 }
 
@@ -312,7 +352,7 @@ func GetCommunityAnnouncements(c *gin.Context) {
 	userObj := user.(*models.User)
 
 	var announcements []models.CommunityAnnouncement
-	query := config.DB.Preload("Author").Preload("Unit").Where("status = ?", "published")
+	query := config.DB.Where("status = ?", "published")
 
 	// Filter by role
 	if userObj.Role == "citizen" {
@@ -332,9 +372,9 @@ func GetCommunityAnnouncements(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"announcements": announcements,
-	})
+	results := make([]gin.H, 0, len(announcements))
+	for _, item := range announcements { results = append(results, communityAnnouncementResponse(item)) }
+	c.JSON(http.StatusOK, gin.H{"announcements": results})
 }
 
 // CreateCommunityEvent creates a community event
@@ -428,7 +468,7 @@ func CreateCommunityEvent(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Event created successfully",
-		"event":   event,
+		"event":   communityEventResponse(event),
 	})
 }
 
@@ -442,7 +482,7 @@ func GetCommunityEvents(c *gin.Context) {
 	userObj := user.(*models.User)
 
 	var events []models.CommunityEvent
-	query := config.DB.Preload("Author").Preload("Unit").Where("status = ?", "upcoming")
+	query := config.DB.Where("status = ?", "upcoming")
 
 	if userObj.Role == "citizen" {
 		if userObj.UnitID != nil {
@@ -461,9 +501,9 @@ func GetCommunityEvents(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"events": events,
-	})
+	results := make([]gin.H, 0, len(events))
+	for _, item := range events { results = append(results, communityEventResponse(item)) }
+	c.JSON(http.StatusOK, gin.H{"events": results})
 }
 
 // RSVPToEvent RSVP to an event
