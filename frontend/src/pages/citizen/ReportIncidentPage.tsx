@@ -171,7 +171,14 @@ export function ReportIncidentPage() {
     // PUT the file to the presigned URL (no auth header — presigned URL carries auth)
     const putResponse = await fetch(presign.uploadUrl, {
       method: 'PUT',
-      headers: { 'Content-Type': photo.file.type },
+      // Go signs these S3 metadata headers in PresignPut. The PUT must send
+      // the same values or the storage service rejects its signature.
+      headers: {
+        'Content-Type': photo.file.type,
+        'x-amz-meta-sha256': hash,
+        'x-amz-meta-original-filename': photo.file.name,
+        'x-amz-meta-case-id': caseId,
+      },
       body: photo.file,
     })
     if (!putResponse.ok) {
@@ -276,6 +283,8 @@ export function ReportIncidentPage() {
     if (key === 'where') {
       if (draft.latitude === null || draft.longitude === null)
         return 'Place the pin on the map so the unit knows where to go.'
+      if (!draft.location.trim())
+        return 'Add a landmark or address. The Go reporting endpoint requires a location.'
       if (draft.unitId === null)
         return 'Choose a unit. A report sent without one is not shown in any unit’s queue.'
       return null
@@ -300,6 +309,11 @@ export function ReportIncidentPage() {
    */
   async function submit() {
     setSubmitError(null)
+    const invalid = blockedReason('what') ?? blockedReason('where') ?? blockedReason('evidence')
+    if (invalid) {
+      setSubmitError(invalid)
+      return
+    }
 
     const input: CreateCaseInput = {
       title: draft.title.trim(),
@@ -394,11 +408,17 @@ export function ReportIncidentPage() {
       current.map((item, i) => (i === index ? { ...item, status: 'sending', message: undefined } : item)),
     )
     try {
-      await api.post<EvidenceCreateResponse>('/evidence/upload', {
-        caseId,
-        type: link.type || 'image',
-        fileUrl: link.fileUrl.trim(),
-      })
+      if (link.isPhoto) {
+        const photo = photos[index - linksToSend.length]
+        if (!photo) throw new Error('Photo is no longer available. Please file a new report to attach it.')
+        await uploadPhoto(caseId, photo)
+      } else {
+        await api.post<EvidenceCreateResponse>('/evidence/upload', {
+          caseId,
+          type: link.type || 'image',
+          fileUrl: link.fileUrl.trim(),
+        })
+      }
       setAttachments((current) =>
         current.map((item, i) => (i === index ? { ...item, status: 'done' } : item)),
       )
