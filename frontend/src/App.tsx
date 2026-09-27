@@ -34,6 +34,7 @@ import { AdminDemoPage } from '@/pages/AdminDemoPage'
 import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { InvitationsPage, InviteLandingPage } from '@/pages/InvitationsPage'
 import { AppealsPage } from '@/pages/AppealsPage'
 import type { Role } from '@/types/api'
 
@@ -121,6 +122,7 @@ export function App() {
             <Routes>
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/signup" element={<SignupPage />} />
+              <Route path="/invite" element={<InviteLandingPage />} />
 
               {/* Recovery. Two routes rather than one screen with steps, because
                   the code alone is what `/auth/reset-password` needs — so the
@@ -139,6 +141,7 @@ export function App() {
               <Route element={<ProtectedShell />}>
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/invites" element={<InvitationsPage />} />
                 <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
                 <Route path="/alerts/:id" element={<RequireRole roles={['citizen']}><AlertDetailPage /></RequireRole>} />
                 <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
