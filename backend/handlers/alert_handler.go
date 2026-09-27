@@ -94,7 +94,21 @@ func GetCommunityAlerts(c *gin.Context) {
 		userObj := user.(*models.User)
 		if userObj.Role == "citizen" {
 			// Citizens see only non-critical alerts or alerts in their area
-			query = query.Where("severity != ? OR location ILIKE ?", "critical", "%"+userObj.UnitID.String()+"%")
+			// Guard against citizens with no unit — UnitID is a *uuid.UUID and
+// can be nil, which would panic on .String(). Fall back to a
+// location match against the user's city or skip the filter.
+                if userObj.UnitID != nil {
+                        // Guard against citizens with no unit — UnitID is a *uuid.UUID and
+// can be nil, which would panic on .String(). Fall back to a
+// location match against the user's city or skip the filter.
+                if userObj.UnitID != nil {
+                        query = query.Where("severity != ? OR location ILIKE ?", "critical", "%"+userObj.UnitID.String()+"%")
+                } else {
+                        query = query.Where("severity != ?", "critical")
+                }
+                } else {
+                        query = query.Where("severity != ?", "critical")
+                }
 		}
 	}
 
