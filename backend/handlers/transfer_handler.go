@@ -11,6 +11,16 @@ import (
 	"security-solution/models"
 )
 
+func transferSummary(request models.TransferRequest) gin.H {
+	return gin.H{
+		"id": request.ID, "targetId": request.TargetID, "targetType": request.TargetType,
+		"fromUnitId": request.FromUnitID, "toUnitId": request.ToUnitID,
+		"reason": request.Reason, "status": request.Status,
+		"approvalCount": request.ApprovalCount, "requiredApprovals": request.RequiredApprovals,
+		"createdAt": request.CreatedAt, "completedAt": request.CompletedAt,
+	}
+}
+
 // RequestTransfer initiates a multi-signature transfer request
 func RequestTransfer(c *gin.Context) {
 	var input struct {
@@ -341,27 +351,42 @@ func GetTransferRequests(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	if userObj.UnitID == nil {
+	if userObj.Role != "unit_admin" && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can view transfers"})
+		return
+	}
+	if userObj.Role != "super_admin" && userObj.UnitID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "You are not assigned to a unit"})
 		return
 	}
 
 	var requests []models.TransferRequest
-	if err := config.DB.Preload("FromUnit").Preload("ToUnit").Preload("RequestedByUser").
-		Where("from_unit_id = ?", userObj.UnitID).
-		Order("created_at desc").
-		Find(&requests).Error; err != nil {
+	query := config.DB.Order("created_at desc").Limit(100)
+	if userObj.Role != "super_admin" {
+		query = query.Where("from_unit_id = ?", userObj.UnitID)
+	}
+	if err := query.Find(&requests).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transfer requests"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"transferRequests": requests,
-	})
+	rows := make([]gin.H, 0, len(requests))
+	for _, request := range requests { rows = append(rows, transferSummary(request)) }
+	c.JSON(http.StatusOK, gin.H{"transferRequests": rows})
 }
 
 // GetTransferApprovals gets all approvals for a transfer request
 func GetTransferApprovals(c *gin.Context) {
+	userValue, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userObj := userValue.(*models.User)
+	if userObj.Role != "unit_admin" && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can view transfer approvals"})
+		return
+	}
 	requestID := c.Param("id")
 	id, err := uuid.Parse(requestID)
 	if err != nil {
@@ -369,13 +394,25 @@ func GetTransferApprovals(c *gin.Context) {
 		return
 	}
 
+	var request models.TransferRequest
+	if err := config.DB.First(&request, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Transfer request not found"})
+		return
+	}
+	if userObj.Role != "super_admin" && (userObj.UnitID == nil || *userObj.UnitID != request.FromUnitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only view approvals from your unit"})
+		return
+	}
 	var approvals []models.TransferApproval
-	if err := config.DB.Preload("Approver").Where("transfer_id = ?", id).Find(&approvals).Error; err != nil {
+	if err := config.DB.Where("transfer_id = ?", id).Find(&approvals).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch approvals"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"approvals": approvals,
-	})
+	rows := make([]gin.H, 0, len(approvals))
+	for _, approval := range approvals {
+		rows = append(rows, gin.H{"id": approval.ID, "approverId": approval.ApproverID,
+			"status": approval.Status, "comment": approval.Comment, "createdAt": approval.CreatedAt})
+	}
+	c.JSON(http.StatusOK, gin.H{"approvals": rows})
 }
