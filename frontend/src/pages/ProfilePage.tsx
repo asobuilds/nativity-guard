@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, Briefcase, Users, Loader2, Save } from 'lucide-react'
+import { Bell, Briefcase, Users, Loader2, Save, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { mediaURL } from '@/lib/apiClient'
 import { initials } from '@/lib/format'
@@ -156,6 +156,10 @@ export function ProfilePage() {
 			<Card className="mt-4">
 				<CardHeader title="Quick links" />
 				<CardBody className="flex flex-col gap-2">
+					<Link to="/invites" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
+						<UserPlus className="size-5 text-ink-muted shrink-0" aria-hidden />
+						<span className="text-sm text-ink">Invite someone</span>
+					</Link>
 					<Link to="/notifications" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
 						<Bell className="size-5 text-ink-muted shrink-0" aria-hidden />
 						<span className="text-sm text-ink">Notifications</span>
