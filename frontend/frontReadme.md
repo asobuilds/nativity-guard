@@ -15,8 +15,8 @@ The backend in this repository is **Go** — Gin + GORM + PostgreSQL, mounted in
 returns nothing anywhere in the repo, and the `backend/app/` tree named by earlier revisions of this
 file has never existed here.
 
-The browser client's `/api/v1` root is therefore **correct**, not a mismatch. Every route the mock
-serves is a real mounted route:
+The browser client's `/api/v1` root is correct. The table below shows representative mounted
+routes; a mock implementation alone is not evidence that its route exists on Go:
 
 | Mock route | Mounted at | Auth |
 |---|---|---|
@@ -29,21 +29,20 @@ serves is a real mounted route:
 `/health` is mounted at the **root**, outside `/api/v1` (`routes.go:13`), as are `/ws` (`:430`) and
 `/metrics` (`:436`, super-admin only).
 
-**The mock is a mirror, not a fiction.** `src/mocks/handlers.ts:3-19` states that it "deliberately
-mirror[s] the *real* backend contract — turning `VITE_USE_MOCKS` off changes only where the data
-comes from, never how the frontend talks to it." Its documented guards match the Go handlers:
+The mock aims to mirror the Go contract, but there are exceptions (for example, the demo-only
+community post-report action). Turning `VITE_USE_MOCKS` off does not make a mock-only screen live.
+For core case creation, the documented mock guards match the Go handler:
 `POST /cases` requires a title and a description, bands priority from `isSOS` / `priority`, attaches
 a unit only if the UUID parses, and always stores the case public — which is `case_handler.go:29-102`
 verbatim.
 
 **What that means for the rest of this document:** the long-standing API examples, lifecycle notes,
 mock authorization rules and Appendices A/B are not "legacy targets awaiting reconciliation." They
-describe the API that is actually mounted. The `x` marks in the catalogue record browser/mock
-implementation — a statement about **where the data comes from**, not about whether the contract is
-right.
+describe the intended API, subject to the current route audit below. An `x` mark means browser or
+mock implementation; it does not certify a mounted route or a successful live integration test.
 
-**The real integration gaps are small and behavioural**, not a matter of contract shape. Verified
-against the Go handlers:
+**Integration gaps include both behavior and missing routes.** The following claims are checked
+against the current Go tree:
 
 | Delta | What the live backend does | Frontend handling |
 |---|---|---|
@@ -55,17 +54,17 @@ against the Go handlers:
 | **Stale TODO in `ForgotPassword`** | `auth_handler.go:489-492` and `:509-512` claim "email delivery is not yet wired" and that the code is sent to the user's phone instead. **Both are false** — delivery is wired and the service dispatches it. The `_ = rawToken` at `:513` is deliberate and correct, because the service sends internally. | no frontend effect; backend comment cleanup — as written it tells the next reader that reset is broken when it is not |
 | `/cases` pagination | `?limit=` capped at **100**, default **50**. | page through; never assume "get all" |
 | Error envelope | `{ "error": "..." }` — the whole message. | do not invent a wrapper |
-| `GET /units/:id/officers` | Handler is fully implemented, authorises via `canViewOfficersInUnit`, returns `{ officers: [...] }` — but is **unrouted** in `routes.go`. Only `/:id/officers/ranking` is registered. | `AssignOfficerDialog` keeps its contract-gap branch until it is registered (T6) |
-| `/public/cases`, `/public/units` | Registered with **no auth middleware** and neither handler narrows the query, so whole models serialise to anonymous callers. | the landing page ships without its map preview (B3.2) |
+| `GET /units/:id/officers` | Registered in `routes.go`, with a handler returning `{ officers: [...] }`. | `AssignOfficerDialog` retains a 404 fallback for older deployments; live roster use remains to verify (T6) |
+| `/public/cases`, `/public/units` | Registered without auth. Cases are filtered to public and open, capped at 20, and anonymous/coarse cases have coordinates zeroed; both endpoints still serialise model objects rather than curated public DTOs. | Review all returned fields before enabling a public map preview (B3.2) |
 
 **Effect on the recent ten frontend items:** unchanged in substance — they are mock-verified, and an
 SOS receipt in the mock never represents real dispatch. But they are **not** blocked on agreeing a
 contract with a Python service. The endpoints are mounted; what remains is pointing the client at a
 running Go instance and confirming each flow end to end.
 
-**Next priority:** stop treating the mock/live boundary as a contract negotiation. Register the
-unrouted handlers, fix the backend copy and the password-length asymmetry, then verify each flow
-against the live service.
+**Next priority:** reconcile this catalogue with mounted routes and mock-only screens, then verify
+reporting/evidence, feedback and officer assignment against a running Go service. The password
+reset copy and length difference are separate backend follow-ups.
 
 ---
 
@@ -91,21 +90,40 @@ The detailed checklists in §3 explain the boundaries of each partial feature.
 |---|---|---|
 | F1 Auth | Login, role guards, signup, password recovery screens, rotating token refresh, `/login` alias | OTP, officer/unit applications, onboarding, session management; live signup and recovery checks |
 | F2 SOS | Citizen SOS console, confirm/cancel, map or manual location, optional responder details, status/history and persistent entry point (mock verified) | Verify request/response and dispatch semantics against the live SOS service; mock does not simulate dispatch |
-| F3 Reporting | Four-step report wizard, unit/pin selection, evidence links, draft restore, receipt | Binary uploads require a backend route; offline submit queue remains open |
-| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, mock feedback submission | Push status updates, privacy review of live responses |
+| F3 Reporting | Four-step report wizard, unit/pin selection, evidence links, photo picker and presign/confirm upload flow, draft restore, receipt | Verify the photo upload against live object storage; offline submit queue remains open |
+| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, feedback form restricted to mocks | Live feedback submission, push status updates, timeline/privacy review |
 | F5 Awareness | Notification centre, demo alert feed/detail/confirmation, news, subscriptions and permission opt-in | Live integration and real push delivery |
-| F6 Community | Demo forum/replies, announcements, event RSVP, post reporting | Live integration, durable moderation workflow and AI-assisted tips |
+| F6 Community | Demo forum/replies, announcements, event RSVP, post reporting | Live integration; post-report route and moderation workflow are missing; AI-assisted tips |
 | F7 Officer | Queue, dispatch/arrive, progress, evidence, weekly narrative, review submission | Investigate transition (backend route required), team view and communications |
 | F8 Unit admin | Triage/assignment, case review, closure decisions, evidence verification; demo overview, roster, analytics, finance and settings | Live integration for demo screens; full verification |
 | F9 Super admin | Demo overview, unit registry, audit, analytics/health and settings/export | Live integration, user governance and impersonation |
 | F10 Maps | Case map, marker grouping, aggregated activity areas, unit coverage, report pin picker and basic filters | Advanced filters and offline map fallback; activity overlay live data verification |
 | F11 Communication | No frontend screens | Rooms, messaging, calls, presence and sync |
 | F12 AI | No frontend screens | Assistant, tips, warnings and labelled case summaries |
-| F13 Settings | Demo profile edit (name, phone and HTTPS photo URL) | Live profile write/photo upload, preferences, consent, language, export and deletion |
+| F13 Settings | Profile page uses Go profile update and avatar endpoints; older profile demo remains | Verify live profile write/photo upload; preferences, consent, language, export and deletion |
 | F14 PWA | No installable app | Service worker, offline reads/writes, sync and low-bandwidth mode |
 
 Also open from Appendix B: governance (T10), suspect self-view (T11), invites (T12),
 session management (T9) and live backend verification. These are separate from visual polish.
+
+### Backend capabilities not yet represented by a live frontend screen
+
+The Go router mounts the following areas. A mounted route establishes availability in code,
+not end-to-end readiness or authorization correctness. Add each to the implementation backlog
+without counting its endpoints as separate user-facing features:
+
+| Area | Mounted route families | Frontend plan/status |
+|---|---|---|
+| Revocation appeals | `/appeals` | No screen; add filing, own-appeal status and authorized decision work to governance |
+| Unit transfer requests | `/transfers` | No screen; add request and authorized decision/approval views to unit membership |
+| Suspect operations and expungement | `/suspects`, `/expungement-requests` | Self-view is T11; add authorized suspect/sighting, counter-statement and expungement request/decision flows |
+| Video and social monitoring | `/video` | No screen; add camera registry, generated-alert review and monitored-post views with appropriate role gates |
+| Peacebuilding | `/peacebuilding` | No screen; add committees, conflicts, trust scores and metrics for authorized unit staff |
+| Public participation and accountability | `/public/platform/*`, `/public/units/:id/{ledger,financial-years,financial-summary}`, `/public/leaderboard`, `/public/{officers,units}/:id/rating`, `/ratings` | No complete public-facing views; plan donations, public financial views, leaderboard and ratings/flags |
+
+Other mounted areas already covered by F1–F14 or T9–T15 include onboarding, governance elections,
+invites, notifications, maps, AI, finance, communication and mobile sync; they still need the
+individual live verification or screens noted in those sections.
 
 **Next ten frontend checklist items, this branch:** F2's seven SOS items, F10 marker grouping,
 F10 aggregated activity areas, and F5's full notification centre. The first seven are mock-verified
@@ -280,22 +298,22 @@ to withhold from, so subset-by-omission does not apply and sharing is the safer 
 
 ### 0.3 Known contract gaps the UI does **not** paper over
 
-*(Long-standing gaps, all still accurate. The newer, more urgent drift is §0.4.)*
+*(The table includes historical notes; the roster and binary-upload claims have been updated below.)*
 
 | Gap | How the UI handles it |
 |---|---|
-| **`GetOfficersByUnit` is implemented but never routed** — assigning a case needs an `officers`-table id and nothing on this API lists officers | `AssignOfficerDialog` treats a 404 as a first-class "contract gap" state: it says so plainly and offers a manual officer-ID field. Never an empty roster, never a generic error. Mocks mirror the *unregistered handler's* shape so the flow is walkable today. One-line backend fix: register the route |
+| `GET /units/:id/officers` is mounted; a running deployment may still predate it | `AssignOfficerDialog` retains its 404 fallback and manual officer-ID field; verify named roster selection against the deployed Go service |
 | `POST /cases/:id/assign` takes an **`officers` id, not a user id** (`officer.UnitID` must equal the case's unit) | `lib/assignment.ts` mirrors the guard (`officerBelongsToUnit`, `assignmentBlocker`) so the dialog blocks a wrong-unit pick before the round trip; officers are a separate entity from `User` in `types/api.ts` |
 | `GET /cases/:id/assignments` may not exist on a given build | `AssignmentPanel` splits 404 (`missing` — endpoint not exposed) from network failure (`failed` — explicitly *does not* mean unassigned). Conflating them would let a dropped connection read as "nobody is assigned" |
 | `GET /auth/profile` carries no `unitId` | `inferAdminUnitId` derives the admin's unit from the scoped case list, and only when **exactly one** unit is present — a super admin's cross-unit list assumes no roster |
 | `GET /cases` may not preload `evidence` | The queue's "evidence unverified" counter is gated on any case actually carrying the array; otherwise the card is hidden rather than reporting a confident zero |
 | `GET /cases/:id/progress` has no server-side authorization | Case shows only what it is given; gap documented, backend untouched |
 | `GET /cases/analytics` counts `status="resolved"`, which the workflow never sets → `resolutionRate` always 0 | Analytics surfaces are not built on it; KPIs will use `closed` |
-| No binary upload endpoint — evidence takes a hosted `fileUrl` | `EvidenceUpload` asks for a link and says so plainly; the report wizard's evidence step does the same, and caps it at three links rather than implying a file picker is coming |
+| Binary evidence routes exist: `POST /evidence/case/:caseId/file` and presign/confirm | The report wizard has a photo picker and presign → object-store PUT → confirm flow, plus hosted links. `EvidenceUpload` in the staff workspace still uses links. Verify storage configuration and the live upload response |
 | Notification reads live under `/mobile/notifications*` only | `useNotifications` uses the mobile endpoints |
 | **`GetCaseAccountability` is implemented but never routed** — `handlers.GetCaseAccountability` exists in the former review implementation and calls `services.GetCaseAccountability`, but no route registers it. Its model is `models.CaseAccountabilityEvent` | Nothing calls it. Treat it as *available to design against*, not as a live endpoint — see §0.4 item 5 |
 | **`POST /cases` accepts a `unitId` that attaches nothing**, and `models.Case.UnitID` is `not null`, so a case whose unit does not parse is stored against the zero UUID. `GetAllCases` scopes officers and unit admins by `unit_id`, so **that case is returned to nobody but its reporter and a super admin** — no unit's queue shows it, and no admin can triage it | The wizard requires a unit (and a location pin) before it will submit, and says why: the endpoint allows omitting both, but a report no unit can see is not a feature. If the backend ever grows a triage pool for unattached cases, the requirement can be relaxed — not before |
-| **`GET /cases/:id` returns a reporter more than they should read** — the progress feed, the evidence list, and timeline `description` strings that name officers and administrators ("Assigned to Officer Tunde Balogun.") | The citizen view curates by **omission**: it does not fetch progress or evidence, and `lib/caseLog.ts` renders an actor *role* instead of a name. This is presentation, not enforcement — the same token gets the rest with `curl`. **A real boundary means the backend stops sending it**; until then, do not describe the citizen view as private |
+| `GET /cases/:id` returns a reporter a curated `case` DTO without preloaded evidence/progress, but still returns full `timeline` records and case feedback | `lib/caseLog.ts` redacts names when rendering; audit the timeline and feedback payloads server-side before claiming the response is safe by contract. UI omission alone cannot enforce confidentiality |
 
 **Backend readiness:** the mounted Go routes match the mock contract — see the opening section. What
 is pending is pointing the client at a running instance and verifying each flow. Turning mocks off
@@ -361,7 +379,8 @@ pending → assigned → dispatched → on_scene → investigating
 
 *"Case admin"* = a super admin, **or** any user with an active `UnitMembership` on the case's unit
 whose role is `admin`. Unit membership alone is **not** enough — that is the same principle as
-§0.3's unrouted-roster gap, applied to authorization.
+§0.3's historical roster gap, applied to authorization. The route is now mounted; the
+assignment flow still needs verification against a live deployment.
 
 **Weekly updates are now real**
 
@@ -607,11 +626,11 @@ fact rather than a design preference:
 - **"Where" also picks the responding unit**, because the pin is exactly what decides which units are
   candidates (`GET /units/nearby`, sorted by distance, split by whether the unit's coverage reaches the
   point).
-- **Media capture became evidence *links*, collected before the case exists and attached after it.**
-  There is no binary-upload endpoint, so a file must already be hosted somewhere the reporter can
-  share. The links are staged in step 3, but `POST /evidence/upload` needs a `caseId` — so they are
-  sent in step 4's wake, each reported separately on the receipt and each retryable on its own. A
-  failed link never becomes a failed report.
+- **Evidence attaches after the case exists.** Hosted links use `POST /evidence/upload` with a
+  `caseId`. The photo picker uses `POST /evidence/case/:caseId/presign`, uploads the photo to the
+  returned storage URL, and calls `POST /evidence/case/:caseId/confirm`. These flows are coded;
+  storage configuration and responses still need live verification. A failed attachment does not
+  undo a successfully filed report.
 - **The public/private choice is gone.** `IsPublic` is hardcoded `true` on create, so the reporter has
   no such choice to make and the review step says the record is public instead of offering a toggle the
   server would ignore.
@@ -622,9 +641,9 @@ fact rather than a design preference:
       refusal states the real reason** — the endpoint accepts neither as mandatory, but a case with no
       `unit_id` is returned by no unit's `GET /cases` (see §0.3), and one pinned at 0,0 sends a unit to
       the Gulf of Guinea
-- [x] Step 3 — **evidence**: up to three hosted links, each with a type and a remove control, each
-      validated as `http(s)` before Submit will enable. The copy says the file must be hosted already;
-      it does not imply a file picker is coming
+- [x] Step 3 — **evidence**: up to three hosted links validated as `http(s)`, plus the photo picker
+      and per-photo upload state. The staff evidence component remains link based; the reporter photo
+      flow needs live storage verification
 - [x] Step 4 — **review**: every answer shown with an **Edit** that returns to its step, a
       "what happens when you send this" block (recorded as `pending`, a tracking ID is issued, reports
       are public records), and the flow's single Send button
@@ -649,14 +668,16 @@ fact rather than a design preference:
       and every answer is still on screen
 
 **States:** drafting · validating · submitting · partial-evidence-failed · submitted · create-failed
-**APIs:** `POST /cases`, `POST /evidence/upload`, `GET /units/nearby`, `GET /cases`, `GET /cases/:id`
+**APIs:** `POST /cases`, `POST /evidence/upload`, `POST /evidence/case/:caseId/presign`,
+`POST /evidence/case/:caseId/confirm`, `GET /units/nearby`, `GET /cases`, `GET /cases/:id`
 
 ---
 
 ### F4 — Case tracking & feedback
 
 **Screens:** my cases list, case detail, timeline, evidence viewer, feedback form.
-*(The list and the case detail exist; the evidence viewer and feedback form do not.)*
+*(The list and case detail exist; staff have an evidence viewer. The feedback form exists but is
+restricted to mocks pending live integration.)*
 
 - [x] Case list with status chips, priority, last-updated — each card is the link to the detail view
 - [x] **Case detail (`/cases/:id`, citizen-only) — a curated record, built as a *subset* of the staff
@@ -699,14 +720,12 @@ fact rather than a design preference:
 **States:** empty · loading · not-found · forbidden · closed-readonly · awaiting-review · changes-requested
 **APIs:** `GET /cases`, `GET /cases/:id`, `GET /cases/:id/timeline`, `GET /cases/:id/progress`,
 `GET /cases/:id/review`, `GET /cases/:id/weekly-updates`, `GET /evidence/case/:caseId`,
-`POST /cases/:id/feedback`, `POST /ratings`, `GET /ratings/units/:unitId`
+`POST /cases/:id/feedback`, `POST /ratings`, `GET /public/units/:id/rating`
 
-> **The citizen view is presentation, not a privacy boundary.** `GET /cases/:id` already returns the
-> reporter the progress feed, the evidence list and timeline descriptions that name officers and
-> administrators, and the mock's `canSeeCase` permits it. Not fetching two endpoints and not rendering
-> a third field is a decision about what a reporter should have to read; it is not a control on what
-> they can obtain, because the same token gets the rest with `curl`. If this must be enforced, the
-> backend has to stop sending it.
+> **The citizen view is not the whole privacy boundary.** Go's `GET /cases/:id` now returns the
+> reporter a curated `case` without its preloaded evidence/progress, but still returns full timeline
+> records and feedback. The UI redacts actor names when displaying the timeline; verify that the
+> backend response itself contains no sensitive names or other fields before calling it public-safe.
 
 ---
 
@@ -818,7 +837,7 @@ finance, unit settings.
 - [x] `pending_admin_review` in the triage counters — **"Awaiting your decision"** is now the first
       attention card on `/admin/cases`, with the hint "Submitted for closure — only an admin can move
       these", and it filters the list like the other counters (`Focus = 'to_decide'`)
-- [x] Officer roster: add/edit, status, workload *(blocked by the unrouted `GetOfficersByUnit`)* **(session demo only; live integration pending)**
+- [x] Officer roster: demo add/edit/status/workload; `GET /units/:id/officers` is mounted for assignment, but live integration and roster management remain open
 - [~] Verification queue: evidence verify shipped inside case review; memberships and gov IDs open
 - [x] Analytics: volume, response/dispatch/arrival, resolution, workload **(session demo only; live integration pending)**
 - [x] Finance: accounts, donations, transactions + approvals, budgets, reports **(session demo only; live integration pending)**
@@ -951,6 +970,7 @@ finance, unit settings.
 | Case review | `/cases/:id/submit-review`, `/cases/:id/review`, `/cases/:id/review/{approve,request-changes}` |
 | Weekly updates | `/cases/:id/weekly-update`, `/cases/:id/weekly-updates` |
 | Evidence | `/evidence/upload`, `/evidence/case/:caseId`, `/evidence/:id/verify` |
+| Binary evidence | `/evidence/case/:caseId/file`, `/evidence/case/:caseId/presign`, `/evidence/case/:caseId/confirm` |
 | SOS | `/sos/send`, `/sos/my`, `/sos/:id/status` |
 | Alerts/News | `/alerts/*`, `/news/*` |
 | Community | `/community/*` |
@@ -960,9 +980,13 @@ finance, unit settings.
 | AI | `/ai/*` |
 | Mobile | `/mobile/*` |
 | Finance | `/bank/*`, `/finance/*` |
+| Governance and membership | `/units/:id/{elections,head-admin-elections,revocations,auth}`, `/elections/*`, `/revocations/*`, `/appeals/*`, `/transfers/*` |
+| Suspect and expungement | `/suspects/*`, `/expungement-requests/*`, `/cases/:id/counter-statement` |
+| Video and peacebuilding | `/video/*`, `/peacebuilding/*` |
+| Public participation | `/public/platform/*`, `/public/leaderboard`, `/public/units/:id/*`, `/public/officers/:id/rating`, `/ratings/*` |
 
-**Contract rule:** the OpenAPI/typed contract is the source of truth. Freeze it before building;
-generate or hand-write types from it. No hand-typed endpoint strings in components.
+**Contract rule:** check each endpoint against `backend/routes/routes.go` and its handler; verify
+the live response before claiming integration. Typed frontend models do not prove route availability.
 
 ---
 
@@ -1194,13 +1218,14 @@ The rule **unit access is NOT case access** is enforced server-side. `AGENT.md` 
 - Support officers see a limited view
 - Admins only see cases submitted to them via `CaseAdminAssignment`
 - Head Admin sees all cases in their unit
-- Reporter sees public-safe fields only (`GetCaseByID` returns a curated DTO for them)
+- Reporter receives a curated `case` DTO from `GetCaseByID`, but the separately returned timeline
+  and feedback still need a field-level privacy review
 - Direct officer `CloseCase` is blocked; closure requires admin review
 
-**What the frontend must do:** if a screen calls `GET /cases/:id` for a reporter, expect
-the public-safe DTO (no evidence list, no progress list, no officer identity). The
-existing citizen case page already renders a subset — no code change required, but the
-data returned is now also safe by contract, not just by UI curation.
+**What the frontend must do:** expect a curated reporter `case` without preloaded evidence or
+progress. The response also contains timeline and feedback arrays; `lib/caseLog.ts` redacts actor
+names for display, but that does not sanitize the response. Review server serialization and
+authorization before describing the whole payload as public-safe.
 
 ### A4 — Governance UI (routes mounted; no screens yet)
 
@@ -1214,7 +1239,7 @@ unit-scoped openers at `routes.go:79-85`. No corresponding frontend screens exis
 | Revocation cycles | `POST /units/:unitId/revocations`, `POST /revocations/:id/vote`, `POST /revocations/:id/close`, `GET /revocations/:id` | ❌ not built |
 | UnitAuth policy | `GET /units/:unitId/auth`, `PUT /units/:unitId/auth` | ❌ not built |
 
-**New UI work needed** (added to feature catalogue as **F7 — Governance UI**):
+**New UI work needed** (governance backlog alongside F8/F9; F7 already names the Officer console):
 
 - Election list per unit
 - Voting interface (one vote per verified member)
@@ -1262,7 +1287,7 @@ uses `/invites/validate` to show the join-or-stay-citizen choice.
   tracked for Wave 4b of the backend roadmap)
 - `CaseReviewDecisionDeescalate` — still no route records it
 - `GetCaseAccountability` — still unrouted
-- `GetOfficersByUnit` — still unrouted
+- Live `GET /units/:id/officers` roster selection still needs verification
 
 ### A8 — Outstanding frontend gaps
 
@@ -1270,7 +1295,7 @@ uses `/invites/validate` to show the join-or-stay-citizen choice.
 - No component tests, only pure-function tests
 - Map marker grouping and aggregated activity overlay are built; advanced map filters remain open
 - SOS frontend is mock-verified; live service contract and dispatch behavior remain unverified
-- Feedback submission form still unbuilt
+- Feedback form exists in `CitizenFeedback.tsx`, but is disabled when mocks are off
 
 
 ---
@@ -1295,7 +1320,7 @@ separately — the routes in `routes.go` are the contract, not any URL recorded 
 | **`POST /auth/register`** | Returns **201 `{ message, user }` and NO token.** It also **ignores the `role` input** — `Role: "citizen"` is hardcoded — so a role selector on signup would collect an answer the server discards. `dateOfBirth` (YYYY-MM-DD) is `binding:"required"`. | `handlers/auth_handler.go` |
 | **`POST /auth/login`** | Accepts **either** `identifier` **or** legacy `email`. The brief implies `identifier` is required; the existing `{ email, password }` call is fine and was never a bug. | `handlers/auth_handler.go` |
 | **Route params** | `:id` everywhere — never `:unitId`, never `:userId`. | `routes.go` |
-| **`GET /units/:id/officers`** | **Unrouted**, but the handler is fully implemented, already reads `c.Param("id")`, already authorises via `canViewOfficersInUnit`, and already returns `{ officers: [...] }` — the exact shape `useOfficers.ts` expects. Registering it is one line. Only `/:id/officers/ranking` is registered today. | `handlers/officers_handler.go:295` (unrouted) |
+| **`GET /units/:id/officers`** | Mounted; the handler returns `{ officers: [...] }`. Verify the deployed route and assignment flow live. | `routes/routes.go`, `handlers/officers_handler.go` |
 | **`/cases` pagination** | `?limit=` is capped at **100**, default **50**. Never assume "get all"; page through. Other list endpoints follow in a later wave. | `handlers/case_handler.go` |
 | **Error envelope** | `{ "error": "..." }` — that is the whole message. Do not add or invent a wrapper. | `handlers/` throughout |
 
@@ -1304,8 +1329,9 @@ separately — the routes in `routes.go` are the contract, not any URL recorded 
 
 ### B3 — Historical bug triage for the mock target
 
-The integration brief listed eight bugs. Checked against the source, **three are not real, one has
-the right symptom and the wrong cause, and three real defects are missing from it entirely.**
+The earlier integration brief listed eight bugs. The table below preserves its historical
+assessment; the current status is in T1–T7 and the opening route audit. **Three claims were
+incorrect, one had the right symptom and wrong cause, and three defects were missing.**
 
 | # | Brief's claim | Verdict |
 |---|---|---|
@@ -1315,11 +1341,11 @@ the right symptom and the wrong cause, and three real defects are missing from i
 | 4 | No signup page, no landing page | **Real.** `src/pages/auth/` contains only `LoginPage.tsx`; there is no `/signup` route. This is the genuine blocking gap. |
 | 5 | No catch-all; unknown URLs blank | **Not a bug.** `App.tsx:143` → `<Route path="*">` → `NotFoundPage`, which exists. |
 | 6 | Role string mismatch | **Real — and it is the root cause of #3.** |
-| 7 | `/units/:id/officers` does not exist | **Real** (see B2). |
+| 7 | `/units/:id/officers` does not exist | **Historical gap, now resolved.** The route is mounted (see B2 and T6); live deployment verification remains. |
 | 8 | Mock param drift `:unitId` → `:id` | **Cosmetic, not a bug.** The mock matches its own pattern and reads its own `params.unitId`, so it works. Convention alignment only. |
 | **+** | *(absent from the brief)* | **`POST /auth/register` issues no token** — a signup page built to the brief's stated response shape fails silently on auto-login. |
 | **+** | *(absent from the brief)* | **No error boundary.** `main.tsx` renders `<App />` bare, so any render throw becomes an unexplained blank page. |
-| **+** | *(absent from the brief)* | **`/public/*` serialises whole models to anonymous callers** — see B3.2. Why the landing page ships without its map preview. |
+| **+** | *(absent from the brief)* | **Public endpoints serialize model objects to anonymous callers** even after filtering and coordinate redaction; review fields before a public map preview (B3.2). |
 
 #### B3.1 — Why the app actually goes blank
 
@@ -1343,25 +1369,26 @@ the first thing to fix, not the last item to reconcile.**
 
 #### B3.2 — Why the landing page has no map preview
 
-`GET /public/cases` and `GET /public/units` are registered with **no auth middleware** — only
-`RateLimitGeneral()` (former route registry; not in this checkout) — and neither handler narrows the query with a `Select`. So
-every `json`-tagged field on the model serialises to an anonymous caller:
+`GET /public/cases` and `GET /public/units` are registered without authentication.
+`GetPublicCases` filters to public, non-closed cases, caps results at 20, and zeroes precise
+coordinates for anonymous or coarse-only reports; `GetPublicUnits` selects active units.
+Both still serialize model objects without an explicit public DTO or a field allowlist, so
+other JSON-tagged fields can reach anonymous callers:
 
-- from `models.Case` — `reportedBy`, the citizen's `title` and `description`, `latitude` /
-  `longitude` **and** `gisLatitude` / `gisLongitude`, `assignedTo`, `closedBy`, `approvedBy`;
+- from `models.Case` — `reportedBy`, the citizen's `title` and `description`, and potentially
+  precise coordinates for non-anonymous cases, plus `assignedTo`, `closedBy`, `approvedBy`;
 - from `models.SecurityUnit` — `contactPerson`, `contactPhone`, `contactEmail`, `hostUserId`,
   `verifiedBy`, `verificationNotes`, `adminCount`, `memberCount`.
 
-The handler's own comment reads `// GetPublicUnits - Public endpoint for landing page (no auth
-required)` — these were written *for* the page T3 builds. The leak is real and bounded, and it is
-**not a frontend fix**: narrowing the response is a backend change (a curated public DTO), so T3
-ships without the map block and `LandingPage` makes no API call at all. Reported to Agene; see the
-open question in B2.
+The handler's comment describes `GetPublicUnits` as a landing-page endpoint. Before enabling
+a public map preview, review the actual serialized fields for both endpoints and design explicit
+public DTOs. `LandingPage` currently makes no public map request; hiding fields in the browser
+would not narrow an anonymous API response.
 
 ### B4 — Task backlog
 
-The contract in the opening section precedes all tasks below. Its endpoint assumptions were
-re-checked against the Go routes on 2026-09-26.
+The contract in the opening section precedes all tasks below. Route availability was re-checked
+against the current Go tree on 2026-09-27; live behavior still needs independent verification.
 
 Ordered. One task per branch-push, each verified locally before it ships. Every task ships only
 when its Definition of Done (§7) is met.
@@ -1442,21 +1469,33 @@ when its Definition of Done (§7) is met.
       must be verified before pilot use
 - [ ] **T14** — Feedback submission (F4)
 - [ ] **T15** — Audit / finance / bank-account / public endpoints from the brief's §4 reference
+- [ ] **T16** — Appeals against revocations: file, own status and authorized decision screens (`/appeals`)
+- [ ] **T17** — Unit transfers: request, approval/rejection and approval history (`/transfers`)
+- [ ] **T18** — Authorized suspect operations, sightings, counter-statements and expungement requests/decisions (`/suspects`, `/cases/:id/counter-statement`, `/expungement-requests`); T11 covers self-view only
+- [ ] **T19** — Camera registry, video alert review and monitored social posts (`/video`); verify access controls and any real data source before presenting automated findings
+- [ ] **T20** — Peace committees, conflict resolution and trust metrics (`/peacebuilding`)
+- [ ] **T21** — Public donation, unit financial disclosure, leaderboard and officer/unit ratings screens; include rating flagging and privacy checks on public model responses
+- [ ] **T22** — Live moderation contract: the mock's `POST /community/posts/:id/report` is not mounted in Go; design and register a guarded report/review path before claiming a real moderation queue
+
+**Recommended order after this document reconciliation:** (1) verify report creation and both
+evidence upload paths against Go/storage; (2) enable and verify reporter feedback and named officer
+assignment; (3) verify or connect existing mock-only alerts, community and admin surfaces, with
+moderation and permission checks before launch; (4) prioritize T9–T22 by role, safety and user need.
+These are work packages rather than a count of endpoints, and none is marked live verified here.
 
 **Explicitly not tasks:** the brief's "BUG 2", "BUG 3" and "BUG 5" (not real — see B3), and BUG 8
 beyond the cosmetic rename. Do not "fix" a redirect guard that is already correct.
 
-### B5 — Doc drift, tracked and deferred
+### B5 — Document audit notes
 
-Found while confirming these docs. Not corrected here, to keep this change to a single task.
+Audit notes: resolved entries below describe prior document drift; the remaining `frontagent`
+note is outside this file's scope.
 
 1. §A1 reads "renamed **Nativity Guard → Nativity Guard**" — the source name was lost in the edit.
    It was almost certainly **Community Shield → Nativity Guard**.
-2. §A4 files governance UI as "**F7** — Governance UI", but F7 is already the Officer console.
+2. Resolved: §A4 now files governance alongside F8/F9; F7 remains the Officer console.
 3. F4's `**States:**` / `**APIs:**` block is duplicated verbatim (~L553–556 and ~L565–568).
-4. §A3 and §0.3/F4 disagree on the reporter's privacy boundary. **Verified truth:** the curated
-   `case` DTO, the evidence list and the progress feed *are* now withheld server-side
-   (the former case handler `GetCaseByID`), but **`timeline` is still returned in full** — so
-   `lib/caseLog.ts`'s role-not-name redaction remains load-bearing, not cosmetic. §A3's "safe by
-   contract" is half-right; §0.3's warning is half-stale.
+4. Resolved in §0.3/F4: `GetCaseByID` returns a curated reporter `case` without its preloaded
+   evidence/progress, but still returns full timeline and feedback records. Audit those payloads;
+   `lib/caseLog.ts`'s role-not-name display redaction does not secure the API response.
 5. `frontagent` §2 rule 2 described a `lib/status.ts` fallback bug that is already fixed.
