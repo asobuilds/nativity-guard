@@ -1231,7 +1231,8 @@ authorization before describing the whole payload as public-safe.
 
 The governance layer is mounted — elections and revocations at `routes.go:142-155`, UnitAuth and the
 unit-scoped openers at `routes.go:79-85`. A unit policy view/editor uses `GET|PUT /units/:id/auth`;
-election and revocation screens remain open. The policy screen needs live membership and write checks.
+a read-only overview uses `GET /units/:id/governance-audit` for head admins and super admins.
+Member-facing election discovery, voting and revocation screens remain open. Live role checks are pending.
 
 | Feature | Endpoints | UI status |
 |---|---|---|
@@ -1247,6 +1248,7 @@ election and revocation screens remain open. The policy screen needs live member
 - Head-admin election interface (admins only)
 - Revocation cycle interface (open cycle, vote, view tally)
 - Verify the UnitAuth policy view/editor with a verified member and a unit administrator
+- Verify the read-only governance overview with head admin and super admin accounts
 - Term and cooling-off status per admin
 
 ### A5 — Suspect self-view (route mounted; no screen yet)
@@ -1463,7 +1465,7 @@ when its Definition of Done (§7) is met.
 
 **P2 — surfaces the brief exposes that have no UI yet**
 
-- [~] **T10** — Governance UI (A4): unit policy view/editor built against the existing API; live membership and update checks pending; elections, revocations and their list/discovery paths remain open
+- [~] **T10** — Governance UI (A4): unit policy view/editor and head-admin governance overview built against existing APIs; live role checks pending; member-facing elections, revocations and their list/discovery paths remain open
 - [ ] **T11** — Suspect self-view (A5)
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
