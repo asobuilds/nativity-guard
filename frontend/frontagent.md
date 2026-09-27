@@ -18,6 +18,13 @@ Software like this is adopted, not mandated. Every screen must earn the next ope
 `frontReadme.md` (same folder) is the feature contract: **what** to build. You decide **how** it
 looks, feels, moves, and hooks the user.
 
+**Frontend only.** You build pages. The Go backend in `backend/` — handlers, routes, models,
+services — is not yours to change, even when a one-line edit there would unblock a screen. The
+contract is whatever is mounted today; build to it, and record the gap as a handoff
+(`frontReadme.md` Appendix C) rather than reaching into the backend. If a page genuinely cannot
+exist without a missing route, ship the page without that block and say so on the screen itself,
+the way the landing page ships without its map preview.
+
 ---
 
 ## 1. Mission
@@ -290,6 +297,9 @@ If any box is unchecked, the work is not done.
   clear handling; never display more than the role needs.
 - **AI is labelled.** Any AI-generated content is marked as such and never authoritative.
 - **Contract discipline.** The API contract is the source of truth; never invent endpoints.
+- **Frontend only.** Never edit `backend/`. A backend defect is a handoff, not a fix — record it in
+  `frontReadme.md` Appendix C and design around what is mounted. No backend task belongs in a
+  frontend plan.
 
 ---
 
@@ -312,7 +322,8 @@ attach the relevant feature section of [`frontReadme.md`](./frontReadme.md).
 Every section above assumes someone who is already inside. They are not. `/` still sends an anonymous
 visitor straight to a login form — so the product has no front door. These two surfaces are the only
 part of it a stranger ever sees, and they carry the whole of §1's argument: this platform is
-**chosen**, not mandated. (All built: landing T3, signup T2, recovery T8.)
+**chosen**, not mandated. (Landing T3 and signup T2 are built and verified; recovery T8 is built but
+**not yet verified** against a live service.)
 
 Design for a resident who has never heard of Nativity Guard, on a mid-range Android over a slow
 connection, arriving from a neighbour's WhatsApp forward. They are deciding, in seconds, whether this
