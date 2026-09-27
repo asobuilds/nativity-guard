@@ -1227,17 +1227,18 @@ progress. The response also contains timeline and feedback arrays; `lib/caseLog.
 names for display, but that does not sanitize the response. Review server serialization and
 authorization before describing the whole payload as public-safe.
 
-### A4 — Governance UI (routes mounted; no screens yet)
+### A4 — Governance UI (unit policy screen in review; elections and revocations open)
 
 The governance layer is mounted — elections and revocations at `routes.go:142-155`, UnitAuth and the
-unit-scoped openers at `routes.go:79-85`. No corresponding frontend screens exist yet.
+unit-scoped openers at `routes.go:79-85`. A unit policy view/editor uses `GET|PUT /units/:id/auth`;
+election and revocation screens remain open. The policy screen needs live membership and write checks.
 
 | Feature | Endpoints | UI status |
 |---|---|---|
 | Admin elections | `POST /units/:unitId/elections`, `POST /elections/:id/vote`, `POST /elections/:id/close`, `GET /elections/:id/results` | ❌ not built |
 | Head-admin elections | `POST /units/:unitId/head-admin-elections` | ❌ not built |
 | Revocation cycles | `POST /units/:unitId/revocations`, `POST /revocations/:id/vote`, `POST /revocations/:id/close`, `GET /revocations/:id` | ❌ not built |
-| UnitAuth policy | `GET /units/:unitId/auth`, `PUT /units/:unitId/auth` | ❌ not built |
+| UnitAuth policy | `GET /units/:unitId/auth`, `PUT /units/:unitId/auth` | ◐ frontend built; live verification pending |
 
 **New UI work needed** (governance backlog alongside F8/F9; F7 already names the Officer console):
 
@@ -1245,7 +1246,7 @@ unit-scoped openers at `routes.go:79-85`. No corresponding frontend screens exis
 - Voting interface (one vote per verified member)
 - Head-admin election interface (admins only)
 - Revocation cycle interface (open cycle, vote, view tally)
-- UnitAuth policy editor (head admin / admin only)
+- Verify the UnitAuth policy view/editor with a verified member and a unit administrator
 - Term and cooling-off status per admin
 
 ### A5 — Suspect self-view (route mounted; no screen yet)
@@ -1462,7 +1463,7 @@ when its Definition of Done (§7) is met.
 
 **P2 — surfaces the brief exposes that have no UI yet**
 
-- [ ] **T10** — Governance UI (A4)
+- [~] **T10** — Governance UI (A4): unit policy view/editor built against the existing API; live membership and update checks pending; elections, revocations and their list/discovery paths remain open
 - [ ] **T11** — Suspect self-view (A5)
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
