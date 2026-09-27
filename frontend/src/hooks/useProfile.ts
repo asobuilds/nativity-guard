@@ -3,11 +3,17 @@ import { api } from '@/lib/apiClient'
 import type { User as UserType } from '@/types/api'
 
 export function useProfile() {
-	return useQuery({
-		queryKey: ['profile'],
-		queryFn: () => api.get<UserType>('/auth/profile'),
-		staleTime: 60_000,
-	})
+  return useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const r = await api.get<{ user: UserType } | UserType>('/auth/profile')
+      if (r && typeof r === 'object' && 'user' in r && (r as { user: UserType }).user) {
+        return (r as { user: UserType }).user
+      }
+      return r as UserType
+    },
+    staleTime: 60_000,
+  })
 }
 
 export function useUpdateProfile() {

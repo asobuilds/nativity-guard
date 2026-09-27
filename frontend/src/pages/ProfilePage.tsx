@@ -160,11 +160,11 @@ export function ProfilePage() {
 						<Bell className="size-5 text-ink-muted shrink-0" aria-hidden />
 						<span className="text-sm text-ink">Notifications</span>
 					</Link>
-					<Link to="/cases" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
+					<Link to="/" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
 						<Briefcase className="size-5 text-ink-muted shrink-0" aria-hidden />
 						<span className="text-sm text-ink">My cases</span>
 					</Link>
-					<Link to="/units" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
+					<Link to="/map" className={cn('flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors')}>
 						<Users className="size-5 text-ink-muted shrink-0" aria-hidden />
 						<span className="text-sm text-ink">My units</span>
 					</Link>
