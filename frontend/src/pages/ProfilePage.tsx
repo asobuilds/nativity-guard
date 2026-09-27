@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Bell, Briefcase, Users, Loader2, Save } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { api, mediaURL } from '@/lib/apiClient'
+import { mediaURL } from '@/lib/apiClient'
 import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Field, Input } from '@/components/ui/Field'
@@ -11,14 +11,6 @@ import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import type { User as UserType } from '@/types/api'
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile'
-
-function useProfile() {
-  return useQuery({
-    queryKey: ['profile'],
-    queryFn: () => api.get<UserType>('/auth/profile'),
-    staleTime: 60_000,
-  })
-}
 
 export function ProfilePage() {
 	const queryClient = useQueryClient()
@@ -84,7 +76,7 @@ export function ProfilePage() {
 		)
 	}
 
-	const avatarUrl = mediaURL(profile?.photoUrl)
+  const avatarUrl = mediaURL(profile?.photoUrl) ?? undefined
 
 	return (
 		<div className="mx-auto max-w-xl p-6">

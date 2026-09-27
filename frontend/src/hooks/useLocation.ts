@@ -148,6 +148,72 @@ const HIGH_ACCURACY_OPTIONS: PositionOptions = {
   maximumAge: 60_000,
 }
 
+/** Storage key for the IP-derived location cache. */
+const IP_LOCATION_KEY = 'cs.ipLocation'
+
+/** Cache TTL: 30 minutes — stale IP locations should not pin the user. */
+const IP_CACHE_TTL_MS = 30 * 60 * 1000
+
+interface IpLocation {
+  latitude: number
+  longitude: number
+  ts: number
+}
+
+/**
+ * ipFallback is a last resort when GPS is unavailable. Uses a free, no-key
+ * endpoint. Returns null on failure.
+ *
+ * Caches the result in sessionStorage under 'cs.ipLocation' for 30 minutes.
+ * Never call this unless the caller explicitly requests it (do not auto-fire).
+ */
+export async function ipFallback(): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const cached = sessionStorage.getItem(IP_LOCATION_KEY)
+    if (cached) {
+      const parsed = JSON.parse(cached) as IpLocation
+      if (
+        typeof parsed.latitude === 'number' &&
+        typeof parsed.longitude === 'number' &&
+        typeof parsed.ts === 'number' &&
+        Date.now() - parsed.ts < IP_CACHE_TTL_MS
+      ) {
+        return { latitude: parsed.latitude, longitude: parsed.longitude }
+      }
+    }
+  } catch {
+    /* malformed or unavailable cache — fall through to a fresh fetch */
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 4000)
+
+    const response = await fetch('https://ipapi.co/json/', { signal: controller.signal })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) return null
+
+    const data = (await response.json()) as { latitude?: number; longitude?: number }
+
+    if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+      try {
+        sessionStorage.setItem(
+          IP_LOCATION_KEY,
+          JSON.stringify({ latitude: data.latitude, longitude: data.longitude, ts: Date.now() }),
+        )
+      } catch {
+        /* storage unavailable — skip caching */
+      }
+      return { latitude: data.latitude, longitude: data.longitude }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
 function toPermission(state: PermissionState): LocationPermission {
   switch (state) {
     case 'granted':

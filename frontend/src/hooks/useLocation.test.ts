@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   initialLocationState,
+  ipFallback,
   locationReducer,
   readLocationCache,
   writeLocationCache,
@@ -137,5 +138,86 @@ describe('useLocation cache', () => {
     expect(start.latitude).toBeNull()
     expect(start.longitude).toBeNull()
     expect(start.permission).toBe('unavailable')
+  })
+})
+
+describe('useLocation ipFallback', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    // AbortController is native in Node 18+; stub if unavailable.
+    if (typeof AbortController === 'undefined') {
+      vi.stubGlobal('AbortController', class {
+        readonly signal = {}
+        abort() {}
+      })
+    }
+  })
+
+  it('returns cached result when the cache is still fresh', async () => {
+    sessionStorage.setItem(
+      'cs.ipLocation',
+      JSON.stringify({ latitude: 6.5244, longitude: 3.3792, ts: Date.now() }),
+    )
+
+    const result = await ipFallback()
+    expect(result).toEqual({ latitude: 6.5244, longitude: 3.3792 })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('fetches and caches when no valid cache exists', async () => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ latitude: 6.5244, longitude: 3.3792 }),
+    } as Response)
+
+    const result = await ipFallback()
+    expect(result).toEqual({ latitude: 6.5244, longitude: 3.3792 })
+    expect(mockFetch).toHaveBeenCalledWith('https://ipapi.co/json/', expect.objectContaining({ signal: expect.anything() }))
+
+    const stored = JSON.parse(sessionStorage.getItem('cs.ipLocation')!)
+    expect(stored.latitude).toBe(6.5244)
+    expect(stored.longitude).toBe(3.3792)
+  })
+
+  it('returns null when the response is not ok', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false } as Response)
+
+    const result = await ipFallback()
+    expect(result).toBeNull()
+  })
+
+  it('returns null on fetch failure', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('network'))
+
+    const result = await ipFallback()
+    expect(result).toBeNull()
+  })
+
+  it('re-fetches when the cached result is stale (older than 30 min)', async () => {
+    const staleTs = Date.now() - 31 * 60 * 1000
+    sessionStorage.setItem(
+      'cs.ipLocation',
+      JSON.stringify({ latitude: 1, longitude: 2, ts: staleTs }),
+    )
+
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ latitude: 6.5244, longitude: 3.3792 }),
+    } as Response)
+
+    const result = await ipFallback()
+    expect(result).toEqual({ latitude: 6.5244, longitude: 3.3792 })
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns null when the response lacks latitude/longitude', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ city: 'Lagos' }),
+    } as Response)
+
+    const result = await ipFallback()
+    expect(result).toBeNull()
   })
 })

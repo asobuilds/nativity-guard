@@ -327,11 +327,24 @@ export const api = {
  * different origins).
  */
 export function mediaURL(path: string | null | undefined): string | null {
-	if (!path) return null
-	// If it's already a full URL, use it as-is
-	if (/^https?:\/\//i.test(path)) return path
-	// Otherwise prefix with the backend's public media base
-	const base = (import.meta.env.VITE_MEDIA_BASE ?? '').replace(/\/+$/, '')
-	if (!base) return path // graceful fallback
-	return `${base}/${path.replace(/^\/+/, '')}`
+  if (!path) return null
+  // If it's already a full URL, use it as-is
+  if (/^https?:\/\//i.test(path)) return path
+  // Otherwise prefix with the backend's public media base
+  if (!MEDIA_BASE) return path // graceful fallback
+  return `${MEDIA_BASE}/${path.replace(/^\/+/, '')}`
+}
+
+/**
+ * Resolves the media base URL once at module load. Vite bakes imports.env values
+ * into the bundle at build time, so a missing variable here means the env var
+ * was not set when the frontend was built — catch that early instead of
+ * shipping broken image URLs to production.
+ */
+const MEDIA_BASE = (import.meta.env.VITE_MEDIA_BASE ?? '').replace(/\/+$/, '')
+
+if (!MEDIA_BASE) {
+  console.warn(
+    '[mediaURL] VITE_MEDIA_BASE not set — images will 404. Set it in Render frontend env.',
+  )
 }

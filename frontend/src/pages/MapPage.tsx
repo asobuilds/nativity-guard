@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Layers, MapPin, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
 import { PriorityChip, StatusChip } from '@/components/ui/Chips'
 import { Input } from '@/components/ui/Field'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { MapView } from '@/components/map/MapView'
 import { useCases } from '@/hooks/useCases'
 import { useUnits } from '@/hooks/useUnits'
-import { useLocation } from '@/hooks/useLocation'
+import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { useAuth } from '@/auth/AuthContext'
 import { CASE_STATUS_ORDER, statusMeta } from '@/lib/status'
@@ -28,14 +29,37 @@ export function MapPage() {
   const { role } = useAuth()
   const casesQuery = useCases()
   const unitsQuery = useUnits()
-  const { latitude, longitude, permission, request } = useLocation()
-  const { data: geo, isLoading: geoLoading } = useReverseGeocode(latitude, longitude)
+  const { latitude, longitude, permission, loading: locationLoading, request } = useLocation()
+  const [ipLocation, setIpLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [showEnableModal, setShowEnableModal] = useState(false)
+  const ipAttemptedRef = useRef(false)
+
+  const resolvedLat = latitude ?? ipLocation?.latitude ?? null
+  const resolvedLng = longitude ?? ipLocation?.longitude ?? null
+  const { data: geo, isLoading: geoLoading } = useReverseGeocode(resolvedLat, resolvedLng)
 
   const [selected, setSelected] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [showCoverage, setShowCoverage] = useState(true)
   const [showHotspots, setShowHotspots] = useState(false)
+
+  // When browser-level permission was previously denied, the hook will not
+  // auto-request. As a last resort, try an IP-based fix once so the map still
+  // centres on roughly the right place.
+  useEffect(() => {
+    if (permission === 'denied' && !ipAttemptedRef.current) {
+      ipAttemptedRef.current = true
+      void ipFallback().then((coords) => {
+        if (coords) setIpLocation(coords)
+      })
+    }
+  }, [permission])
+
+  const userLocationForMap =
+    latitude != null && longitude != null
+      ? { latitude, longitude }
+      : ipLocation
 
   // Only the prompt path auto-arms: wait until the map has painted, then let
   // the browser ask. A granted/denied state is resolved without one.
@@ -85,7 +109,16 @@ export function MapPage() {
             {unitsQuery.data?.length ?? 0} units
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<MapPin className="size-4" aria-hidden />}
+            disabled={locationLoading}
+            onClick={request}
+          >
+            Locate me
+          </Button>
           <Button size="sm" variant={showCoverage ? 'primary' : 'secondary'} icon={<Layers className="size-4" aria-hidden />} aria-pressed={showCoverage} onClick={() => setShowCoverage((v) => !v)}>
             Unit coverage
           </Button>
@@ -94,6 +127,31 @@ export function MapPage() {
           </Button>
         </div>
       </header>
+
+      {permission === 'denied' && (
+        <div className="mb-3 rounded-lg border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn">
+          <p className="font-medium">
+            Using approximate location. Tap the target button to enable precise GPS.
+          </p>
+          <Button size="sm" variant="ghost" className="mt-2" onClick={() => setShowEnableModal(true)}>
+            Enable precise location
+          </Button>
+        </div>
+      )}
+
+      <Modal
+        open={showEnableModal}
+        onClose={() => setShowEnableModal(false)}
+        title="Enable precise location"
+        description="Follow the steps below to turn location access back on for this site."
+      >
+        <ul className="list-decimal space-y-1.5 text-sm text-ink-muted">
+          <li>Chrome / Edge / Brave: tap the lock icon in the address bar → Site settings → Location → Allow.</li>
+          <li>Firefox: tap the "i" (info) icon in the address bar → Permissions → Location → Allow.</li>
+          <li>Safari (iOS/macOS): open the browser Settings app → Safari → Websites → Location → find this site → Allow.</li>
+        </ul>
+        <p className="mt-3 text-xs text-ink-muted">After enabling, refresh the page or tap "Locate me" to re-check.</p>
+      </Modal>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="flex flex-col gap-3">
@@ -160,13 +218,13 @@ export function MapPage() {
                 units={unitsQuery.data ?? []}
                 showUnitCoverage={showCoverage}
                 showHotspots={showHotspots}
-                userLocation={latitude != null && longitude != null ? { latitude, longitude } : null}
+                userLocation={userLocationForMap}
                 allowLocate
                 height="60vh"
                 selectedCaseId={selected}
                 onSelectCase={(caseItem) => setSelected(caseItem.id)}
               />
-              {(latitude != null && longitude != null && permission !== 'denied') && (
+              {(resolvedLat != null && resolvedLng != null && (permission !== 'denied' || ipLocation != null)) && (
                 <p className="mt-2 text-sm text-ink-muted" aria-live="polite">
                   {geoLoading ? (
                     <span className="inline-flex items-center gap-1.5">

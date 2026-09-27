@@ -72,7 +72,7 @@ export function AvatarUpload({
 
   const hasImage = Boolean(currentUrl)
   const diameter = `${size}px`
-  const displayUrl = mediaURL(currentUrl)
+  const displayUrl = mediaURL(currentUrl) ?? undefined
 
   return (
     <div className={cn('relative inline-flex flex-col items-center gap-2', className)}>

@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, LocateFixed, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
 import { Input, Select, Textarea } from '@/components/ui/Field'
 import { ErrorState, Skeleton } from '@/components/ui/States'
 import { useMySos, useSendSos } from '@/hooks/useSos'
 import { useUnits } from '@/hooks/useUnits'
-import { useLocation } from '@/hooks/useLocation'
+import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { MapView } from '@/components/map/MapView'
 import { ApiError } from '@/lib/apiClient'
@@ -39,8 +40,11 @@ export function SosPage() {
   const units = useUnits()
   const send = useSendSos()
 
-  const { latitude: userLat, longitude: userLng } = useLocation()
+  const { latitude: userLat, longitude: userLng, permission } = useLocation()
   const { data: geo, isLoading: geoLoading } = useReverseGeocode(userLat, userLng)
+  const [ipLocation, setIpLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [showEnableModal, setShowEnableModal] = useState(false)
+  const ipAttemptedRef = useRef(false)
 
   // Auto-fill SOS coordinates from the device fix the moment they arrive.
   useEffect(() => {
@@ -48,6 +52,22 @@ export function SosPage() {
     setLat((prev) => (prev.trim() === '' ? String(userLat) : prev))
     setLng((prev) => (prev.trim() === '' ? String(userLng) : prev))
   }, [userLat, userLng])
+
+  // When the browser has remembered a prior "denied", GPS is unavailable.
+  // As a last resort, try an IP-based fix once and pre-fill the fields —
+  // but never block the send button on it.
+  useEffect(() => {
+    if (permission === 'denied' && !ipAttemptedRef.current) {
+      ipAttemptedRef.current = true
+      void ipFallback().then((coords) => {
+        if (coords) {
+          setIpLocation(coords)
+          setLat((prev) => (prev.trim() === '' ? String(coords.latitude) : prev))
+          setLng((prev) => (prev.trim() === '' ? String(coords.longitude) : prev))
+        }
+      })
+    }
+  }, [permission])
 
   const latitude = Number(lat)
   const longitude = Number(lng)
@@ -154,7 +174,15 @@ export function SosPage() {
           <Button className="mt-3" loading={locating} icon={<LocateFixed className="size-4" />} onClick={locate}>
             Use my location
           </Button>
-          {locationError ? <p className="mt-2 text-sm text-warn" role="alert">{locationError}</p> : null}
+           {locationError ? <p className="mt-2 text-sm text-warn" role="alert">{locationError}</p> : null}
+           {permission === 'denied' && (
+             <p className="mt-2 text-xs text-warn">
+               Using approximate location. Precise GPS is off.{' '}
+               <button type="button" className="underline" onClick={() => setShowEnableModal(true)}>
+                 Enable location
+               </button>
+             </p>
+           )}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-ink-muted">Latitude
               <Input type="number" step="any" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="6.5244" />
@@ -169,7 +197,7 @@ export function SosPage() {
             className="mt-3"
             label="Choose the SOS location"
             pickLocation={hasLocation ? [latitude, longitude] : null}
-            userLocation={userLat != null && userLng != null ? { latitude: userLat, longitude: userLng } : null}
+            userLocation={userLat != null && userLng != null ? { latitude: userLat, longitude: userLng } : (ipLocation ? { latitude: ipLocation.latitude, longitude: ipLocation.longitude } : null)}
             onPickLocation={(nextLat, nextLng) => { setLat(String(nextLat)); setLng(String(nextLng)) }}
           />
           {!hasLocation ? <p className="mt-2 text-xs text-ink-muted">Valid coordinates are required; 0,0 is not a usable location.</p> : null}
@@ -272,6 +300,20 @@ export function SosPage() {
           </div>
         </div>
       ) : null}
+
+      <Modal
+        open={showEnableModal}
+        onClose={() => setShowEnableModal(false)}
+        title="Enable precise location"
+        description="Follow the steps below to turn location access back on for this site."
+      >
+        <ul className="list-decimal space-y-1.5 text-sm text-ink-muted">
+          <li>Chrome / Edge / Brave: tap the lock icon in the address bar → Site settings → Location → Allow.</li>
+          <li>Firefox: tap the "i" (info) icon in the address bar → Permissions → Location → Allow.</li>
+          <li>Safari (iOS/macOS): open the browser Settings app → Safari → Websites → Location → find this site → Allow.</li>
+        </ul>
+        <p className="mt-3 text-xs text-ink-muted">After enabling, refresh the page or tap "Use my location" to re-check.</p>
+      </Modal>
     </div>
   )
 }
