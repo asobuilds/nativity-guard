@@ -10,7 +10,7 @@ export function ProfileDemoPage() {
   const [form, setForm] = useState({ firstName: user?.firstName ?? '', lastName: user?.lastName ?? '', phone: user?.phone ?? '', photoUrl: user?.photoUrl ?? '' })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  if (!USE_MOCKS) return <div className="p-6"><ErrorState title="Profile editing unavailable" description="The Python service needs an authenticated profile update route." /></div>
+  if (!USE_MOCKS) return <div className="p-6"><ErrorState title="Demo profile unavailable" description="Use the Profile page for live editing. This older demo uses browser-session data only." /></div>
   const save = async (e: FormEvent) => {
     e.preventDefault(); setError(''); setMessage('')
     try { await api.put<{ user: User }>('/demo/profile', form); await refreshProfile(); setMessage('Demo profile updated for this session.') }
