@@ -6,6 +6,13 @@
 > should look and feel. `frontReadme` says **what to build**; `frontagent` says **how to make it
 > compelling**.
 
+**Merged-code audit, 2026-09-27:** The earlier documentation and feature PRs for reporting,
+feedback, officer navigation, read-only community feeds, appeals and case transfers are on `main`.
+The browser code for these flows is not proof of a successful live transaction. In the task backlog,
+`[~]` means implemented in part or awaiting end-to-end verification; `[x]` records the documented
+browser milestone. Community post reporting remains demo-only because the Go report/review route is
+not mounted. The ten-item batches below describe earlier frontend deliveries, not ten open PRs.
+
 ---
 
 ## Go backend contract — current source of truth
@@ -91,7 +98,7 @@ The detailed checklists in §3 explain the boundaries of each partial feature.
 | F1 Auth | Login, role guards, signup, password recovery screens, rotating token refresh, `/login` alias | OTP, officer/unit applications, onboarding, session management; live signup and recovery checks |
 | F2 SOS | Citizen SOS console, confirm/cancel, map or manual location, optional responder details, status/history and persistent entry point (mock verified) | Verify request/response and dispatch semantics against the live SOS service; mock does not simulate dispatch |
 | F3 Reporting | Four-step report wizard, unit/pin selection, evidence links, photo picker and presign/confirm upload flow, draft restore, receipt | Verify the photo upload against live object storage; offline submit queue remains open |
-| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, feedback form restricted to mocks | Live feedback submission, push status updates, timeline/privacy review |
+| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, feedback submission wired to Go | Live feedback verification, push status updates, timeline/privacy review |
 | F5 Awareness | Notification centre, demo alert feed/detail/confirmation, news, subscriptions and permission opt-in | Live integration and real push delivery |
 | F6 Community | Demo forum/replies, announcements, event RSVP, post reporting | Live integration; post-report route and moderation workflow are missing; AI-assisted tips |
 | F7 Officer | Queue, dispatch/arrive, progress, evidence, weekly narrative, review submission | Investigate transition (backend route required), team view and communications |
@@ -114,8 +121,8 @@ without counting its endpoints as separate user-facing features:
 
 | Area | Mounted route families | Frontend plan/status |
 |---|---|---|
-| Revocation appeals | `/appeals` | No screen; add filing, own-appeal status and authorized decision work to governance |
-| Unit transfer requests | `/transfers` | No screen; add request and authorized decision/approval views to unit membership |
+| Revocation appeals | `/appeals` | Filing, own-appeal lookup and super-admin decision screen merged; live role checks pending |
+| Unit transfer requests | `/transfers` | Case transfer request, unit-admin review and approval history screen merged; live role checks pending |
 | Suspect operations and expungement | `/suspects`, `/expungement-requests` | Self-view is T11; add authorized suspect/sighting, counter-statement and expungement request/decision flows |
 | Video and social monitoring | `/video` | No screen; add camera registry, generated-alert review and monitored-post views with appropriate role gates |
 | Peacebuilding | `/peacebuilding` | No screen; add committees, conflicts, trust scores and metrics for authorized unit staff |
@@ -676,8 +683,8 @@ fact rather than a design preference:
 ### F4 — Case tracking & feedback
 
 **Screens:** my cases list, case detail, timeline, evidence viewer, feedback form.
-*(The list and case detail exist; staff have an evidence viewer. The feedback form exists but is
-restricted to mocks pending live integration.)*
+*(The list and case detail exist; staff have an evidence viewer. The closed-case feedback form
+submits to the Go API in live mode; an authenticated end-to-end check remains open.)*
 
 - [x] Case list with status chips, priority, last-updated — each card is the link to the detail view
 - [x] **Case detail (`/cases/:id`, citizen-only) — a curated record, built as a *subset* of the staff
@@ -921,7 +928,7 @@ finance, unit settings.
 
 **Screens:** profile, notification prefs, privacy, language, data export, delete account.
 
-- [x] Profile edit (name, contact, photo) **(session demo only; live integration pending)**
+- [x] Profile edit (name, contact, photo) uses the Go profile and avatar endpoints; live upload/write verification pending
 - [ ] Notification channel prefs (push/SMS/email/in-app)
 - [ ] Privacy controls + consent explanations in plain language
 - [ ] Language selector (English + Nigerian languages, Pidgin)
@@ -1003,7 +1010,7 @@ the live response before claiming integration. Typed frontend models do not prov
       outcome. `/` lists the reporter's cases and `/cases/:id` renders one as a curated record: the
       final report, the closure decisions and their comments, the shared weekly narratives, and a
       status-change log with names and internal notes withheld. Draft auto-save is in; **SOS UI is
-      mock-verified with a live integration gate; feedback is now available in the demo only**
+      mock-verified with a live integration gate; feedback submission is wired to Go but not live-verified**
 - [~] **M3 — Awareness:** case/unit map, notification centre, demo alerts/news and subscription
       controls shipped in the browser; live integration and real push delivery remain open
 - [~] **M4 — Officer console:** queue and case workspace (details/progress/weekly/evidence) shipped,
@@ -1467,10 +1474,10 @@ when its Definition of Done (§7) is met.
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
       must be verified before pilot use
-- [ ] **T14** — Feedback submission (F4)
+- [~] **T14** — Closed-case feedback submission (F4) is wired to `POST /cases/:id/feedback` in live mode; verify with an authenticated reporter and confirm server-side case-status enforcement before marking complete
 - [ ] **T15** — Audit / finance / bank-account / public endpoints from the brief's §4 reference
-- [ ] **T16** — Appeals against revocations: file, own status and authorized decision screens (`/appeals`)
-- [ ] **T17** — Unit transfers: request, approval/rejection and approval history (`/transfers`)
+- [~] **T16** — Appeals against revocations: filing, own status and super-admin decision screens (`/appeals`) merged; Go build/vet/tests and live role checks pending; filing currently needs a manually supplied revocation cycle ID
+- [~] **T17** — Case transfer request, unit-admin approval/rejection and approval history (`/transfers`) merged; Go build/vet/tests and live role checks pending
 - [ ] **T18** — Authorized suspect operations, sightings, counter-statements and expungement requests/decisions (`/suspects`, `/cases/:id/counter-statement`, `/expungement-requests`); T11 covers self-view only
 - [ ] **T19** — Camera registry, video alert review and monitored social posts (`/video`); verify access controls and any real data source before presenting automated findings
 - [ ] **T20** — Peace committees, conflict resolution and trust metrics (`/peacebuilding`)
@@ -1478,7 +1485,7 @@ when its Definition of Done (§7) is met.
 - [ ] **T22** — Live moderation contract: the mock's `POST /community/posts/:id/report` is not mounted in Go; design and register a guarded report/review path before claiming a real moderation queue
 
 **Recommended order after this document reconciliation:** (1) verify report creation and both
-evidence upload paths against Go/storage; (2) enable and verify reporter feedback and named officer
+evidence upload paths against Go/storage; (2) verify reporter feedback and named officer
 assignment; (3) verify or connect existing mock-only alerts, community and admin surfaces, with
 moderation and permission checks before launch; (4) prioritize T9–T22 by role, safety and user need.
 These are work packages rather than a count of endpoints, and none is marked live verified here.
