@@ -237,6 +237,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 			"firstName": freshUser.FirstName,
 			"lastName":  freshUser.LastName,
 			"role":      freshUser.Role,
+			"unitId":    freshUser.UnitID,
 			"status":    freshUser.Status,
 			"createdAt": freshUser.CreatedAt,
 			"updatedAt": freshUser.UpdatedAt,
