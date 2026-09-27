@@ -38,6 +38,7 @@ export type PriorityLevel = 'P1' | 'P2' | 'P3'
 
 export interface User {
   id: string
+  unitId?: string | null
   email: string
   phone?: string
   photoUrl?: string
