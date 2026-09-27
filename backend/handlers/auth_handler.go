@@ -240,6 +240,9 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 			"status":    freshUser.Status,
 			"createdAt": freshUser.CreatedAt,
 			"updatedAt": freshUser.UpdatedAt,
+			"avatarPath": freshUser.AvatarPath,
+			"coverPath":  freshUser.CoverPath,
+			"photoUrl":   freshUser.AvatarPath,
 		},
 	})
 }

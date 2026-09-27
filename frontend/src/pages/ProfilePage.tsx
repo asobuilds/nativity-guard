@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Bell, Briefcase, Users, Loader2, Save } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { mediaURL } from '@/lib/apiClient'
+import { initials } from '@/lib/format'
 import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Field, Input } from '@/components/ui/Field'
@@ -88,6 +89,7 @@ export function ProfilePage() {
 					<AvatarUpload
 						currentUrl={avatarUrl}
 						size={120}
+						fallbackInitials={initials(profile?.firstName, profile?.lastName)}
 						onUploaded={handleAvatarUploaded}
 						onDeleted={handleAvatarDeleted}
 					/>

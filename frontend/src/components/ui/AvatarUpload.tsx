@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User, Camera, Trash2, Loader2 } from 'lucide-react'
 import { api, mediaURL } from '@/lib/apiClient'
 import { useToast } from '@/components/ui/Toast'
@@ -9,6 +9,9 @@ interface AvatarUploadProps {
   size?: number
   onUploaded: (newPath: string) => void
   onDeleted?: () => void
+  /** Initials (e.g. "AO") shown in place of the image when none is set or the
+   *  image fails to load. Renders a neutral icon when omitted. */
+  fallbackInitials?: string
   className?: string
 }
 
@@ -20,11 +23,19 @@ export function AvatarUpload({
   size = 96,
   onUploaded,
   onDeleted,
+  fallbackInitials,
   className,
 }: AvatarUploadProps) {
   const { notify } = useToast()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imgError, setImgError] = useState(false)
+
+  // A new url must get a fresh chance to load — a 404 from a previous path should
+  // not keep masking the replacement.
+  useEffect(() => {
+    setImgError(false)
+  }, [currentUrl])
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -70,7 +81,12 @@ export function AvatarUpload({
     }
   }
 
+  // `hasImage` tracks whether a url was supplied; `imgError` tracks whether the
+  // browser failed to load it. When either says "no usable image", the fallback
+  // (initials or icon) is shown instead — a 404 therefore never renders a broken
+  // image glyph.
   const hasImage = Boolean(currentUrl)
+  const showFallback = !hasImage || imgError
   const diameter = `${size}px`
   const displayUrl = mediaURL(currentUrl) ?? undefined
 
@@ -80,22 +96,42 @@ export function AvatarUpload({
         <label htmlFor="avatar-upload" className="cursor-pointer">
           {hasImage ? (
             <img
-              src={displayUrl}
+              src={displayUrl ?? ''}
               alt="Avatar"
               className={cn('rounded-full object-cover border border-border', diameter)}
               width={size}
               height={size}
+              onError={(e) => {
+                // Hide the broken image immediately, before React re-renders, so
+                // the glyph never flashes. `setImgError` swaps the rendering to
+                // the fallback on the next paint.
+                e.currentTarget.style.display = 'none'
+                setImgError(true)
+              }}
             />
-          ) : (
-            <div
-              className={cn(
-                'rounded-full flex items-center justify-center bg-signal/10 text-signal border border-border',
-                diameter,
-              )}
-            >
-              <User className={cn('size-1/2', size >= 80 ? 'text-2xl' : 'text-xl')} aria-hidden />
-            </div>
-          )}
+          ) : null}
+
+          {/* Shown when there is no image, or when the image errored. Hidden
+              (display:none via the `hidden` attribute) only while a valid image
+              is on screen. */}
+          <div
+            className={cn(
+              'rounded-full flex items-center justify-center bg-signal/10 text-signal border border-border',
+              diameter,
+            )}
+            hidden={hasImage && !imgError}
+          >
+            {showFallback && fallbackInitials ? (
+              <span className="text-2xl font-semibold" aria-hidden>
+                {fallbackInitials}
+              </span>
+            ) : (
+              <User
+                className={cn('size-1/2', size >= 80 ? 'text-2xl' : 'text-xl')}
+                aria-hidden
+              />
+            )}
+          </div>
         </label>
 
         <input
@@ -120,7 +156,7 @@ export function AvatarUpload({
           </div>
         )}
 
-        {onDeleted && hasImage && !uploading && (
+        {onDeleted && hasImage && !imgError && !uploading && (
           <button
             type="button"
             onClick={handleDelete}

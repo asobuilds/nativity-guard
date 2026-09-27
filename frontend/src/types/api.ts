@@ -41,6 +41,8 @@ export interface User {
   email: string
   phone?: string
   photoUrl?: string
+  avatarPath?: string
+  coverPath?: string
   firstName: string
   lastName: string
   role: Role

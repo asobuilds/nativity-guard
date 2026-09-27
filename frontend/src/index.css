@@ -135,6 +135,13 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
+
+  /* Hide the scrollbar on the horizontally-scrollable mobile bottom nav while
+     keeping it swipe-scrollable. `scrollbar-width`/`msOverflowStyle` are applied
+     inline on the element itself for Firefox/IE; this covers WebKit. */
+  .mobile-nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Loading banner mark: a gentle scale pulse, scoped to the component. */

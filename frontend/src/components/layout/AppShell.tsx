@@ -107,7 +107,7 @@ function NavItems({
               title="Coming in a later milestone"
               className={cn(
                 'flex cursor-not-allowed items-center gap-3 rounded-lg text-ink-faint',
-                variant === 'sidebar' ? 'px-3 py-2 text-sm' : 'flex-col gap-1 px-2 py-1 text-[10px]',
+                variant === 'sidebar' ? 'px-3 py-2 text-sm' : 'flex min-w-[72px] flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px]',
               )}
             >
               {item.icon}
@@ -131,7 +131,7 @@ function NavItems({
             className={({ isActive }) =>
               cn(
                 'flex items-center rounded-lg transition-colors',
-                variant === 'sidebar' ? 'gap-3 px-3 py-2 text-sm' : 'flex-col gap-1 px-2 py-1 text-[10px]',
+                variant === 'sidebar' ? 'gap-3 px-3 py-2 text-sm' : 'flex min-w-[72px] flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px]',
                 isActive
                   ? 'bg-signal/10 text-signal'
                   : 'text-ink-muted hover:bg-surface-hi hover:text-ink',
@@ -305,10 +305,13 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           </NavLink>
         ) : null}
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav — horizontally scrollable so every role's items are
+            reachable. super_admins and unit_admins carry more entries than fit a
+            phone, so the bar scrolls instead of truncating. */}
         <nav
           aria-label="Primary"
-          className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-border bg-surface/95 px-1 py-1.5 backdrop-blur md:hidden"
+          className="mobile-nav-scroll fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 py-1.5 backdrop-blur md:hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <NavItems items={items} variant="bottom" />
         </nav>
