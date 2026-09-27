@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Search, ShieldCheck, UserRound, Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { Card } from '@/components/ui/Card'
-import { Input, Select } from '@/components/ui/Field'
+import { Input } from '@/components/ui/Field'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useCases } from '@/hooks/useCases'
 import { useUnitOfficers } from '@/hooks/useOfficers'
@@ -18,6 +18,7 @@ type Membership = { unitId: string; status: string; role: string; isHeadAdmin: b
 /** The unit roster comes from Go. The demo roster remains on the other demo routes. */
 export function AdminOfficersPage() {
   const { role } = useAuth()
+  const { unitId: requestedUnitId } = useParams<{ unitId: string }>()
   const units = useUnits()
   const memberships = useQuery({
     queryKey: ['my-unit-memberships'],
@@ -25,7 +26,6 @@ export function AdminOfficersPage() {
     enabled: role !== 'super_admin' && !USE_MOCKS,
   })
   const cases = useCases()
-  const [chosenUnit, setChosenUnit] = useState('')
   const [query, setQuery] = useState('')
 
   const allowedIds = useMemo(() => new Set(
@@ -38,9 +38,9 @@ export function AdminOfficersPage() {
   const availableUnits = useMemo(() =>
     (units.data ?? []).filter((unit) => role === 'super_admin' || allowedIds.has(unit.id)),
   [units.data, role, allowedIds])
-  const unitId = availableUnits.some((unit) => unit.id === chosenUnit)
-    ? chosenUnit
-    : availableUnits[0]?.id
+  const unitId = availableUnits.some((unit) => unit.id === requestedUnitId)
+    ? requestedUnitId
+    : undefined
   const roster = useUnitOfficers(unitId)
   const officers = useMemo(
     () => sortOfficers(roster.data ?? []).filter((officer) => matchesOfficerQuery(officer, query)),
@@ -52,9 +52,9 @@ export function AdminOfficersPage() {
     <main className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-widest text-signal">Unit operations</p>
-        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Officer roster</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{requestedUnitId ? `${unit?.name ?? 'Unit'} officers` : 'Your units'}</h1>
         <p className="max-w-2xl text-sm text-ink-muted">
-          Find your unit’s officers and see who has open assignments. Assign an officer from the case board.
+          {requestedUnitId ? 'See this unit’s officers and open assignments. Assign work from the case board.' : 'Open a unit to see its officers and assign work.'}
         </p>
       </header>
 
@@ -64,24 +64,32 @@ export function AdminOfficersPage() {
         <ErrorState title="Could not load your units" description="Try again to view your officer roster."
           offline={ApiError.isNetwork(units.error) || ApiError.isNetwork(memberships.error)}
           onRetry={() => { void units.refetch(); void memberships.refetch() }} />
+      ) : requestedUnitId && !unitId ? (
+        <EmptyState icon={<Users className="size-6" />} title="Unit unavailable"
+          description="You cannot view this unit’s roster, or it is no longer in the unit directory." />
       ) : availableUnits.length === 0 ? (
         <EmptyState icon={<Users className="size-6" />} title="No unit roster available"
           description="An active unit administrator membership is required to view a unit roster." />
+      ) : !requestedUnitId ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {availableUnits.map((item) => (
+            <Card key={item.id} as="article" className="p-5 transition-all duration-200 hover:-translate-y-1 hover:border-signal/60 hover:shadow-lg focus-within:border-signal">
+              <span className="grid size-11 place-items-center rounded-xl bg-signal/10 text-signal"><Users className="size-5" aria-hidden /></span>
+              <h2 className="mt-4 text-lg font-semibold text-ink">{item.name}</h2>
+              <p className="mt-1 text-sm text-ink-muted">{item.city || item.state || 'Security unit'}</p>
+              <Link className="mt-5 inline-block text-sm font-semibold text-signal underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-signal"
+                to={`/admin/officers/${item.id}`}>Open unit and view officers</Link>
+            </Card>
+          ))}
+        </div>
       ) : (
         <>
           <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0 space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected unit</p>
+              <Link to="/admin/officers" className="text-xs font-semibold uppercase tracking-wide text-signal hover:underline">← All units</Link>
               <p className="text-lg font-semibold text-ink">{unit?.name}</p>
               <p className="text-xs text-ink-muted">Only officers in this unit appear below.</p>
             </div>
-            {availableUnits.length > 1 ? (
-              <label className="text-xs font-medium text-ink-muted">Choose unit
-                <Select className="mt-1 min-w-48" value={unitId} onChange={(event) => setChosenUnit(event.target.value)}>
-                  {availableUnits.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </Select>
-              </label>
-            ) : null}
             <Link to="/admin/cases" className="rounded-lg bg-signal px-4 py-2 text-center text-sm font-semibold text-signal-ink hover:opacity-90">
               Open case board
             </Link>
