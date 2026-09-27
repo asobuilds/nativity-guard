@@ -11,8 +11,8 @@ import { USE_MOCKS } from '@/mocks/config'
 import type { CommunityAlert, NewsItem, Subscription } from '@/types/community'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
-  if (!USE_MOCKS) return <Card className="p-5 text-sm text-ink-muted">This section needs Python service endpoints before it can show live information.</Card>
-  return <><p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink">Demo data only. Nothing here is a real alert, news report or emergency instruction.</p>{children}</>
+  if (!USE_MOCKS) return <Card className="p-5 text-sm text-ink-muted">Go provides alert routes, but this demo view expects a different response shape. Alert confirmation and subscriptions need live integration before use.</Card>
+  return <><p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink">Demo data only. Nothing here is a real alert or emergency instruction.</p>{children}</>
 }
 
 const severityClass = { info: 'text-signal', caution: 'text-warn', urgent: 'text-emergency' }
@@ -52,10 +52,25 @@ export function AlertDetailPage() {
 }
 
 export function NewsPage() {
-  const result = useQuery({ queryKey: ['demo-news'], queryFn: () => api.get<{ news: NewsItem[] }>('/news'), enabled: USE_MOCKS })
-  return <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6"><h1 className="text-xl font-semibold text-ink">News and updates</h1><DemoGuard><Link to="/alerts" className="text-sm text-signal">View alerts</Link>
-    {result.isLoading ? <Skeleton className="h-28 w-full" /> : result.isError ? <Card><ErrorState title="Could not load news" description="Try again." onRetry={() => void result.refetch()} /></Card> : !result.data?.news.length ? <Card><EmptyState title="No news yet" description="Nothing has been published in this demo." /></Card> : <ul className="space-y-3">{result.data.news.map((item) => <li key={item.id}><Card className="p-4"><span className="text-xs uppercase text-signal">{item.kind}</span><h2 className="mt-1 text-sm font-semibold text-ink">{item.title}</h2><p className="mt-2 text-sm text-ink-muted">{item.summary}</p><p className="mt-2 text-xs text-ink-faint">{relativeTime(item.publishedAt)}</p></Card></li>)}</ul>}
-  </DemoGuard></div>
+  const result = useQuery({
+    queryKey: ['news', USE_MOCKS ? 'demo' : 'go'],
+    queryFn: async (): Promise<{ news: NewsItem[] }> => {
+      if (USE_MOCKS) return api.get<{ news: NewsItem[] }>('/news')
+      const response = await api.get<{ news: { id: string; title: string; content: string; category: string; publishedAt: string }[] }>('/news')
+      return { news: response.news.map((item) => ({
+        id: item.id,
+        title: item.title,
+        summary: item.content,
+        kind: 'news',
+        publishedAt: item.publishedAt,
+      })) }
+    },
+  })
+  return <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6"><h1 className="text-xl font-semibold text-ink">News and updates</h1>
+    {USE_MOCKS ? <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink">Demo news only. Nothing here is a live announcement.</p> : null}
+    <Link to="/alerts" className="text-sm text-signal">View alerts</Link>
+    {result.isLoading ? <Skeleton className="h-28 w-full" /> : result.isError ? <Card><ErrorState title="Could not load news" description="Try again." onRetry={() => void result.refetch()} /></Card> : !result.data?.news.length ? <Card><EmptyState title="No news yet" description={USE_MOCKS ? 'Nothing has been published in this demo.' : 'No published news is available.'} /></Card> : <ul className="space-y-3">{result.data.news.map((item) => <li key={item.id}><Card className="p-4"><span className="text-xs uppercase text-signal">{item.kind}</span><h2 className="mt-1 text-sm font-semibold text-ink">{item.title}</h2><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{item.summary}</p><p className="mt-2 text-xs text-ink-faint">{relativeTime(item.publishedAt)}</p></Card></li>)}</ul>}
+  </div>
 }
 
 export function SubscriptionsPage() {

@@ -47,7 +47,7 @@ export function AdminDemoPage({ section, platform = false }: { section: string; 
     catch (e) { setError(e instanceof Error ? e.message : 'Save failed') }
   }
   const select = (record: Record<string, unknown>) => setForm(Object.fromEntries(Object.entries(record).filter(([, v]) => typeof v === 'string' || typeof v === 'number').map(([k, v]) => [k, String(v)])))
-  if (!USE_MOCKS) return <div className="p-6"><ErrorState title="Demo screen unavailable" description="This workflow needs a Python API before it can be used with real data." /></div>
+  if (!USE_MOCKS) return <div className="p-6"><ErrorState title="Demo screen unavailable" description="This demo uses session data. Its admin workflows still need to be connected and verified against the Go API." /></div>
   if (!data) return <div className="p-6">{error ? <ErrorState description={error} onRetry={() => void load()} /> : <p role="status">Loading demo data…</p>}</div>
   const unit = data.units[0]
   const title: Record<string, string> = { overview: platform ? 'Platform overview' : 'Unit operations', officers: 'Officer roster', analytics: platform ? 'Platform analytics and health' : 'Unit analytics', finance: 'Unit finance', settings: platform ? 'System settings and exports' : 'Unit settings', units: 'Unit registry', audit: 'Audit search' }
