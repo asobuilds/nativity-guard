@@ -12,12 +12,16 @@ import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/cn'
 import type { User as UserType } from '@/types/api'
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile'
+import { useAuth } from '@/auth/AuthContext'
+import { LinkedCases } from '@/components/profile/LinkedCases'
 
 export function ProfilePage() {
 	const queryClient = useQueryClient()
 	const { data: profile, isLoading, error } = useProfile()
 	const updateProfile = useUpdateProfile()
 	const { notify } = useToast()
+	const { role } = useAuth()
+	const [tab, setTab] = useState<'details' | 'linked'>('details')
 
 	const [form, setForm] = useState({
 		firstName: '',
@@ -82,6 +86,11 @@ export function ProfilePage() {
 	return (
 		<div className="mx-auto max-w-xl p-6">
 			<h1 className="text-2xl font-bold text-ink mb-6">Profile</h1>
+			{role === 'citizen' ? <div aria-label="Profile sections" className="mb-5 flex gap-2">
+				<Button aria-pressed={tab === 'details'} onClick={() => setTab('details')} variant={tab === 'details' ? 'primary' : 'secondary'}>Personal details</Button>
+				<Button aria-pressed={tab === 'linked'} onClick={() => setTab('linked')} variant={tab === 'linked' ? 'primary' : 'secondary'}>Cases linked to me</Button>
+			</div> : null}
+			{role === 'citizen' && tab === 'linked' ? <LinkedCases /> : <>
 
 			<Card>
 				<CardHeader title="Avatar" />
@@ -170,6 +179,7 @@ export function ProfilePage() {
 					</Link>
 				</CardBody>
 			</Card>
+			</>}
 		</div>
 	)
 }
