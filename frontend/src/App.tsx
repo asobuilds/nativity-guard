@@ -23,6 +23,7 @@ import { OfficerCasePage } from '@/pages/officer/OfficerCasePage'
 import { MapPage } from '@/pages/MapPage'
 import { AdminCaseQueuePage } from '@/pages/admin/AdminCaseQueuePage'
 import { AdminCaseReviewPage } from '@/pages/admin/AdminCaseReviewPage'
+import { TransfersPage } from '@/pages/admin/TransfersPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
@@ -200,6 +201,7 @@ export function App() {
                     </RequireRole>
                   }
                 />
+                <Route path="/admin/transfers" element={<RequireRole roles={ADMIN_ROLES}><TransfersPage /></RequireRole>} />
 
                 {/* Scheduled, not yet built — named rather than 404'd. */}
                 {['overview','officers','analytics','finance','settings'].map((section) => <Route key={section} path={`/admin/${section}`} element={<RequireRole roles={ADMIN_ROLES}><AdminDemoPage section={section} /></RequireRole>} />)}
