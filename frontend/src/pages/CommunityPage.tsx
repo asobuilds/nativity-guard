@@ -29,7 +29,7 @@ export function CommunityPage() {
 
   return <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
     <header><h1 className="text-xl font-semibold text-ink">Community</h1><p className="mt-1 text-sm text-ink-muted">Discuss local preparedness and share helpful information.</p></header>
-    {!USE_MOCKS ? <Card className="p-5 text-sm text-ink-muted">Community features need moderation and Python endpoints before live use.</Card> : <>
+    {!USE_MOCKS ? <Card className="p-5 text-sm text-ink-muted">Go has community routes, but this demo view expects different post and reply responses. Live moderation, including reporting content, needs a Go route before this view can be enabled.</Card> : <>
       <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink">Demo community only. Posts, announcements and events are not public notices and reset when the page reloads. Reports of content are recorded in this demo only.</p>
       <nav aria-label="Community sections" className="flex flex-wrap gap-2">{(['forum', 'announcements', 'events', 'tips'] as const).map((item) => <Button key={item} size="sm" variant={tab === item ? 'primary' : 'secondary'} aria-pressed={tab === item} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</Button>)}</nav>
 
