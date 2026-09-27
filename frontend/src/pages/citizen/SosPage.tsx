@@ -117,7 +117,8 @@ export function SosPage() {
       setConfirming(false)
       setContacts('')
       setMedical('')
-    } catch {
+    } catch (err) {
+      console.error('[SOS] send failed:', err)
       // Keep the confirmation and every field available for an explicit retry.
     }
   }
