@@ -39,6 +39,7 @@ import { GovernanceAuditPage } from '@/pages/admin/GovernanceAuditPage'
 import { InvitationsPage, InviteLandingPage } from '@/pages/InvitationsPage'
 import { SessionsPage } from '@/pages/SessionsPage'
 import { AppealsPage } from '@/pages/AppealsPage'
+import { AiAssistantPage } from '@/pages/AiAssistantPage'
 import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
@@ -153,6 +154,7 @@ export function App() {
                 <Route path="/community" element={<RequireRole roles={['citizen']}><CommunityPage /></RequireRole>} />
                 <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><CommunityPage /></RequireRole>} />
                 <Route path="/appeals" element={<AppealsPage />} />
+                <Route path="/assistant" element={<AiAssistantPage />} />
                 {/* SOS is for everyone signed in — an officer in trouble needs the
                     same button a citizen does, so no role gate beyond the shell. */}
                 <Route path="/sos" element={<SosPage />} />
