@@ -113,7 +113,7 @@ export function SosPage() {
         // strips the reporter's identity from public feeds.
         ...(hideLocation ? { hideLocation: true } : {}),
       })
-      setReceipt({ trackingId: (resp as any).sos?.id ?? 'unknown', status: (resp as any).sos?.status ?? 'pending' })
+      setReceipt({ trackingId: resp.sos.id, status: resp.sos.status })
       setConfirming(false)
       setContacts('')
       setMedical('')
