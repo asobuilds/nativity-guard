@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BarChart3,
+  Bot,
   FileText,
   FolderKanban,
   LayoutDashboard,
@@ -38,16 +39,19 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
+    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
   ],
   officer: [
+    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/officer/comms', label: 'Comms', icon: <Users className="size-4" />, soon: true },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
   ],
   unit_admin: [
+    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
@@ -63,6 +67,7 @@ const NAV: Record<Role, NavItem[]> = {
   // Icon set is whatever the blocks above already use; `Megaphone` stands in for
   // `/notifications` because `Bell` is not imported here.
   super_admin: [
+    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
     { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
