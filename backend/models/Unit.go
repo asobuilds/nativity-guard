@@ -13,8 +13,8 @@ type SecurityUnit struct {
 	Latitude                float64    `json:"latitude"`
 	Longitude               float64    `json:"longitude"`
 	OperationalRadius       float64    `gorm:"default:10" json:"operationalRadius"` // in km
-	State                   string     `json:"state"`
-	LGA                     string     `json:"lga"` // Local Government Area
+	State                   string     `gorm:"type:varchar(120);index:idx_security_unit_state" json:"state"`
+	LGA                     string     `gorm:"type:varchar(120);index:idx_security_unit_lga" json:"lga"` // Local Government Area
 	Ward                    string     `gorm:"type:varchar(120);index" json:"ward,omitempty"`
 	FormationDate           *time.Time `gorm:"type:date" json:"formationDate,omitempty"`
 	TotalMembers            int        `gorm:"default:0" json:"totalMembers"`

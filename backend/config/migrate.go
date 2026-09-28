@@ -44,6 +44,9 @@ func AutoMigrateAll() error {
 		&models.NewsAlert{},
 
 		&models.SOSAlert{},
+		// SOSResponder references SOSAlert and SecurityUnit, so it is
+		// registered after both are migrated.
+		&models.SOSResponder{},
 		&models.BankAccount{},
 		&models.Donation{},
 		&models.Transaction{},
