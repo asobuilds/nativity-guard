@@ -9,6 +9,13 @@ Total output lines: 1510
 > should look and feel. `frontReadme` says **what to build**; `frontagent` says **how to make it
 > compelling**.
 
+**Merged-code audit, 2026-09-27:** The earlier documentation and feature PRs for reporting,
+feedback, officer navigation, read-only community feeds, appeals and case transfers are on `main`.
+The browser code for these flows is not proof of a successful live transaction. In the task backlog,
+`[~]` means implemented in part or awaiting end-to-end verification; `[x]` records the documented
+browser milestone. Community post reporting remains demo-only because the Go report/review route is
+not mounted. The ten-item batches below describe earlier frontend deliveries, not ten open PRs.
+
 ---
 
 ## Go backend contract — current source of truth
@@ -94,7 +101,7 @@ The detailed checklists in §3 explain the boundaries of each partial feature.
 | F1 Auth | Login, role guards, signup, password recovery screens, rotating token refresh, `/login` alias | OTP, officer/unit applications, onboarding, session management; live signup and recovery checks |
 | F2 SOS | Citizen SOS console, confirm/cancel, map or manual location, optional responder details, status/history and persistent entry point (mock verified) | Verify request/response and dispatch semantics against the live SOS service; mock does not simulate dispatch |
 | F3 Reporting | Four-step report wizard, unit/pin selection, evidence links, photo picker and presign/confirm upload flow, draft restore, receipt | Verify the photo upload against live object storage; offline submit queue remains open |
-| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, feedback form restricted to mocks | Live feedback submission, push status updates, timeline/privacy review |
+| F4 Tracking | Citizen case list/detail, status rail and review loop, shared weekly updates, staff evidence view, feedback submission wired to Go | Live feedback verification, push status updates, timeline/privacy review |
 | F5 Awareness | Notification centre, demo alert feed/detail/confirmation, news, subscriptions and permission opt-in | Live integration and real push delivery |
 | F6 Community | Demo forum/replies, announcements, event RSVP, post reporting | Live integration; post-report route and moderation workflow are missing; AI-assisted tips |
 | F7 Officer | Queue, dispatch/arrive, progress, evidence, weekly narrative, review submission | Investigate transition (backend route required), team view and communications |
@@ -117,8 +124,8 @@ without counting its endpoints as separate user-facing features:
 
 | Area | Mounted route families | Frontend plan/status |
 |---|---|---|
-| Revocation appeals | `/appeals` | No screen; add filing, own-appeal status and authorized decision work to governance |
-| Unit transfer requests | `/transfers` | No screen; add request and authorized decision/approval views to unit membership |
+| Revocation appeals | `/appeals` | Filing, own-appeal lookup and super-admin decision screen merged; live role checks pending |
+| Unit transfer requests | `/transfers` | Case transfer request, unit-admin review and approval history screen merged; live role checks pending |
 | Suspect operations and expungement | `/suspects`, `/expungement-requests` | Self-view is T11; add authorized suspect/sighting, counter-statement and expungement request/decision flows |
 | Video and social monitoring | `/video` | No screen; add camera registry, generated-alert review and monitored-post views with appropriate role gates |
 | Peacebuilding | `/peacebuilding` | No screen; add committees, conflicts, trust scores and metrics for authorized unit staff |
@@ -449,6 +456,470 @@ cached officer view into a citizen view.
 **Still open with the backend** (do not design against these yet):
 
 - **What performs `on_scene → investigatin…7428 tokens truncated…ning surface (banner/card)
+- **What performs `on_scene → investigating`?** No registered route sets it explicitly, and it is the
+  review workflow's entry condition, so *something* must. The only candidate is `PUT /cases/:id`
+  (`handlers.UpdateCaseStatus`), which has since been read and does **zero status validation** —
+  `caseObj.Status = input.Status`. That is also an authorization hole: the same call can set
+  `"closed"` directly and bypass the whole approval workflow. The frontend must not depend on that
+  path as a blessed transition; `investigating` is reachable in the demo only because the seed sets it.
+- **`CaseReviewDecisionDeescalate` (`"deescalate"`)** exists in the former case-review model next to
+  `approve` and `request_changes`, but no route that records it has been found. Do not build a
+  de-escalation affordance; the review history humanises it ("De-escalated") rather than pretending
+  only two decisions exist.
+- Whether the orphaned `CloseCase` handler, the unrouted `GetCaseAccountability`
+  (model: `models.CaseAccountabilityEvent`), and `GetOfficersByUnit` are pending registration or
+  deliberately retired.
+
+---
+
+### 0.5 Visual direction — Dawn Canopy
+
+**Status: first pass implemented in this branch; visual review on mobile and desktop pending.**
+Replace the old navy-blue impression with a sheltered forest at dawn: deep evergreen surfaces,
+warm sunlight for the primary action, a soft sky glow and a few still points of light on the public
+front door. The scene should suggest visibility, calm and a place to return to. The system is a
+public-safety tool, so the atmospheric treatment belongs in hero and welcome areas; reporting,
+maps, forms and case decisions retain quiet, solid, highly legible surfaces.
+
+| Role | Token | Colour | Use |
+|---|---|---|---|
+| Background | `--color-base` | `#10221d` | App canvas; replaces navy |
+| Panels | `--color-surface` / `--color-surface-hi` | `#193129` / `#254137` | Cards and raised controls |
+| Primary action | `--color-signal` / `--color-signal-ink` | `#f4cb78` / `#19251c` | Warm dawn light, with dark button text |
+| Text | `--color-ink` / `--color-ink-muted` | `#f8f5e9` / `#c2d4c7` | Main and supporting copy |
+| Boundaries | `--color-border` / `--color-border-hi` | `#355348` / `#527466` | Structure without bright outlines |
+| Emergency | `--color-emergency` | `#ef4444` | SOS and urgent states only; never decorative |
+
+The first pass updates shared CSS tokens and gives the public landing hero a lightweight CSS dawn
+sky and forest horizon. It adds no network image or animation. Keep lifecycle colours distinct and
+keep all status labels visible so meaning never depends on colour. Verify text, focus, buttons,
+status chips and maps for contrast on a phone in daylight; respect reduced motion if atmosphere is
+extended. Do not apply stars or scenery behind emergency controls or input fields.
+
+**Sequence:** finish and review this visual direction before starting another feature from §3.
+Keep the theme separate from the SOS, governance, communication and PWA milestones.
+
+---
+
+## 1. Product intent & engagement goals
+
+Nativity Guard must be **chosen** by communities, not mandated. That only happens if the
+experience is trustworthy, fast, and human. Engagement is a design output, not a growth hack.
+
+**Engagement goals**
+
+| Goal | How the UI earns it |
+|---|---|
+| Trust | Transparent case status, timestamps, assigned unit/officer always visible |
+| Return visits | Notifications that matter; visible progress on every case |
+| Fast reporting | ≤ 3 taps from home to a submitted report; ≤ 1 tap to SOS |
+| Field speed | Officer actions reachable in one hand, high contrast, offline-tolerant |
+| Local relevance | Multilingual copy, local units, local alerts |
+| Safety | One-tap SOS with confirm/cancel; clear privacy and consent |
+
+**Anti-goals:** dark patterns, notification spam, manufactured urgency, vanity gamification,
+surveillance aesthetics.
+
+---
+
+## 2. Roles & information architecture
+
+Four role-gated consoles share one design system.
+
+| Role | Primary nav | Home screen |
+|---|---|---|
+| **Citizen** | Home · Report · Track · Alerts · Profile | SOS-first dashboard |
+| **Officer** | Queue · Active · Map · Comms · Profile | Assigned-case queue |
+| **Unit Admin** | Overview · Cases · Officers · Analytics · Config | Ops overview + dispatch board |
+| **Super Admin** | Governance · Units · Users · Audit · Analytics | Platform control + health |
+
+**Route map (target)**
+
+```
+/                     → role router → role home
+/auth/login · /auth/register · /auth/otp · /auth/forgot
+/onboarding/*         → profile, unit application, gov ID, medical info, prefs
+
+# Citizen
+/report · /report/new · /track · /track/:caseId · /alerts · /alerts/:id
+/community · /community/posts/:id · /community/events
+/map · /sos · /ai-assistant · /settings · /profile
+
+# Officer
+/officer/queue · /officer/cases/:id · /officer/cases/:id/evidence
+/officer/map · /officer/comms · /officer/comms/:roomId
+
+# Unit admin
+/admin/overview · /admin/cases · /admin/cases/:id · /admin/officers
+/admin/verification · /admin/analytics · /admin/finance · /admin/settings
+
+# Super admin
+/super/users · /super/users/:id · /super/units · /super/units/:id
+/super/audit · /super/analytics · /super/settings · /super/health
+```
+
+---
+
+## 3. Feature catalogue
+
+Each feature lists: **screens**, **required elements**, **states**, and **APIs**.
+Checklist marks build progress. `[ ]` to build · `[~]` partial · `[x]` done.
+
+### F1 — Authentication & onboarding
+
+**Screens:** login, citizen signup, forgot/reset; OTP verify and onboarding wizard pending.
+
+- [x] Email/phone + password login; role-aware redirect
+- [x] Register a citizen at `/auth/signup` (no role selector; backend assigns the role)
+- [ ] Officer application and onboarding
+- [x] Password recovery screens (6-digit code; live delivery and reset still to verify)
+- [ ] OTP send / verify / resend (countdown, rate-limit messaging)
+- [ ] Unit application flow (search nearby units, select, apply)
+- [ ] Government ID submission (camera/file, status pending/verified/rejected)
+- [ ] Medical info intake (explicitly optional, privacy notice)
+- [ ] Profile completion + onboarding checklist
+- [x] Session: JWT storage, session restore on boot, logout, 401 → login
+- [x] Refresh token flow via `POST /auth/refresh` with one shared in-flight rotation attempt;
+      rejected refresh signs out
+
+**States:** idle · loading · invalid credentials · OTP expired · rate-limited · pending verification
+**APIs:** `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`,
+`POST /auth/refresh`, `POST /auth/change-password`, `GET /auth/profile`,
+`POST /otp/send|verify|resend`, `GET /units/nearby`, `POST /units/apply`,
+`POST /units/government-id`, `GET|PUT /settings/onboarding`
+
+---
+
+### F2 — Citizen home & SOS
+
+**Screens:** citizen home, SOS console, SOS active/status, SOS history.
+
+- [x] Emergency SOS entry opens the console; explicit confirm/cancel before `POST /sos/send`
+- [x] Geolocation with permission-denied fallback, map pin and manual coordinates
+- [x] Receipt with server-returned tracking ID and status; `/sos/my` refreshes every 15 seconds
+- [x] Optional emergency-contact details and medical information, cleared from the form after success
+- [x] Priority select (default high) and optional preferred unit; preference never claims dispatch
+- [x] SOS history and per-alert status (`pending`, `dispatched`, `resolved`, `escalated`)
+- [x] Persistent, labelled SOS entry in the citizen shell on desktop and mobile
+
+**Live integration gate:** these seven frontend items work against the in-browser mock. The SOS
+routes are mounted (`routes.go:193-200`) but have not been exercised against a live server, so the
+live payload and response shape, consent/storage handling for medical details, and real dispatch
+lifecycle must be checked before enabling SOS in a pilot. With `VITE_USE_MOCKS=false`, send is disabled and the page
+explains that the service is unavailable. The mock stores new SOS requests as `pending` and never
+pretends a unit was dispatched. A receipt confirms submission only. The optional details stay out
+of local storage. The `GET /sos/:id` mock exists for contract exploration; the console reads the
+history endpoint. `PUT /sos/:id/status` remains a staff-side API, not a citizen control.
+
+**Demo check:** run `npm run dev`, sign in as the citizen mock account, open **SOS**, enter a manual
+location or place the pin, press **Prepare SOS**, then cancel once to verify nothing is sent. Confirm
+on the second attempt and check that a `pending` receipt appears in history. The in-memory mock
+history resets on page reload; it is not an offline or durable emergency queue.
+
+**States:** locating · active · escalated · resolved · permission-denied · offline-queued
+**APIs:** `POST /sos/send`, `GET /sos/my`, `GET /sos/:id`, `PUT /sos/:id/status`
+
+---
+
+### F3 — Incident reporting
+
+**Screens:** report wizard (multi-step), report review, success/receipt, my reports.
+*(All four exist: the wizard and its review step and receipt are `/report`; "my reports" is the citizen
+home, documented under F4.)*
+
+The wizard shipped as **four steps, not the five sketched below**, and every departure is a contract
+fact rather than a design preference:
+
+- **The category/type step is gone.** `POST /cases` has no category field and `models.Case` has no
+  category column, so a step asking for one would collect an answer that is discarded on the way out
+  and unreadable on the way back. A title and a description are what triage actually reads, which is
+  why those two are the only required answers.
+- **"Where" also picks the responding unit**, because the pin is exactly what decides which units are
+  candidates (`GET /units/nearby`, sorted by distance, split by whether the unit's coverage reaches the
+  point).
+- **Evidence attaches after the case exists.** Hosted links use `POST /evidence/upload` with a
+  `caseId`. The photo picker uses `POST /evidence/case/:caseId/presign`, uploads the photo to the
+  returned storage URL, and calls `POST /evidence/case/:caseId/confirm`. These flows are coded;
+  storage configuration and responses still need live verification. A failed attachment does not
+  undo a successfully filed report.
+- **The public/private choice is gone.** `IsPublic` is hardcoded `true` on create, so the reporter has
+  no such choice to make and the review step says the record is public instead of offering a toggle the
+  server would ignore.
+
+- [x] Step 1 — **what happened**: title + description, sized and hinted for a report rather than a form
+- [x] Step 2 — **where**: `MapView` in `pick` mode with "use my location", an optional landmark field
+      for when the pin is slightly off, and the responding unit. **Both halves are required, and the
+      refusal states the real reason** — the endpoint accepts neither as mandatory, but a case with no
+      `unit_id` is returned by no unit's `GET /cases` (see §0.3), and one pinned at 0,0 sends a unit to
+      the Gulf of Guinea
+- [x] Step 3 — **evidence**: up to three hosted links validated as `http(s)`, plus the photo picker
+      and per-photo upload state. The staff evidence component remains link based; the reporter photo
+      flow needs live storage verification
+- [x] Step 4 — **review**: every answer shown with an **Edit** that returns to its step, a
+      "what happens when you send this" block (recorded as `pending`, a tracking ID is issued, reports
+      are public records), and the flow's single Send button
+- [x] Location picker (map + "use my location" + manual landmark)
+- [x] Priority hint (advisory only — triage is server-side): the amber "someone is in danger or injured
+      now" checkbox maps to `priority: "high"` → **P2**. It is **not** an SOS path — `isSOS` bands P1
+      and triggers an immediate dispatch attempt, and that belongs to an arming flow with its own
+      confirm step. The copy says the checkbox marks the report for faster triage and does not send
+      anyone
+- [x] Draft auto-save — `localStorage` via `lib/reportDraft.ts` (pure and tested), written as the form
+      is typed and cleared the moment a case is created, so a failed evidence attach can never leave a
+      reporter able to file the same report twice. A restored draft reopens at step 1 and says so; a
+      corrupt or foreign value opens a fresh form rather than half-restoring one
+- [–] **Offline queue with sync — not built, deliberately.** A draft is not a report: it has no tracking
+      ID and no unit has seen it, and nothing in the UI may let a saved draft read as "sent". A real
+      queue needs ordering, retry and dedupe semantics, and a local draft is not a partial version of
+      one
+- [x] Receipt with **Tracking ID** + "track this report" CTA, rendered from the create response rather
+      than a refetched list, so a slow refresh cannot make a filed report look unfiled
+- [x] Validation inline, never a raw error toast: field-level errors, a disabled Continue/Submit whose
+      reason names the missing thing, and a failed create that says outright that nothing was created
+      and every answer is still on screen
+
+**States:** drafting · validating · submitting · partial-evidence-failed · submitted · create-failed
+**APIs:** `POST /cases`, `POST /evidence/upload`, `POST /evidence/case/:caseId/presign`,
+`POST /evidence/case/:caseId/confirm`, `GET /units/nearby`, `GET /cases`, `GET /cases/:id`
+
+---
+
+### F4 — Case tracking & feedback
+
+**Screens:** my cases list, case detail, timeline, evidence viewer, feedback form.
+*(The list and case detail exist; staff have an evidence viewer. The closed-case feedback form
+submits to the Go API in live mode; an authenticated end-to-end check remains open.)*
+
+- [x] Case list with status chips, priority, last-updated — each card is the link to the detail view
+- [x] **Case detail (`/cases/:id`, citizen-only) — a curated record, built as a *subset* of the staff
+      case page by omission.** It renders status + stepper, the final report, the closure decisions
+      with their comments, the weekly narratives shared with the reporter, and a **case log of status
+      changes only**. It calls three endpoints (`GET /cases/:id`, `/review`, `/weekly-updates`) and
+      never fetches the progress feed or the evidence list, so the "Activity by week" reading aid is
+      *absent* rather than hidden — there is no code path that could render a progress note. Names are
+      withheld: the log shows an **actor role** (`You` / `Assigned officer` / `Unit staff`) derived
+      from ids the case already carries, and never renders timeline `description` text, which is
+      written for an internal audience and names people ("Assigned to Officer Tunde Balogun."). The
+      responding **unit** is named once in the header, not per row — the timeline says which *user*
+      acted, never which unit, so a per-row unit stamp would be a guess
+- [x] **Lifecycle stepper** — rebuilt as two instruments: a one-way *field rail* over
+      `FIELD_LIFECYCLE` (pending → assigned → dispatched → on scene → investigating) and a separate
+      *review phase* block, because approve/request-changes is a loop and cannot be drawn as a sixth
+      step. An unrecognised status renders its raw value instead of pretending to be step 1
+- [x] Progress timeline (action, description, officer, time) — **officer and admin views only**
+- [~] Assigned unit/officer visibility (respecting privacy) — the staff views show the officer when
+      named on the timeline; the citizen view shows the **unit** and no officer identity at all
+- [x] Evidence gallery (thumbnails, type, verification badge) — **officer and admin views only**
+- [x] Resolution summary (final report) — rendered whenever present, headed by the case's actual
+      review position (draft / submitted for review / changes requested), not only when closed
+- [x] Weekly updates — the real entity: `GET|POST /cases/:id/weekly-update(s)` over
+      `models.CaseWeeklyUpdate`, with all seven fields, the server-computed week, and the
+      duplicate-week 409 as a designed "already filed" state. Display-only helpers
+      (`lib/week.ts`) remain for grouping activity into weeks and labelling a supplied `weekStart`.
+      **The reporter reads the same endpoint, server-filtered to `citizenVisible = true`** — that
+      boundary now has a caller, and the empty state says "nothing has been shared with you yet"
+      rather than "nothing was filed", because on a filtered feed those are different facts
+- [x] Review history — the shared `<ReviewHistory>` renders every decision with comment, actor and
+      timestamp, and is wired into the **officer** page (where "what were you asked to change?"
+      matters most), the **admin** Review tab, and now the **citizen case detail**, so "why is my case
+      still open" has an answer addressed to the person who asked it. A closed case with no recorded
+      decision is described as such rather than as "not decided yet"
+- [x] Feedback: a reporter can rate and comment on their closed case once in the demo; the mock
+      rejects non-reporters, open cases and duplicate submissions. Live integration pending
+- [ ] Push/in-app updates on every status change
+
+**States:** empty · loading · not-found · forbidden · closed-readonly · awaiting-review · changes-requested
+**APIs:** `GET /cases`, `GET /cases/:id`, `GET /cases/:id/timeline`, `GET /cases/:id/progress`,
+`GET /cases/:id/review`, `GET /cases/:id/weekly-updates`, `GET /evidence/case/:caseId`,
+`POST /cases/:id/feedback`, `POST /ratings`, `GET /public/units/:id/rating`
+
+> **The citizen view is not the whole privacy boundary.** Go's `GET /cases/:id` now returns the
+> reporter a curated `case` without its preloaded evidence/progress, but still returns full timeline
+> records and feedback. The UI redacts actor names when displaying the timeline; verify that the
+> backend response itself contains no sensitive names or other fields before calling it public-safe.
+
+---
+
+### F5 — Alerts, news & notifications
+
+**Screens:** alert feed, alert detail, news feed, notification center, subscriptions.
+
+- [x] Demo community alert feed with severity labels and empty/loading/error states
+- [x] Demo alert detail with location, idempotent confirm action and explicit demo-link sharing
+- [x] Demo news feed with `news`/`alert` item types and clear source labeling
+- [x] Notification center — bell + popover and `/notifications` page with all entries, individual
+      mark-read, bulk mark-read and loading/empty/error states
+- [x] Demo subscription management for areas, categories and preferred channels
+- [x] Browser permission opt-in and demo device register/unregister; no push delivery until the
+      push transport is wired
+
+**APIs:** `GET /alerts`, `GET /alerts/:id`, `POST /alerts/:id/confirm`, `POST /alerts/subscribe`,
+`GET /alerts/subscriptions`, `GET /alerts/news`, `GET /news`, `GET /news/:id`,
+`POST /notifications/register`, `DELETE /notifications/unregister`
+
+---
+
+### F6 — Community & prevention
+
+**Screens:** community hub, forum post, announcements, events, event detail/RSVP.
+
+- [x] Demo forum: post list, inline detail, replies and create post
+- [x] Demo announcements feed
+- [x] Demo events with RSVP toggle and attendee count
+- [ ] Prevention/safety tips surface (AI-assisted, cached)
+- [x] Demo post-report action, visibly recorded only in memory; live moderation queue pending
+
+**APIs:** `POST|GET /community/posts`, `GET /community/posts/:id`, `POST /community/replies`,
+`POST|GET /community/announcements`, `POST|GET /community/events`, `POST /community/events/:id/rsvp`
+
+---
+
+### F7 — Officer console
+
+**Screens:** queue, active case, case actions, progress log, evidence capture/verify, map, comms.
+
+- [x] Assigned-case queue (priority-sorted, SLA badges)
+- [x] Case detail with one-tap **Dispatch** and **Arrive** (state-gated)
+- [x] Progress logging (action type + description)
+- [x] Evidence attach (by link) + verify evidence (with badge)
+- [ ] **Investigate** — the `on_scene → investigating` step. Nothing reaches the review workflow
+      without it, and the frontend has no action for it at all (§0.4, open question). Deliberately
+      still unbuilt: no registered route performs this transition, so any button would be inventing
+      one. It is reachable in the demo only because the seed places cases in `investigating`
+- [x] **Submit case for review** — captures the final report then `POST /cases/:id/submit-review`
+      from `investigating` or `admin_changes_requested`. Surfaces the 409's returned `status` ("the
+      case is now *X*") via `ApiError.body`, and the primary action is disabled **with the reason
+      written out** when there is no final report — an administrator cannot approve a closure they
+      cannot read
+- [x] **Read the admin's decision** — a case returning as `admin_changes_requested` shows the
+      reviewer's instruction as a notice above the case, not as a log line. `<ReviewNotice>` names the
+      admin, the time, and the full comment; the closure-review section repeats it in history
+- [x] Weekly officer narrative — filed through `POST /cases/:id/weekly-update` by the **assigned
+      officer only** (the endpoint is gated to it, so `canFile` is false for an administrator and the
+      composer is absent rather than refused). Required `summary` + `investigation`; the other five
+      fields sit behind an "Add detail" disclosure
+- [x] ~~Close case with final report~~ — **removed.** `POST /cases/:id/close` is no longer routed, so
+      the button could only ever 404. Deleted from `useCaseActions`, `OfficerCasePage` and the mock;
+      superseded by *submit for review* (§0.4 item 2). Do not re-add it
+- [~] Team view (primary/investigator/support) — assignment list + roles rendered in admin case
+      review; the officer-facing team view is open
+- [x] Responder map with lawful unit/location context
+- [ ] Comms: rooms, messages, calling entry points
+
+**States:** action-not-allowed (wrong state) surfaced clearly, never silently disabled
+**APIs:** `POST /cases/:id/dispatch`, `POST /cases/:id/arrive`, `POST /cases/:id/progress`,
+`GET /cases/:id/progress`, `POST /cases/:id/submit-review`, `POST /cases/:id/weekly-update`,
+`POST /evidence/upload`, `PATCH /evidence/:id/verify`, `POST /cases/:id/assign`,
+`GET /cases/:id/assignments`
+
+**Open question for the backend:** `canAddProgress` in `lib/status.ts` was widened to include
+`investigating` and `admin_changes_requested`, on the assumption that the backend's guard was widened
+too when those states were added. **That assumption is unconfirmed.** A deployed guard matching only
+`dispatched | on_scene` would mean an investigating officer cannot log progress at all — which would
+empty the very evidence the reviewing admin is asked to judge. The mock mirrors the widened version,
+so the demo will *not* reveal a mismatch. Confirm against the handler before relying on the tab.
+
+---
+
+**Demo boundary for the next ten items:** The checked admin and profile workflows below run only with `VITE_USE_MOCKS=true`; they are session-scoped sample screens. Their actions do not persist to the backend, move money, provision real officers, change live dispatch, or provide live monitoring. Profile photo uses an HTTPS URL, not an uploaded image. Live integrations remain open.
+
+### F8 — Unit admin console
+
+**Screens:** overview, dispatch board, case management, officers, verification queue, analytics,
+finance, unit settings.
+
+- [x] Ops overview: open/assigned/dispatched cards, response-time KPIs **(session demo only; live integration pending)**
+- [x] Dispatch board: unassigned queue → assign to officer
+      *(`/admin/cases` — attention counters are filters, not decoration: each one toggles the list)*
+- [~] Case review: facts, progress, weekly, evidence, assignment, **the closure decision and its
+      history** — done; the per-case audit trail (`CaseAccountabilityEvent`, unrouted) is open
+- [x] **Review decisions — the admin's half of the accountability loop.** A case arriving as
+      `pending_admin_review` gets a decision panel above the tabs: approve closure, or request
+      changes, each with a **required comment** the contract will not accept otherwise, plus the
+      decision history (`GET /cases/:id/review`) in a dedicated **Review** tab so a second
+      administrator can see what the first one decided and why. This is where "someone is accountable
+      for closing this" becomes visible instead of merely true
+- [x] **Self-approval guard, explained.** An administrator who is also the case's assigned officer
+      sees **Approve closure** disabled, with the rule stated underneath — "you are the assigned
+      officer on this case, so a second administrator must approve its closure" — plus the reminder
+      that **Request changes** still works. A 403 from the server is still handled, but as a
+      fallback for a disagreement between server and UI, not as the primary path. Never a silent
+      grey-out (§3 law 5)
+- [x] `pending_admin_review` in the triage counters — **"Awaiting your decision"** is now the first
+      attention card on `/admin/cases`, with the hint "Submitted for closure — only an admin can move
+      these", and it filters the list like the other counters (`Focus = 'to_decide'`)
+- [x] Officer roster: demo add/edit/status/workload; `GET /units/:id/officers` is mounted for assignment, but live integration and roster management remain open
+- [~] Verification queue: evidence verify shipped inside case review; memberships and gov IDs open
+- [x] Analytics: volume, response/dispatch/arrival, resolution, workload **(session demo only; live integration pending)**
+- [x] Finance: accounts, donations, transactions + approvals, budgets, reports **(session demo only; live integration pending)**
+- [x] Unit config, operational radius, contact info **(session demo only; live integration pending)**
+
+**APIs:** `GET /cases`, `POST /cases/:id/assign`, `GET /cases/:id/review`,
+`POST /cases/:id/review/approve`, `POST /cases/:id/review/request-changes`, `GET /cases/analytics`,
+`GET|POST|PUT /units`, `GET|POST /bank/*`, `GET|POST /finance/*`, `GET /audit/*`,
+`POST|GET /unit-verification`* *(verification endpoints per the former mock target contract)*
+
+---
+
+### F9 — Super admin console
+
+**Screens:** governance dashboard, users, user detail, units, audit search, analytics, health, settings.
+
+- [ ] Users: list, search, role change, suspend/activate, impersonate/stop
+- [x] Units: registry CRUD **(session demo only; live integration pending)**
+- [x] Audit: searchable activity + audit logs (actor, action, entity, time) **(session demo only; live integration pending)**
+- [x] Platform analytics + system health **(session demo only; live integration pending)**
+- [x] System settings, templates, data exports **(session demo only; live integration pending)**
+- [ ] Impersonation banner (unmissable "you are impersonating") + one-click exit
+
+**APIs:** `GET /admin/users`, `GET /admin/users/:id`, `PUT /admin/users/:id/role`,
+`POST /admin/users/:id/suspend|activate|impersonate`, `POST /admin/stop-impersonate`,
+`GET /admin/stats`, `GET /audit/activities`, `GET /audit/logs`, `GET /audit/health`,
+`GET|PUT /settings/:key`, `GET /settings/templates/:name`, `POST|GET /settings/exports`
+
+---
+
+### F10 — Maps & GIS
+
+**Screens:** incident map, unit coverage, hotspot view, case location picker.
+
+- [x] Incident markers grouped at close screen positions, with count and click-to-zoom; individual
+      status-coloured markers appear when separated
+- [x] Unit coverage radii
+- [x] Optional aggregated activity overlay (at least five cases per area, low zoom only); explicitly
+      labelled as observed report concentration, never predicted danger or individual profiling
+- [x] Case location picker — `MapView mode="pick"` is wired into the report wizard
+- [~] Filters: period, category, status, unit — status + free-text search shipped
+
+**States:** map-unavailable fallback to list; tiles offline-degraded
+**APIs:** `GET /cases` (geo fields), `GET /units/nearby`, `GET /units/by-location`,
+`POST /ai/map-insights`, `POST /ai/predict-hotspots`
+
+---
+
+### F11 — Communication
+
+**Screens:** room list, chat room, call UI, walkie-talkie mode.
+
+- [ ] Room list per unit; create room
+- [ ] Real-time messaging (WebSocket) with optimistic send + delivery state
+- [ ] Voice call + WebRTC signaling UI
+- [ ] Presence/room-status indicators
+- [ ] Offline message queue + sync on reconnect
+
+**APIs:** `POST|GET /communication/rooms`, `POST /communication/messages`,
+`GET /communication/rooms/:roomId/messages`, `POST /communication/calls`,
+`PUT /communication/calls/:id/end`, `POST /communication/sync`, `/ws`
+
+---
+
+### F12 — AI assistant
+
+**Screens:** assistant chat, tips panel, security warning banner, case summary.
+
+- [ ] Chat assistant with role-aware answers
+- [ ] Context-aware safety tips (location, time, role)
+- [ ] Security warning surface (banner/card)
 - [ ] Case summary (officer-facing, clearly labelled AI-generated)
 - [ ] AI outputs always labelled + human-in-the-loop; never authoritative
 
@@ -461,7 +932,7 @@ cached officer view into a citizen view.
 
 **Screens:** profile, notification prefs, privacy, language, data export, delete account.
 
-- [x] Profile edit (name, contact, photo) **(session demo only; live integration pending)**
+- [x] Profile edit (name, contact, photo) uses the Go profile and avatar endpoints; live upload/write verification pending
 - [ ] Notification channel prefs (push/SMS/email/in-app)
 - [ ] Privacy controls + consent explanations in plain language
 - [ ] Language selector (English + Nigerian languages, Pidgin)
@@ -543,7 +1014,7 @@ the live response before claiming integration. Typed frontend models do not prov
       outcome. `/` lists the reporter's cases and `/cases/:id` renders one as a curated record: the
       final report, the closure decisions and their comments, the shared weekly narratives, and a
       status-change log with names and internal notes withheld. Draft auto-save is in; **SOS UI is
-      mock-verified with a live integration gate; feedback is now available in the demo only**
+      mock-verified with a live integration gate; feedback submission is wired to Go but not live-verified**
 - [~] **M3 — Awareness:** case/unit map, notification centre, demo alerts/news and subscription
       controls shipped in the browser; live integration and real push delivery remain open
 - [~] **M4 — Officer console:** queue and case workspace (details/progress/weekly/evidence) shipped,
@@ -1015,10 +1486,10 @@ when its Definition of Done (§7) is met.
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
       must be verified before pilot use
-- [ ] **T14** — Feedback submission (F4)
+- [~] **T14** — Closed-case feedback submission (F4) is wired to `POST /cases/:id/feedback` in live mode; verify with an authenticated reporter and confirm server-side case-status enforcement before marking complete
 - [ ] **T15** — Audit / finance / bank-account / public endpoints from the brief's §4 reference
-- [ ] **T16** — Appeals against revocations: file, own status and authorized decision screens (`/appeals`)
-- [ ] **T17** — Unit transfers: request, approval/rejection and approval history (`/transfers`)
+- [~] **T16** — Appeals against revocations: filing, own status and super-admin decision screens (`/appeals`) merged; Go build/vet/tests and live role checks pending; filing currently needs a manually supplied revocation cycle ID
+- [~] **T17** — Case transfer request, unit-admin approval/rejection and approval history (`/transfers`) merged; Go build/vet/tests and live role checks pending
 - [ ] **T18** — Authorized suspect operations, sightings, counter-statements and expungement requests/decisions (`/suspects`, `/cases/:id/counter-statement`, `/expungement-requests`); T11 covers self-view only
 - [ ] **T19** — Camera registry, video alert review and monitored social posts (`/video`); verify access controls and any real data source before presenting automated findings
 - [ ] **T20** — Peace committees, conflict resolution and trust metrics (`/peacebuilding`)
@@ -1026,7 +1497,7 @@ when its Definition of Done (§7) is met.
 - [ ] **T22** — Live moderation contract: the mock's `POST /community/posts/:id/report` is not mounted in Go; design and register a guarded report/review path before claiming a real moderation queue
 
 **Recommended order after this document reconciliation:** (1) verify report creation and both
-evidence upload paths against Go/storage; (2) enable and verify reporter feedback and named officer
+evidence upload paths against Go/storage; (2) verify reporter feedback and named officer
 assignment; (3) verify or connect existing mock-only alerts, community and admin surfaces, with
 moderation and permission checks before launch; (4) prioritize T9–T22 by role, safety and user need.
 These are work packages rather than a count of endpoints, and none is marked live verified here.
