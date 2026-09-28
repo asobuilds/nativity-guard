@@ -86,15 +86,12 @@ export function ProfilePage() {
 	return (
 		<div className="mx-auto max-w-xl p-6">
 			<h1 className="text-2xl font-bold text-ink mb-6">Profile</h1>
-<<<<<<< HEAD
 			<Link to="/sessions" className="mb-4 inline-block text-sm text-signal hover:underline">Manage signed-in devices →</Link>
-=======
 			{role === 'citizen' ? <div aria-label="Profile sections" className="mb-5 flex gap-2">
 				<Button aria-pressed={tab === 'details'} onClick={() => setTab('details')} variant={tab === 'details' ? 'primary' : 'secondary'}>Personal details</Button>
 				<Button aria-pressed={tab === 'linked'} onClick={() => setTab('linked')} variant={tab === 'linked' ? 'primary' : 'secondary'}>Cases linked to me</Button>
 			</div> : null}
 			{role === 'citizen' && tab === 'linked' ? <LinkedCases /> : <>
->>>>>>> origin/feat/frontend-suspect-self-view-20260927
 
 			<Card>
 				<CardHeader title="Avatar" />

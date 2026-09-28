@@ -1008,13 +1008,10 @@ when its Definition of Done (§7) is met.
 
 **P2 — surfaces the brief exposes that have no UI yet**
 
-<<<<<<< HEAD
 - [~] **T10** — Governance UI (A4): unit policy view/editor and head-admin governance overview built against existing APIs; live role checks pending; member-facing elections, revocations and their list/discovery paths remain open
 - [ ] **T11** — Suspect self-view (A5)
-=======
 - [ ] **T10** — Governance UI (A4)
 - [~] **T11** — Suspect self-view (A5): citizen profile view built; linked/unlinked live checks and backend `lastProgress` response audit pending
->>>>>>> origin/feat/frontend-suspect-self-view-20260927
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
       must be verified before pilot use

@@ -144,11 +144,8 @@ export function App() {
               <Route element={<ProtectedShell />}>
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
-<<<<<<< HEAD
                 <Route path="/invites" element={<InvitationsPage />} />
-=======
                 <Route path="/sessions" element={<SessionsPage />} />
->>>>>>> origin/feat/frontend-session-management-20260927
                 <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
                 <Route path="/alerts/:id" element={<RequireRole roles={['citizen']}><AlertDetailPage /></RequireRole>} />
                 <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
