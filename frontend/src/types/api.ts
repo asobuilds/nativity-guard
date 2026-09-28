@@ -535,3 +535,116 @@ export interface CaseAnalyticsResponse {
   pendingCases: number
   resolutionRate: number
 }
+
+/* ------------------------------------------------------------------ */
+/* Super-admin surfaces (Wave 10.7a)                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One row of `GET /admin/users` — a flat map, not a full `User`.
+ * Verified against `handlers/super_admin_handler.go:56-70` (GetAllUsers).
+ */
+export interface SuperAdminUser {
+  id: string
+  email: string
+  phone?: string
+  firstName: string
+  lastName: string
+  role: Role
+  status: string
+  createdAt?: string
+  lastLogin?: string | null
+  unitId?: string | null
+}
+
+/**
+ * Flat envelope from `GET /admin/stats` (`handlers.GetSystemStats` line 351).
+ * No nested object — every field is top-level.
+ */
+export interface SystemStats {
+  totalUsers: number
+  totalCases: number
+  totalUnits: number
+  totalOfficers: number
+  totalSOS: number
+  totalSuspects: number
+  dailyActive: number
+  pendingCases: number
+  resolvedCases: number
+}
+
+/** `GET /admin/users` returns `{ users, total }`. */
+export interface SuperAdminUsersResponse {
+  users: SuperAdminUser[]
+  total: number
+}
+
+/** One audit-log row from `GET /audit/logs` (`models.AuditLog` JSON tags). */
+export interface AuditLogEntry {
+  id: string
+  userId: string
+  action: string
+  entityType: string
+  entityId: string
+  oldValue: string
+  newValue: string
+  ipAddress: string
+  userAgent: string
+  timestamp: string
+  createdAt: string
+  updatedAt: string
+  user?: { id: string; email: string; firstName: string; lastName: string; role: Role }
+}
+
+/** `GET /audit/logs` returns `{ auditLogs }`. */
+export interface AuditLogsResponse {
+  auditLogs: AuditLogEntry[]
+}
+
+/** One activity-log row from `GET /audit/activities` (`models.ActivityLog`). */
+export interface ActivityLogEntry {
+  id: string
+  userId: string
+  sessionId?: string
+  activityType: string
+  description?: string
+  ipAddress: string
+  device?: string
+  location?: string
+  duration?: number
+  createdAt: string
+  user?: { id: string; email: string; firstName: string; lastName: string; role: Role }
+}
+
+/** `GET /audit/activities` returns `{ activities }`. */
+export interface ActivityLogsResponse {
+  activities: ActivityLogEntry[]
+}
+
+/** System health snapshot from `GET /audit/health` (`models.SystemHealth`). */
+export interface SystemHealth {
+  id: string
+  cpuUsage: number
+  memoryUsage: number
+  diskUsage: number
+  activeUsers: number
+  totalRequests: number
+  responseTime: number
+  databaseStatus: string
+  serverStatus: string
+  uptime: number
+  lastCheck: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** `GET /audit/health` returns `{ health }`. */
+export interface SystemHealthResponse {
+  health: SystemHealth
+}
+
+/** Response body for suspend / activate / role-change mutations. */
+export interface UserActionResponse {
+  message: string
+  user: SuperAdminUser
+}

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
@@ -87,7 +87,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/overview', label: 'Governance', icon: <ShieldAlert className="size-4" /> },
     { to: '/super/units', label: 'Units', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
-    { to: '/super/users', label: 'Users', icon: <Users className="size-4" />, soon: true },
+    { to: '/super/users', label: 'Users', icon: <Users className="size-4" /> },
     { to: '/super/audit', label: 'Audit', icon: <FileText className="size-4" /> },
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Settings', icon: <FileText className="size-4" /> },
