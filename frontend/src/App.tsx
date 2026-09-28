@@ -144,6 +144,7 @@ export function App() {
                 <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
                 <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
                 <Route path="/community" element={<RequireRole roles={['citizen']}><CommunityPage /></RequireRole>} />
+                <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><CommunityPage /></RequireRole>} />
                 <Route path="/appeals" element={<AppealsPage />} />
                 {/* SOS is for everyone signed in — an officer in trouble needs the
                     same button a citizen does, so no role gate beyond the shell. */}
