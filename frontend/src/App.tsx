@@ -35,6 +35,7 @@ import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AppealsPage } from '@/pages/AppealsPage'
+import { AiAssistantPage } from '@/pages/AiAssistantPage'
 import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
@@ -145,6 +146,7 @@ export function App() {
                 <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
                 <Route path="/community" element={<RequireRole roles={['citizen']}><CommunityPage /></RequireRole>} />
                 <Route path="/appeals" element={<AppealsPage />} />
+                <Route path="/assistant" element={<AiAssistantPage />} />
                 {/* SOS is for everyone signed in — an officer in trouble needs the
                     same button a citizen does, so no role gate beyond the shell. */}
                 <Route path="/sos" element={<SosPage />} />
