@@ -8,27 +8,10 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { api } from '@/lib/apiClient'
 import { relativeTime, formatDateTime } from '@/lib/format'
 import { USE_MOCKS } from '@/mocks/config'
+import { LiveCommunityPage } from '@/pages/LiveCommunityPage'
 import type { Announcement, CommunityEvent, CommunityPost } from '@/types/community'
 
 type Tab = 'forum' | 'announcements' | 'events' | 'tips'
-
-type LivePost = { id: string; title: string; content: string; createdAt: string; author: { name: string }; replyCount: number }
-type LiveAnnouncement = { id: string; title: string; content: string; publishedAt: string }
-type LiveEvent = { id: string; title: string; description: string; location: string; eventDate: string; attendeeCount: number }
-
-function LiveCommunity() {
-  const [tab, setTab] = useState<'forum' | 'announcements' | 'events'>('forum')
-  const posts = useQuery({ queryKey: ['community-posts'], queryFn: () => api.get<{ posts: LivePost[] }>('/community/posts'), enabled: tab === 'forum' })
-  const announcements = useQuery({ queryKey: ['community-announcements'], queryFn: () => api.get<{ announcements: LiveAnnouncement[] }>('/community/announcements'), enabled: tab === 'announcements' })
-  const events = useQuery({ queryKey: ['community-events'], queryFn: () => api.get<{ events: LiveEvent[] }>('/community/events'), enabled: tab === 'events' })
-  return <div className="space-y-4">
-    <nav aria-label="Community sections" className="flex gap-2">{(['forum', 'announcements', 'events'] as const).map((item) => <Button key={item} size="sm" variant={tab === item ? 'primary' : 'secondary'} aria-pressed={tab === item} onClick={() => setTab(item)}>{item === 'forum' ? 'Discussions' : item[0].toUpperCase() + item.slice(1)}</Button>)}</nav>
-    {tab === 'forum' ? posts.isLoading ? <Skeleton className="h-28 w-full" /> : posts.isError ? <Card><ErrorState title="Could not load discussions" description="Try again." onRetry={() => void posts.refetch()} /></Card> : posts.data?.posts.length ? <ul className="space-y-3">{posts.data.posts.map((post) => <li key={post.id}><Card className="p-4"><h2 className="font-semibold text-ink">{post.title}</h2><p className="text-xs text-ink-faint">{post.author.name} · {relativeTime(post.createdAt)} · {post.replyCount} replies</p><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{post.content}</p></Card></li>)}</ul> : <Card><EmptyState title="No discussions yet" description="Check back later." /></Card> : null}
-    {tab === 'announcements' ? announcements.isLoading ? <Skeleton className="h-24 w-full" /> : announcements.isError ? <Card><ErrorState title="Could not load announcements" description="Try again." onRetry={() => void announcements.refetch()} /></Card> : announcements.data?.announcements.length ? <ul className="space-y-3">{announcements.data.announcements.map((item) => <li key={item.id}><Card className="p-4"><h2 className="font-semibold text-ink">{item.title}</h2><p className="mt-2 text-sm text-ink-muted">{item.content}</p><p className="text-xs text-ink-faint">{relativeTime(item.publishedAt)}</p></Card></li>)}</ul> : <Card><EmptyState title="No announcements" description="Nothing has been posted." /></Card> : null}
-    {tab === 'events' ? events.isLoading ? <Skeleton className="h-24 w-full" /> : events.isError ? <Card><ErrorState title="Could not load events" description="Try again." onRetry={() => void events.refetch()} /></Card> : events.data?.events.length ? <ul className="space-y-3">{events.data.events.map((item) => <li key={item.id}><Card className="p-4"><h2 className="font-semibold text-ink">{item.title}</h2><p className="mt-2 text-sm text-ink-muted">{item.description}</p><p className="text-xs text-ink-faint">{item.location} · {formatDateTime(item.eventDate)} · {item.attendeeCount} attending</p></Card></li>)}</ul> : <Card><EmptyState title="No upcoming events" description="Check back later." /></Card> : null}
-    <p className="text-xs text-ink-muted">Posting and content reports will be available when moderation is connected.</p>
-  </div>
-}
 
 export function CommunityPage() {
   const [tab, setTab] = useState<Tab>('forum')
@@ -45,9 +28,11 @@ export function CommunityPage() {
   const report = useMutation({ mutationFn: (postId: string) => api.post(`/community/posts/${postId}/report`, {}), onSuccess: () => void client.invalidateQueries({ queryKey: ['demo-posts'] }) })
   const rsvp = useMutation({ mutationFn: (eventId: string) => api.post(`/community/events/${eventId}/rsvp`, {}), onSuccess: () => void client.invalidateQueries({ queryKey: ['demo-events'] }) })
 
+  if (!USE_MOCKS) return <LiveCommunityPage />
+
   return <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
     <header><h1 className="text-xl font-semibold text-ink">Community</h1><p className="mt-1 text-sm text-ink-muted">Discuss local preparedness and share helpful information.</p></header>
-    {!USE_MOCKS ? <LiveCommunity /> : <>
+    <>
       <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink">Demo community only. Posts, announcements and events are not public notices and reset when the page reloads. Reports of content are recorded in this demo only.</p>
       <nav aria-label="Community sections" className="flex flex-wrap gap-2">{(['forum', 'announcements', 'events', 'tips'] as const).map((item) => <Button key={item} size="sm" variant={tab === item ? 'primary' : 'secondary'} aria-pressed={tab === item} onClick={() => setTab(item)}>{item[0].toUpperCase() + item.slice(1)}</Button>)}</nav>
 
@@ -73,6 +58,6 @@ export function CommunityPage() {
 
       {tab === 'tips' ? <Card className="space-y-2 p-4"><h2 className="text-sm font-semibold text-ink">Preparedness tips</h2><p className="text-sm text-ink-muted">Keep a list of local emergency contacts where you can reach it. Agree on a meeting point with people you live with. This static demo copy is not AI generated or personalised.</p><p className="text-xs text-ink-faint">AI-assisted tips and caching are still to be built.</p></Card> : null}
       <p className="text-xs text-ink-faint">Need to report an incident? <Link to="/report" className="text-signal">Use the reporting flow</Link>.</p>
-    </>}
+    </>
   </div>
 }
