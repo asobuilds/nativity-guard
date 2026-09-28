@@ -225,7 +225,11 @@ export function App() {
                 <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                 {/* Remaining admin sections still use demo data. */}
                 {['overview','analytics','finance','settings'].map((section) => <Route key={section} path={`/admin/${section}`} element={<RequireRole roles={ADMIN_ROLES}><AdminDemoPage section={section} /></RequireRole>} />)}
-                {['overview','audit','analytics','settings'].map((section) => <Route key={section} path={`/super/${section}`} element={<RequireRole roles={['super_admin']}><AdminDemoPage section={section} platform /></RequireRole>} />)}
+                <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
+                <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
+                <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
+                <Route path="/super/analytics" element={<RequireRole roles={['super_admin']}><ComingSoonPage title="Platform analytics" description="Under construction." milestone="M7" /></RequireRole>} />
+                <Route path="/super/settings" element={<RequireRole roles={['super_admin']}><ComingSoonPage title="Platform settings" description="Under construction." milestone="M7" /></RequireRole>} />
                 {/* The unit registry is built — it left the demo stub and reads real
                     data. Listed before the `/super/*` fallback so the real page
                     wins, and named ahead of the `:id` route so "new" is never read

@@ -54,9 +54,9 @@ export function SuperAuditPage() {
 
       <Card>
         <div className="flex flex-wrap items-center gap-3">
-          <Tabs value={tab} onChange={(v) => setTab(v as typeof tab)} options={[
-            { value: 'audit', label: 'Audit (' + auditRows.length + ')' },
-            { value: 'activity', label: 'Activity (' + activityRows.length + ')' },
+          <Tabs activeId={tab} onChange={(id) => setTab(id as typeof tab)} items={[
+            { id: 'audit', label: 'Audit', count: auditRows.length },
+            { id: 'activity', label: 'Activity', count: activityRows.length },
           ]} />
           <div className="relative min-w-56 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" aria-hidden />
