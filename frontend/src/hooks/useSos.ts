@@ -18,6 +18,11 @@ export function useSendSos() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: SendSosInput) => api.post<{ message: string; sos: SosAlert; escalationTime: string }>('/sos/send', input),
-    onSuccess: () => client.invalidateQueries({ queryKey: sosKey }),
+    onSuccess: () => {
+      // Invalidate BOTH the narrow and broad keys so any surface
+      // (SosPage history, dashboard, notification bell) refetches.
+      void client.invalidateQueries({ queryKey: sosKey })
+      void client.invalidateQueries({ queryKey: ['sos'] })
+    },
   })
 }

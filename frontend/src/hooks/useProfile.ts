@@ -25,5 +25,6 @@ export function useUpdateProfile() {
 			queryClient.setQueryData(['profile'], updatedUser)
 			queryClient.invalidateQueries({ queryKey: ['profile'] })
 		},
+                onError: (err) => { console.error('[useUpdateProfile] save failed:', err) },
 	})
 }
