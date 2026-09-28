@@ -791,7 +791,7 @@ Member-facing election discovery, voting and revocation screens remain open. Liv
 - Verify the read-only governance overview with head admin and super admin accounts
 - Term and cooling-off status per admin
 
-### A5 — Suspect self-view (route mounted; no screen yet)
+### A5 — Suspect self-view (frontend screen built; response audit pending)
 
 A citizen linked as a suspect via `SuspectCase` can fetch their own case list:
 
@@ -802,9 +802,12 @@ A citizen linked as a suspect via `SuspectCase` can fetch their own case list:
 Resolved cases move from `active` to `history`. The citizen never sees the case as an
 investigative record — only as a status.
 
-**Frontend work:** add a "Suspect cases" tab to the citizen profile that renders the
-two lists. Presumed-innocence framing — "you are linked to this case" — not "you are
-accused".
+**Frontend status:** the citizen profile offers "Cases linked to me" with active and history
+lists and presumed-innocence wording. It renders only identifiers, title, status, role and dates;
+it does not display the API's `lastProgress` text or open a case-detail page. **Backend handoff:**
+`GetMySuspectCases` still copies raw `CaseProgress.Description` into `lastProgress`; audit and curate
+that response server-side before describing the endpoint itself as public-safe. Live account checks
+with a linked and an unlinked citizen are still pending.
 
 ### A6 — Invite scoping
 
@@ -1005,8 +1008,13 @@ when its Definition of Done (§7) is met.
 
 **P2 — surfaces the brief exposes that have no UI yet**
 
+<<<<<<< HEAD
 - [~] **T10** — Governance UI (A4): unit policy view/editor and head-admin governance overview built against existing APIs; live role checks pending; member-facing elections, revocations and their list/discovery paths remain open
 - [ ] **T11** — Suspect self-view (A5)
+=======
+- [ ] **T10** — Governance UI (A4)
+- [~] **T11** — Suspect self-view (A5): citizen profile view built; linked/unlinked live checks and backend `lastProgress` response audit pending
+>>>>>>> origin/feat/frontend-suspect-self-view-20260927
 - [ ] **T12** — Invites (A6)
 - [~] **T13** — F2 SOS frontend built against mocks; live integration and responder-side workflow
       must be verified before pilot use
