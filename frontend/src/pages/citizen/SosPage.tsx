@@ -35,7 +35,7 @@ export function SosPage() {
   const [unitId, setUnitId] = useState('')
   const [hideLocation, setHideLocation] = useState(false)
   const [receipt, setReceipt] = useState<{ trackingId: string; status: string } | null>(null)
-  const alerts = useMySos(false)
+  const alerts = useMySos()
   const units = useUnits()
   const send = useSendSos()
 
