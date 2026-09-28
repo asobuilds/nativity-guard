@@ -34,6 +34,8 @@ import { AdminDemoPage } from '@/pages/AdminDemoPage'
 import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { UnitPolicyPage } from '@/pages/admin/UnitPolicyPage'
+import { GovernanceAuditPage } from '@/pages/admin/GovernanceAuditPage'
 import { AppealsPage } from '@/pages/AppealsPage'
 import type { Role } from '@/types/api'
 
@@ -206,6 +208,8 @@ export function App() {
                   }
                 />
                 <Route path="/admin/transfers" element={<RequireRole roles={ADMIN_ROLES}><TransfersPage /></RequireRole>} />
+                <Route path="/admin/unit-policy" element={<RequireRole roles={ADMIN_ROLES}><UnitPolicyPage /></RequireRole>} />
+                <Route path="/admin/governance-audit" element={<RequireRole roles={ADMIN_ROLES}><GovernanceAuditPage /></RequireRole>} />
 
                 <Route path="/admin/officers" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                 <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />

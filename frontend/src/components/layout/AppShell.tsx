@@ -56,6 +56,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/admin/finance', label: 'Finance demo', icon: <FileText className="size-4" /> },
     { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
+    { to: '/admin/unit-policy', label: 'Governance policy', icon: <Shield className="size-4" /> },
+    { to: '/admin/governance-audit', label: 'Governance overview', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
   ],
