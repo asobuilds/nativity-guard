@@ -10,7 +10,7 @@ The frontend community review branch adds a read-only discussion detail view and
 | Create post | `POST /community/posts` `{title,content}` | 201 `{post}` | Write flag only; note **`content`**, not mock `body` |
 | Reply | `POST /community/replies` `{postId,content}` | 201 `{reply}` | Write flag only; note **`content`**, not mock `body` |
 | Announcements | `GET /community/announcements`; admin `POST` `{title,content}` | `{announcements:[{title,content,publishedAt}]}` | Live list; admin form behind flag |
-| Events | `GET /community/events`; admin `POST` `{title,description,location,eventDate,type:'meeting'}` | `{events:[{eventDate,attendeeCount,...}]}` | Live list; admin form behind flag |
+| Events | `GET /community/events`; admin `POST` `{title,description,location,eventDate,endDate,type:'meeting'}` with RFC3339 dates | `{events:[{eventDate,attendeeCount,...}]}` | Live list; admin form behind flag; both times required by current binding |
 | RSVP | `POST /community/events/:id/rsvp` | 200 `{message}`; duplicate is 400 | Single-direction RSVP behind flag; no cancellation promised |
 
 ## Required backend fixes before enabling the flag
