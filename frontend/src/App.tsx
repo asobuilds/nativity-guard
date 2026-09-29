@@ -27,6 +27,8 @@ import { AdminCaseQueuePage } from '@/pages/admin/AdminCaseQueuePage'
 import { AdminCaseReviewPage } from '@/pages/admin/AdminCaseReviewPage'
 import { TransfersPage } from '@/pages/admin/TransfersPage'
 import { AdminOfficersPage } from '@/pages/admin/AdminOfficersPage'
+import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage'
+import { AdminFinancePage } from '@/pages/admin/AdminFinancePage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
@@ -230,7 +232,10 @@ export function App() {
                 <Route path="/admin/officers" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                 <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                 {/* Remaining admin sections still use demo data. */}
-                {['overview','analytics','finance','settings'].map((section) => <Route key={section} path={`/admin/${section}`} element={<RequireRole roles={ADMIN_ROLES}><AdminDemoPage section={section} /></RequireRole>} />)}
+                <Route path="/admin/overview" element={<RequireRole roles={ADMIN_ROLES}><AdminOverviewPage /></RequireRole>} />
+                <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
+                <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit analytics" description="Under construction." milestone="M7" /></RequireRole>} />
+                <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit settings" description="Under construction." milestone="M7" /></RequireRole>} />
                 <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
                 <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
                 <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
