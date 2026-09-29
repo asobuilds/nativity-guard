@@ -102,6 +102,7 @@ export function LoginPage() {
           <p className="mt-1 text-sm text-ink-muted">
             Use your service email address and password.
           </p>
+          <Link to="/terms" className="mt-2 inline-block text-xs text-signal hover:underline">Read user rules</Link>
 
           {handoff?.registered ? (
             <p
