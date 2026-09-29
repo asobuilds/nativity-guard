@@ -2,9 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { USE_MOCKS } from '@/mocks/config'
+import { applyPreferences, readPreferences } from '@/lib/preferences'
 import './index.css'
 
 async function bootstrap() {
+  applyPreferences(readPreferences())
   // Install the mock API *before* rendering — the app must not fire a request
   // before the adapter is in place.
   if (USE_MOCKS) {
