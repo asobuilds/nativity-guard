@@ -43,6 +43,8 @@ import { SuperSettingsPage } from '@/pages/super/SuperSettingsPage'
 import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { TermsPage } from '@/pages/TermsPage'
 import { UnitPolicyPage } from '@/pages/admin/UnitPolicyPage'
 import { GovernanceAuditPage } from '@/pages/admin/GovernanceAuditPage'
 import { InvitationsPage, InviteLandingPage } from '@/pages/InvitationsPage'
@@ -136,6 +138,7 @@ export function App() {
             <Routes>
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/signup" element={<SignupPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route path="/invite" element={<InviteLandingPage />} />
 
               {/* Recovery. Two routes rather than one screen with steps, because
@@ -155,6 +158,7 @@ export function App() {
               <Route element={<ProtectedShell />}>
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/invites" element={<InvitationsPage />} />
                 <Route path="/sessions" element={<SessionsPage />} />
                 <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
