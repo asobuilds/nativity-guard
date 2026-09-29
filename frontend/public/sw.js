@@ -1,9 +1,11 @@
-/* Nativity Guard service worker
- * Cache-first for the app shell so the app loads instantly and works offline.
- * Network-first for API GETs with cache fallback so reads survive a dead zone.
- * Never caches POST/PUT/DELETE — those go through the write queue instead.
+/* Nativity Guard service worker — v2
+ *
+ * Cache-first for immutable hashed assets (JS, CSS) so repeat visits are
+ * instant. Network-first for API GETs with cache fallback so reads work
+ * offline. Never caches POST/PUT/DELETE — those go through the offline
+ * write queue in @/lib/offlineQueue.ts.
  */
-const CACHE = 'ng-shell-v1'
+const CACHE = 'ng-shell-v2'
 const SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
@@ -16,7 +18,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
+      Promise.all(
+        keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+      ),
     ),
   )
   self.clients.claim()
@@ -26,36 +30,51 @@ self.addEventListener('fetch', (event) => {
   const req = event.request
   const url = new URL(req.url)
 
-  // Only handle same-origin + our backend. Skip everything else.
+  // Only handle GET. POST/PUT/DELETE go through the offline queue.
   if (req.method !== 'GET') return
 
-  // App shell (HTML navigation) — cache-first, fall back to /index.html when offline.
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).catch(() => caches.match('/index.html').then((r) => r || Response.error())),
-    )
-    return
-  }
+  // Same-origin assets only (plus API).
+  const sameOrigin = url.origin === self.location.origin
+  const isApi = sameOrigin && url.pathname.startsWith('/api/')
+  const isHashedAsset = sameOrigin && url.pathname.startsWith('/assets/')
+  const isHtml = sameOrigin && (url.pathname === '/' || url.pathname.endsWith('.html'))
 
-  // Static assets — cache-first.
-  if (url.origin === self.location.origin) {
+  // 1. Hashed JS/CSS — cache-first forever. Content hashes mean a filename
+  //    change signals new content, so a cache hit is always safe.
+  if (isHashedAsset) {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) return cached
-        return fetch(req)
-          .then((resp) => {
+        return fetch(req).then((resp) => {
+          if (resp.ok) {
             const copy = resp.clone()
             caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => undefined)
-            return resp
-          })
-          .catch(() => caches.match('/index.html').then((r) => r || Response.error()))
+          }
+          return resp
+        })
       }),
     )
     return
   }
 
-  // API GETs — network-first, fall back to last cached response.
-  if (url.pathname.startsWith('/api/')) {
+  // 2. HTML navigation — network-first, fall back to cached index.html.
+  if (req.mode === 'navigate' || isHtml) {
+    event.respondWith(
+      fetch(req)
+        .then((resp) => {
+          const copy = resp.clone()
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => undefined)
+          return resp
+        })
+        .catch(() =>
+          caches.match('/index.html').then((r) => r || Response.error()),
+        ),
+    )
+    return
+  }
+
+  // 3. API GETs — network-first, fall back to last cached response.
+  if (isApi) {
     event.respondWith(
       fetch(req)
         .then((resp) => {
@@ -66,5 +85,12 @@ self.addEventListener('fetch', (event) => {
         .catch(() => caches.match(req).then((r) => r || Response.error())),
     )
     return
+  }
+
+  // 4. Everything else same-origin — network with cache fallback.
+  if (sameOrigin) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req)),
+    )
   }
 })
