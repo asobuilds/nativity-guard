@@ -125,6 +125,7 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 		cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
 		cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
 		cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
+		cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
 		cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)
 		cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.DispatchCase)
 		cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ArriveAtCase)
@@ -201,6 +202,7 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 			sos.PUT("/:id/status", middleware.AuthMiddleware(), handlers.UpdateSOSAlertStatus)
 			sos.POST("/:id/accept", middleware.AuthMiddleware(), handlers.AcceptSOS)
 			sos.POST("/:id/release", middleware.AuthMiddleware(), handlers.ReleaseSOS)
+			sos.POST("/:id/assign", middleware.AuthMiddleware(), handlers.AssignSOS)
 		}
 
 		// Suspect routes
