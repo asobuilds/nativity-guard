@@ -50,6 +50,11 @@
   --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -18px rgb(0 0 0 / 0.9);
 }
 
+/* Personal accents only change the signal colour; operational status and SOS stay fixed. */
+html[data-accent='sky'] { --color-signal: #8bd3f7; --color-signal-ink: #112a37; }
+html[data-accent='forest'] { --color-signal: #a7dfad; --color-signal-ink: #142d1e; }
+html[data-text-size='large'] { font-size: 112.5%; }
+
 @layer base {
   html,
   body,
@@ -244,4 +249,3 @@
     stroke-dashoffset: 0 !important;
   }
 }
-
