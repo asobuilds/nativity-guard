@@ -21,6 +21,8 @@ import { ReportIncidentPage } from '@/pages/citizen/ReportIncidentPage'
 import { OfficerQueuePage } from '@/pages/officer/OfficerQueuePage'
 import { OfficerCasePage } from '@/pages/officer/OfficerCasePage'
 import { MapPage } from '@/pages/MapPage'
+import { UnitsPage } from '@/pages/UnitsPage'
+import { UnitDetailPage } from '@/pages/UnitDetailPage'
 import { AdminCaseQueuePage } from '@/pages/admin/AdminCaseQueuePage'
 import { AdminCaseReviewPage } from '@/pages/admin/AdminCaseReviewPage'
 import { TransfersPage } from '@/pages/admin/TransfersPage'
@@ -199,6 +201,8 @@ export function App() {
 
                 {/* Shared spatial view, used by every role. */}
                 <Route path="/map" element={<MapPage />} />
+                <Route path="/units" element={<UnitsPage />} />
+                <Route path="/units/:id" element={<UnitDetailPage />} />
 
                 {/* Unit administration — triage, assignment and case review. */}
                 <Route

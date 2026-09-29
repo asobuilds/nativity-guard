@@ -266,6 +266,24 @@ export interface SecurityUnit {
   status: string
   isVerified: boolean
   verificationStatus?: string
+
+  // Section B — commander details (from the registration form)
+  commanderName?: string
+  commanderNin?: string
+  commanderPhoneAlt?: string
+  commanderOccupation?: string
+  commanderPriorExperience?: string
+  // Section C — operational & equipment profile
+  hasUniform?: boolean
+  uniformDescription?: string
+  shiftPattern?: string
+  permittedTools?: string
+  weaponsRegistered?: boolean
+  // Section D — traditional & local endorsement
+  kindredHeadName?: string
+  kindredHeadPhone?: string
+  wardHeadName?: string
+  wardHeadPhone?: string
 }
 
 /** Enriched unit returned by GET /units/nearby. */

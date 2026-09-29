@@ -42,6 +42,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+    { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
   ],
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
@@ -78,6 +79,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
     { to: '/admin/community', label: 'Community admin', icon: <Users className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+    { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
     { to: '/notifications', label: 'Notifications', icon: <Megaphone className="size-4" /> },
 
