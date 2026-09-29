@@ -36,9 +36,10 @@ func ConnectDatabase() {
 		log.Fatal("Error getting database instance:", err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+        sqlDB.SetMaxIdleConns(5)
+        sqlDB.SetMaxOpenConns(20)
+        sqlDB.SetConnMaxLifetime(30 * time.Minute)
+        sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	if err := sqlDB.Ping(); err != nil {
 		log.Fatal("Error pinging database:", err)
