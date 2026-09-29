@@ -36,6 +36,8 @@ import { AdminDemoPage } from '@/pages/AdminDemoPage'
 import { SuperOverviewPage } from '@/pages/super/SuperOverviewPage'
 import { SuperUsersPage } from '@/pages/super/SuperUsersPage'
 import { SuperAuditPage } from '@/pages/super/SuperAuditPage'
+import { SuperAnalyticsPage } from '@/pages/super/SuperAnalyticsPage'
+import { SuperSettingsPage } from '@/pages/super/SuperSettingsPage'
 import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
 import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
 import { ProfilePage } from '@/pages/ProfilePage'
@@ -232,8 +234,8 @@ export function App() {
                 <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
                 <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
                 <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
-                <Route path="/super/analytics" element={<RequireRole roles={['super_admin']}><ComingSoonPage title="Platform analytics" description="Under construction." milestone="M7" /></RequireRole>} />
-                <Route path="/super/settings" element={<RequireRole roles={['super_admin']}><ComingSoonPage title="Platform settings" description="Under construction." milestone="M7" /></RequireRole>} />
+                <Route path="/super/analytics" element={<RequireRole roles={['super_admin']}><SuperAnalyticsPage /></RequireRole>} />
+                <Route path="/super/settings" element={<RequireRole roles={['super_admin']}><SuperSettingsPage /></RequireRole>} />
                 {/* The unit registry is built — it left the demo stub and reads real
                     data. Listed before the `/super/*` fallback so the real page
                     wins, and named ahead of the `:id` route so "new" is never read
