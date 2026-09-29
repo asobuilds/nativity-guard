@@ -199,6 +199,8 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
 			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)
 			sos.PUT("/:id/status", middleware.AuthMiddleware(), handlers.UpdateSOSAlertStatus)
+			sos.POST("/:id/accept", middleware.AuthMiddleware(), handlers.AcceptSOS)
+			sos.POST("/:id/release", middleware.AuthMiddleware(), handlers.ReleaseSOS)
 		}
 
 		// Suspect routes
