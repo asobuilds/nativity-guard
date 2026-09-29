@@ -47,11 +47,28 @@ func SendSOSAlert(c *gin.Context) {
 		input.Priority = "high"
 	}
 
+	severity := "normal"
+	if input.Priority == "critical" {
+		severity = "critical"
+	}
+
 	geohash := utils.EncodeGeohash(input.Latitude, input.Longitude, 5)
 	anon := input.HideLocation || !userObj.LocationSharingEnabled
 
-	sos := models.SOSAlert{
-		UserID:      userObj.ID,
+	// Best-effort jurisdiction lookup so head admins in the same
+    // state/LGA can be notified at creation time.
+    var jurState, jurLGA string
+    if rec, err := services.NewGeocodingService().ReverseGeocode(input.Latitude, input.Longitude); err == nil && rec != nil {
+        jurState = rec.State
+        jurLGA = rec.LGA
+    }
+
+    sos := models.SOSAlert{
+		UserID:        userObj.ID,
+		Severity:      severity,
+		DispatchState:    "open",
+		JurisdictionState: jurState,
+		JurisdictionLGA:   jurLGA,
 		Latitude:    input.Latitude,
 		Longitude:   input.Longitude,
 		Description: input.Description,
@@ -100,7 +117,13 @@ func SendSOSAlert(c *gin.Context) {
 	}
 
 	// Notify nearest units
-	go notifyNearestUnits(sos)
+	go func() {
+        dispatcher := services.NewSosDispatchService()
+        candidates := dispatcher.SelectCandidates(sos.Latitude, sos.Longitude)
+        dispatcher.NotifyCandidates(sos, candidates)
+        dispatcher.NotifySuperAdmins(sos, "new SOS")
+        dispatcher.NotifyJurisdictionHeads(sos)
+    }()
 
 	// Start escalation timer (auto-escalate if no response in 5 minutes)
 	go startEscalationTimer(sos.ID)
