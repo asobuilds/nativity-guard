@@ -251,6 +251,9 @@ export function SignupPage() {
           </form>
 
           <p className="mt-6 text-sm text-ink-muted">
+            Please read the <Link to="/terms" className="text-signal hover:underline">user rules for your account</Link> before creating an account.
+          </p>
+          <p className="mt-3 text-sm text-ink-muted">
             Already have an account?{' '}
             <Link to="/auth/login" className="text-signal hover:text-signal-ink">
               Sign in
