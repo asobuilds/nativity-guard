@@ -15,6 +15,7 @@ import {
   type SignupField,
 } from '@/lib/signup'
 import type { RegisterResponse } from '@/types/api'
+import { useAuth } from '@/auth/AuthContext'
 
 /**
  * Create an account.
@@ -22,9 +23,8 @@ import type { RegisterResponse } from '@/types/api'
  * Two facts about `POST /auth/register` shape this screen, both read off
  * `handlers/auth_handler.go` and recorded in frontReadme Appendix B:
  *
- *  1. It returns **no token** — `{ message, user }` and nothing else. So success
- *     cannot sign anyone in; it hands off to the login screen with the address
- *     prefilled. A page that assumed a token would strand the user silently.
+ *  1. It returns **no token** — `{ message, user }` and nothing else. After
+ *     registration, sign in with the submitted credentials to establish a session.
  *  2. It **ignores any `role` you send** and hardcodes `"citizen"`. There is no
  *     role selector here, and the copy says plainly what kind of account this
  *     creates rather than offering a choice that does not exist.
@@ -35,6 +35,7 @@ import type { RegisterResponse } from '@/types/api'
  */
 export function SignupPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
 
   const [draft, setDraft] = useState<SignupDraft>(EMPTY_SIGNUP)
   const [touched, setTouched] = useState<ReadonlySet<SignupField>>(new Set())
@@ -63,6 +64,7 @@ export function SignupPage() {
     if (!complete) return
 
     setSubmitting(true)
+    let registered = false
     try {
       await api.postAnonymous<RegisterResponse>('/auth/register', {
         email: draft.email.trim(),
@@ -74,14 +76,18 @@ export function SignupPage() {
         // No `role` — the endpoint ignores it, and sending one would suggest
         // this form can choose a privileged account. It cannot.
       })
-
-      // No token came back, so there is nothing to sign in with. Hand over to the
-      // login screen carrying the address so the work already done is not lost.
-      navigate('/auth/login', {
-        replace: true,
-        state: { email: draft.email.trim(), registered: true },
-      })
+      registered = true
+      await login(draft.email.trim(), draft.password)
+      navigate('/', { replace: true })
     } catch (cause) {
+      if (registered) {
+        // The account exists even if session creation failed. Never retry registration.
+        navigate('/auth/login', {
+          replace: true,
+          state: { email: draft.email.trim(), registered: true },
+        })
+        return
+      }
       // The server's refusal is repeated verbatim. Its duplicate-account message is
       // deliberately generic — it never says *which* of email or phone matched — and
       // guessing a field here would undo that.
