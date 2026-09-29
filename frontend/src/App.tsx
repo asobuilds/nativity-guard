@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
@@ -11,46 +11,50 @@ import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
 import { useRouteLoading } from '@/hooks/useRouteLoading'
 import { LandingPage } from '@/pages/LandingPage'
-import { LoginPage } from '@/pages/auth/LoginPage'
-import { SignupPage } from '@/pages/auth/SignupPage'
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
-import { CitizenHomePage } from '@/pages/citizen/CitizenHomePage'
-import { CitizenCasePage } from '@/pages/citizen/CitizenCasePage'
-import { SosPage } from '@/pages/citizen/SosPage'
-import { ReportIncidentPage } from '@/pages/citizen/ReportIncidentPage'
-import { OfficerQueuePage } from '@/pages/officer/OfficerQueuePage'
-import { OfficerCasePage } from '@/pages/officer/OfficerCasePage'
-import { MapPage } from '@/pages/MapPage'
-import { UnitsPage } from '@/pages/UnitsPage'
-import { UnitDetailPage } from '@/pages/UnitDetailPage'
-import { AdminCaseQueuePage } from '@/pages/admin/AdminCaseQueuePage'
-import { AdminCaseReviewPage } from '@/pages/admin/AdminCaseReviewPage'
-import { TransfersPage } from '@/pages/admin/TransfersPage'
-import { AdminOfficersPage } from '@/pages/admin/AdminOfficersPage'
-import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage'
-import { AdminFinancePage } from '@/pages/admin/AdminFinancePage'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { NotificationsPage } from '@/pages/NotificationsPage'
-import { AlertsPage, AlertDetailPage, NewsPage, SubscriptionsPage } from '@/pages/AwarenessPage'
-import { CommunityPage } from '@/pages/CommunityPage'
-import { SuperOverviewPage } from '@/pages/super/SuperOverviewPage'
-import { SuperUsersPage } from '@/pages/super/SuperUsersPage'
-import { SuperAuditPage } from '@/pages/super/SuperAuditPage'
-import { SuperAnalyticsPage } from '@/pages/super/SuperAnalyticsPage'
-import { SuperSettingsPage } from '@/pages/super/SuperSettingsPage'
-import { UnitsRegistryPage } from '@/pages/super/UnitsRegistryPage'
-import { UnitRegistrationPage } from '@/pages/super/UnitRegistrationPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { SettingsPage } from '@/pages/SettingsPage'
-import { TermsPage } from '@/pages/TermsPage'
-import { UnitPolicyPage } from '@/pages/admin/UnitPolicyPage'
-import { GovernanceAuditPage } from '@/pages/admin/GovernanceAuditPage'
-import { InvitationsPage, InviteLandingPage } from '@/pages/InvitationsPage'
-import { SessionsPage } from '@/pages/SessionsPage'
-import { AppealsPage } from '@/pages/AppealsPage'
-import { AiAssistantPage } from '@/pages/AiAssistantPage'
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
+const CitizenHomePage = lazy(() => import('@/pages/citizen/CitizenHomePage').then(m => ({ default: m.CitizenHomePage })))
+const CitizenCasePage = lazy(() => import('@/pages/citizen/CitizenCasePage').then(m => ({ default: m.CitizenCasePage })))
+const SosPage = lazy(() => import('@/pages/citizen/SosPage').then(m => ({ default: m.SosPage })))
+const ReportIncidentPage = lazy(() => import('@/pages/citizen/ReportIncidentPage').then(m => ({ default: m.ReportIncidentPage })))
+const OfficerQueuePage = lazy(() => import('@/pages/officer/OfficerQueuePage').then(m => ({ default: m.OfficerQueuePage })))
+const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').then(m => ({ default: m.OfficerCasePage })))
+const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })))
+const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m.UnitsPage })))
+const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
+const AdminCaseQueuePage = lazy(() => import('@/pages/admin/AdminCaseQueuePage').then(m => ({ default: m.AdminCaseQueuePage })))
+const AdminCaseReviewPage = lazy(() => import('@/pages/admin/AdminCaseReviewPage').then(m => ({ default: m.AdminCaseReviewPage })))
+const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m => ({ default: m.TransfersPage })))
+const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
+const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
+const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
+const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
+const AlertsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertsPage })))
+const AlertDetailPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertDetailPage })))
+const NewsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.NewsPage })))
+const SubscriptionsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.SubscriptionsPage })))
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.CommunityPage })))
+const SuperOverviewPage = lazy(() => import('@/pages/super/SuperOverviewPage').then(m => ({ default: m.SuperOverviewPage })))
+const SuperUsersPage = lazy(() => import('@/pages/super/SuperUsersPage').then(m => ({ default: m.SuperUsersPage })))
+const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m => ({ default: m.SuperAuditPage })))
+const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage').then(m => ({ default: m.SuperAnalyticsPage })))
+const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
+const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
+const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
+const UnitPolicyPage = lazy(() => import('@/pages/admin/UnitPolicyPage').then(m => ({ default: m.UnitPolicyPage })))
+const GovernanceAuditPage = lazy(() => import('@/pages/admin/GovernanceAuditPage').then(m => ({ default: m.GovernanceAuditPage })))
+const InvitationsPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
+const InviteLandingPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InviteLandingPage })))
+const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ default: m.SessionsPage })))
+const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
+const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
 import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
@@ -135,7 +139,8 @@ export function App() {
         <BrowserRouter>
           <RouteLoadingBanner />
           <AuthProvider>
-            <Routes>
+            <Suspense fallback={<FullPageSpinner />}>
+                <Routes>
               <Route path="/auth/login" element={<LoginPage />} />
               <Route path="/auth/signup" element={<SignupPage />} />
               <Route path="/terms" element={<TermsPage />} />
@@ -306,6 +311,7 @@ export function App() {
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>
+              </Suspense>
           </AuthProvider>
         </BrowserRouter>
       </ToastProvider>
