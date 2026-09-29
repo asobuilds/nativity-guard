@@ -18,6 +18,7 @@ const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').th
 const CitizenHomePage = lazy(() => import('@/pages/citizen/CitizenHomePage').then(m => ({ default: m.CitizenHomePage })))
 const CitizenCasePage = lazy(() => import('@/pages/citizen/CitizenCasePage').then(m => ({ default: m.CitizenCasePage })))
 const SosPage = lazy(() => import('@/pages/citizen/SosPage').then(m => ({ default: m.SosPage })))
+const SosDetailPage = lazy(() => import('@/pages/citizen/SosDetailPage').then(m => ({ default: m.SosDetailPage })))
 const ReportIncidentPage = lazy(() => import('@/pages/citizen/ReportIncidentPage').then(m => ({ default: m.ReportIncidentPage })))
 const OfficerQueuePage = lazy(() => import('@/pages/officer/OfficerQueuePage').then(m => ({ default: m.OfficerQueuePage })))
 const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').then(m => ({ default: m.OfficerCasePage })))
@@ -177,6 +178,7 @@ export function App() {
                 {/* SOS is for everyone signed in — an officer in trouble needs the
                     same button a citizen does, so no role gate beyond the shell. */}
                 <Route path="/sos" element={<SosPage />} />
+                <Route path="/sos/:id" element={<SosDetailPage />} />
                 {/* A citizen's own report — the curated detail view, deliberately
                     narrower than the staff case page. Citizen-only, so an officer
                     who lands here is sent to their own queue rather than shown a
