@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api } from '@/lib/apiClient'
+import { postQueued } from '@/lib/apiClient'
 import type {
   Case,
   CaseDetailResponse,
@@ -49,7 +50,15 @@ export function useCreateCase() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: CreateCaseInput) => api.post<CreateCaseResponse>('/cases', input),
+    mutationFn: async (input: CreateCaseInput) => {
+      // Offline-safe: if the network is down, queue the report and
+      // return a synthetic "queued" case so the UI can show it saved.
+      const result = await postQueued<CreateCaseResponse>('/cases', input)
+      if (result && typeof result === 'object' && 'queued' in result) {
+        return { queued: true, trackingId: 'QUEUED-' + Date.now().toString(36).toUpperCase() } as unknown as CreateCaseResponse
+      }
+      return result
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: caseKeys.list() }),
   })
 }

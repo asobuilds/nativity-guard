@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Typed fetch client for the Nativity Guard API.
  *
  * - Injects `Authorization: Bearer <token>` when a session exists.
@@ -299,6 +299,26 @@ async function requestUpload<T>(
   return JSON.parse(text) as T
 }
 
+/**
+ * Like `api.post`, but if the network is down the write is stored in the
+ * offline queue instead of throwing. Returns a synthetic response so callers
+ * can render a "queued" state without branching.
+ *
+ * Use this ONLY for append-only writes (SOS, reports). Never for anything
+ * that needs server-side validation to be trusted.
+ */
+export async function postQueued<T>(path: string, body: unknown): Promise<T | { queued: true }> {
+  try {
+    return await api.post<T>(path, body)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 0) {
+      const { enqueue } = await import('@/lib/offlineQueue')
+      await enqueue(path, body)
+      return { queued: true }
+    }
+    throw err
+  }
+}
 export const api = {
 	get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal }),
 	post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),

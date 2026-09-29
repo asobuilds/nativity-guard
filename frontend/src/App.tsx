@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { LoadingBanner } from '@/components/layout/LoadingBanner'
 import { FullPageSpinner } from '@/components/ui/States'
 import { ToastProvider } from '@/components/ui/Toast'
+import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
 import { useRouteLoading } from '@/hooks/useRouteLoading'
 import { LandingPage } from '@/pages/LandingPage'
@@ -128,6 +129,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
+        <OfflineBanner />
         <BrowserRouter>
           <RouteLoadingBanner />
           <AuthProvider>
