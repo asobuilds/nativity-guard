@@ -1,0 +1,19 @@
+{
+  "name": "Nativity Guard",
+  "short_name": "NGS",
+  "description": "Community-centered public safety operations platform.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070A10",
+  "theme_color": "#070A10",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -28,6 +28,13 @@ async function bootstrap() {
       </ErrorBoundary>
     </StrictMode>,
   )
+
+
+  // Register the service worker so the app shell loads offline.
+  // Fails silently in dev or unsupported browsers.
+  if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+  }
 }
 
 void bootstrap()
