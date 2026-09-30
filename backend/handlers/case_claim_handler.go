@@ -10,6 +10,7 @@ import (
 
     "security-solution/config"
     "security-solution/models"
+	"security-solution/services"
 )
 
 // ClaimCase lets a unit_admin lock a case to their unit.

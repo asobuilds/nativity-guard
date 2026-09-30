@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/auth/AuthContext'
 import { Card } from '@/components/ui/Card'
 import { PriorityChip, StatusChip } from '@/components/ui/Chips'
 import { Input } from '@/components/ui/Field'
@@ -20,6 +21,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { AssignOfficerDialog } from '@/components/admin/AssignOfficerDialog'
 import { useCases } from '@/hooks/useCases'
+import { useClaimCase } from '@/hooks/useCases'
 import { useAssignOfficer, useUnitOfficers } from '@/hooks/useOfficers'
 import { useUnits } from '@/hooks/useUnits'
 import { ApiError } from '@/lib/apiClient'
@@ -505,6 +507,7 @@ function ReviewRow({
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
+        <ClaimButton caseItem={caseItem} />
         <Button
           size="sm"
           variant={unassigned ? 'primary' : 'secondary'}
@@ -528,4 +531,36 @@ function ReviewRow({
 function shortId(id: string | undefined | null): string {
   if (!id) return '—'
   return id.length > 10 ? `${id.slice(0, 8)}…` : id
+}
+
+
+/**
+ * Self-contained "Take this case" button.
+ *
+ * Renders only when the case is:
+ *   - owned by a different unit than the caller's,
+ *   - not yet assigned to an officer (no work in progress), and
+ *   - not closed.
+ *
+ * Placing the mutation here keeps the parent row clean — no props to
+ * thread through, no hooks added to the existing component.
+ */
+function ClaimButton({ caseItem }: { caseItem: Case }) {
+  const { user } = useAuth()
+  const claimCase = useClaimCase()
+  const canClaim =
+    caseItem.unitId !== user?.unitId &&
+    !caseItem.assignedTo &&
+    caseItem.status !== 'closed'
+  if (!canClaim) return null
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      loading={claimCase.isPending}
+      onClick={() => claimCase.mutate(caseItem.id)}
+    >
+      Take this case
+    </Button>
+  )
 }

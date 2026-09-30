@@ -117,3 +117,16 @@ export function useCaseActions(id: string | undefined) {
 
   return { dispatch, arrive, submitForReview, assign }
 }
+
+/** `POST /cases/:id/claim` — take over a case for the caller's unit. */
+export function useClaimCase() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (caseId: string) =>
+      api.post<{ message: string; case: unknown }>(`/cases/${caseId}/claim`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: caseKeys.list() })
+      void queryClient.invalidateQueries({ queryKey: ['cases'] })
+    },
+  })
+}
