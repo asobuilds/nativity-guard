@@ -28,10 +28,12 @@ func main() {
 	defer config.CloseDatabase()
 
 	if err := config.AutoMigrateAll(); err != nil {
-	// Seed the current terms documents so /terms/:role always has content.
-	services.EnsureTermsSeeded()
-		log.Fatalf("auto-migration failed: %v", err)
-	}
+        log.Fatalf("auto-migration failed: %v", err)
+    }
+
+    // Seed the current terms documents so /api/v1/terms/:role always has content.
+    // Must run OUTSIDE the error check — it's a normal boot step, not a fallback.
+    services.EnsureTermsSeeded()
 
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)
