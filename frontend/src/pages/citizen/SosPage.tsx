@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, LocateFixed, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, LocateFixed, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
@@ -141,26 +141,59 @@ export function SosPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 p-4 pb-28 sm:p-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
-          <ShieldAlert className="size-6 text-emergency" aria-hidden /> Emergency SOS
-        </h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Prepare your location, then confirm before sending. Nothing is sent when you open this page.
-        </p>
-      </header>
+      {/* Hero band — the emergency action lives here and nowhere else. */}
+      <div className="relative overflow-hidden rounded-panel glass-panel p-5 sm:p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.25) 0%, transparent 70%)' }}
+        />
+        <div className="relative flex items-start gap-4">
+          <span className="grid size-12 shrink-0 place-items-center rounded-full border border-emergency/40 bg-emergency/15 text-emergency">
+            <ShieldAlert className="size-6" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold text-ink sm:text-2xl">Emergency SOS</h1>
+            <p className="mt-1.5 max-w-prose text-sm text-ink-muted">
+              Prepare your location, then confirm before sending. Nothing is sent when you open this page.
+            </p>
+          </div>
+        </div>
+      </div>
 
       
 
       {receipt ? (
-        <Card className="border-ok/50 p-5">
+        <div className="relative overflow-hidden rounded-panel glass-panel p-5">
           <span role="status" className="sr-only">Emergency request received</span>
-          <p className="font-semibold text-ink">Emergency request received</p>
-          <p className="mt-2 text-sm text-ink-muted">
-            Tracking ID <strong className="text-ink">{receipt.trackingId}</strong> · {receipt.status}.
-            Check its status below. A receipt does not mean a unit has been dispatched.
-          </p>
-        </Card>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-12 -top-12 size-48 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(34,197,94,0.22) 0%, transparent 70%)' }}
+          />
+          <div className="relative flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full border border-ok/40 bg-ok/15 text-ok">
+              <CheckCircle2 className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-ink">Emergency request received</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                A receipt does not mean a unit has been dispatched — check the status below.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm font-semibold tracking-wider text-ink tabular-nums">
+                  {receipt.trackingId}
+                </span>
+                <Link
+                  to={`/sos/${receipt.trackingId}`}
+                  className="text-xs text-signal underline-offset-2 hover:underline"
+                >
+                  View status →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <Card className="space-y-5 p-5">
