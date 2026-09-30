@@ -220,7 +220,7 @@ function CaseRow({ caseItem }: { caseItem: Case }) {
   return (
     <Link
       to={`/officer/cases/${caseItem.id}`}
-      className="block rounded-panel border border-border bg-surface shadow-panel transition-colors hover:border-border-hi hover:bg-surface-hi/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      className="glass-panel--lift block rounded-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-signal"
     >
       <div className="flex items-start gap-3 p-4">
         <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', meta.dot)} aria-hidden />
