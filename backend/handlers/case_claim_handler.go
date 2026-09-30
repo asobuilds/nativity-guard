@@ -10,17 +10,23 @@ import (
 
     "security-solution/config"
     "security-solution/models"
-	"security-solution/services"
+    "security-solution/services"
 )
 
-// ClaimCase lets a unit_admin lock a case to their unit.
+// ClaimCase transfers a case to the caller's unit.
 //
-// Rule: a case can only be claimed once. Once claimed, later attempts
-// get 409 and the case is invisible as available in the queue.
+// Takeover rules:
+//   - Same unit owns the case: idempotent success (no-op).
+//   - Different unit owns it AND an officer is assigned: refuse.
+//     Work in progress must not be stolen.
+//   - Different unit owns it but no officer is assigned yet: allow
+//     the takeover.
+//   - A super_admin may also specify which unit should receive the case
+//     via the request body's `unitId` field; other roles always use
+//     their own unit.
 //
-// This differs from the existing officer-assignment flow (AssignCase):
-// assignment puts an officer on the case inside a unit; claiming locks
-// the CASE to a UNIT so other units cannot take it.
+// Every successful transfer (including the same-unit no-op) is written
+// to the audit log as `case.transfer_claim`.
 func ClaimCase(c *gin.Context) {
     idStr := c.Param("id")
     caseID, err := uuid.Parse(idStr)
@@ -45,7 +51,7 @@ func ClaimCase(c *gin.Context) {
     }
 
     var input struct {
-        UnitID string `json:"unitId"` // super_admin may specify a unit; others use their own
+        UnitID string `json:"unitId"`
     }
     _ = c.ShouldBindJSON(&input)
 
@@ -70,18 +76,23 @@ func ClaimCase(c *gin.Context) {
         return
     }
 
-    // Already claimed by another unit?
+    // Takeover guard.
     if caseObj.UnitID != uuid.Nil && caseObj.UnitID != claimUnit {
-        c.JSON(http.StatusConflict, gin.H{"error": "Another unit has already taken this case"})
-        return
+        if caseObj.AssignedTo != nil && userObj.Role != "super_admin" {
+            c.JSON(http.StatusConflict, gin.H{
+                "error": "Another unit is already working this case",
+            })
+            return
+        }
     }
 
-    // Look up the unit for its name (used in the notification body).
     var unit models.SecurityUnit
     if err := config.DB.First(&unit, "id = ?", claimUnit).Error; err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
         return
     }
+
+    previousOwner := caseObj.UnitID
 
     updates := map[string]interface{}{
         "unit_id": claimUnit,
@@ -94,6 +105,19 @@ func ClaimCase(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to claim"})
         return
     }
+
+    // Audit every transfer. Same-unit no-op still logs so the trail is complete.
+    auditSvc := services.NewAuditService()
+    _ = auditSvc.LogAction(
+        userObj.ID,
+        "case.transfer_claim",
+        "case",
+        caseID.String(),
+        map[string]interface{}{"unitId": previousOwner},
+        map[string]interface{}{"unitId": claimUnit, "claimedBy": userObj.ID},
+        c.ClientIP(),
+        c.Request.UserAgent(),
+    )
 
     // Notify the reporter.
     config.DB.Create(&models.Notification{
