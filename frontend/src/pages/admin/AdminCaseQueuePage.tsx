@@ -463,7 +463,7 @@ function ReviewRow({
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded-panel border bg-surface p-4 shadow-panel transition-colors',
+        'glass-panel--lift flex items-start gap-3 rounded-panel p-4',
         unassigned ? 'border-warn/40' : 'border-border hover:border-border-hi',
       )}
     >
