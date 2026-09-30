@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, LocateFixed, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/cn'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select, Textarea } from '@/components/ui/Field'
@@ -303,11 +304,42 @@ export function SosPage() {
           <ul className="space-y-2">
             {alerts.data.map((alert) => (
               <li key={alert.id}>
-                <Card className="flex flex-wrap items-center justify-between gap-2 p-4">
-                  <div><p className="text-sm font-medium text-ink">{alert.id}</p>
-                    <p className="text-xs text-ink-muted">{formatDateTime(alert.createdAt)}</p></div>
-                  <span className="text-sm font-semibold text-ink">{statusLabel[alert.status] ?? alert.status}</span>
-                </Card>
+                <Link
+                  to={`/sos/${alert.id}`}
+                  className="block rounded-panel focus-visible:outline-2 focus-visible:outline-signal"
+                >
+                  <Card className="glass-panel--lift flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs font-medium text-ink tabular-nums">
+                        {alert.id.slice(0, 8)}…
+                      </p>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        {formatDateTime(alert.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                        alert.status === 'resolved' && 'bg-ok/15 text-ok',
+                        alert.status === 'escalated' && 'bg-warn/15 text-warn',
+                        alert.status === 'dispatched' && 'bg-signal/15 text-signal',
+                        alert.status === 'pending' && 'bg-surface-hi text-ink-muted',
+                      )}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          alert.status === 'resolved' && 'bg-ok',
+                          alert.status === 'escalated' && 'bg-warn',
+                          alert.status === 'dispatched' && 'bg-signal',
+                          alert.status === 'pending' && 'bg-ink-faint',
+                        )}
+                      />
+                      {statusLabel[alert.status] ?? alert.status}
+                    </span>
+                  </Card>
+                </Link>
               </li>
             ))}
           </ul>
