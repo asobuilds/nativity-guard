@@ -13,7 +13,7 @@ export function Card({
   return (
     <Tag
       className={cn(
-        'rounded-panel border border-border bg-surface shadow-panel',
+        'glass-panel rounded-panel',
         className,
       )}
     >

@@ -23,6 +23,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { fullName, initials } from '@/lib/format'
 import { Logo } from '@/components/brand/Logo'
 import { NotificationBell } from './NotificationBell'
+import { AppBackground } from './AppBackground'
 import type { Role } from '@/types/api'
 
 interface NavItem {
@@ -209,7 +210,8 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
   }
 
   return (
-    <div className="flex min-h-screen bg-base">
+    <div className="relative flex min-h-screen">
+      <AppBackground />
       {/* Scrim behind the drawer. `md:hidden` keeps it off desktop entirely. */}
       {mobileNavOpen ? (
         <div

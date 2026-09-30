@@ -249,3 +249,140 @@ html[data-text-size='large'] { font-size: 112.5%; }
     stroke-dashoffset: 0 !important;
   }
 }
+
+/* ============================================================
+   Dawn Canopy v2 — glassmorphism + layered depth background
+   Added during UX-1. All layers respect reduced-motion and
+   reduced-transparency preferences.
+   ============================================================ */
+
+/* The base color moves to <body> so AppShell can be transparent
+   and the depth layers below actually show through. */
+body {
+  background-color: var(--color-base);
+  color: var(--color-ink);
+}
+
+/* Layer 1 — Nigeria flag (green/white/green) — hugely blurred,
+   tilted, dark-friendly opacity so it reads as atmosphere. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -3;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    #008751 0%,
+    #008751 33.3%,
+    #ffffff 33.3%,
+    #ffffff 66.6%,
+    #008751 66.6%,
+    #008751 100%
+  );
+  filter: blur(140px) saturate(120%);
+  opacity: 0.14;
+  transform: rotate(-14deg);
+}
+
+/* Layer 2 — radial warm glow, adds "dawn" depth without noise. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 35%, rgba(244, 203, 120, 0.10), transparent 65%),
+    radial-gradient(ellipse 90% 70% at 20% 100%, rgba(0, 135, 81, 0.08), transparent 60%);
+}
+
+/* Layer 3 — shield watermark, rendered by <AppBackground />. */
+.ng-shield-watermark {
+  opacity: 0.05;
+  filter: blur(3px);
+  transform: scale(1.4);
+}
+
+/* ── Glass primitives ─────────────────────────────────────── */
+
+.glass-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(37, 65, 55, 0.55) 0%,
+    rgba(25, 49, 41, 0.45) 100%
+  );
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(82, 116, 102, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 8px 32px rgba(0, 0, 0, 0.28);
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.glass-panel--lift:hover {
+  border-color: rgba(82, 116, 102, 0.6);
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 14px 40px rgba(0, 0, 0, 0.38);
+}
+
+.glass-bar {
+  background: rgba(16, 34, 29, 0.75);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-bottom: 1px solid rgba(82, 116, 102, 0.28);
+}
+
+/* ── Accessibility fallbacks ──────────────────────────────── */
+
+@media (prefers-reduced-transparency: reduce) {
+  body::before,
+  body::after,
+  .ng-shield-watermark {
+    display: none;
+  }
+  .glass-panel,
+  .glass-bar {
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-panel,
+  .glass-panel--lift {
+    transition: none;
+  }
+  .glass-panel--lift:hover {
+    transform: none;
+  }
+}
+
+/* ── Skeleton shimmer (upgrades the flat pulse) ───────────── */
+
+@keyframes ng-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.ng-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(37, 65, 55, 0.4) 0%,
+    rgba(82, 116, 102, 0.35) 50%,
+    rgba(37, 65, 55, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: ng-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ng-skeleton {
+    animation: none;
+    background: rgba(37, 65, 55, 0.5);
+  }
+}
