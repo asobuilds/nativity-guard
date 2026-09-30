@@ -145,3 +145,57 @@ export function useCreateUnit() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: unitKeys.all }),
   })
 }
+
+/** `POST /units/:id/logo` - multipart, field name "file". */
+export function useUploadUnitLogo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { unitId: string; file: File }) =>
+      api.upload<{ message: string; brandLogoUrl: string; hash: string; size: number }>(
+        `/units/${input.unitId}/logo`,
+        input.file,
+      ),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: unitKeys.all })
+      void qc.invalidateQueries({ queryKey: ['unit', v.unitId] })
+    },
+  })
+}
+
+/** `POST /units/:id/cover` - multipart, field name "file". */
+export function useUploadUnitCover() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { unitId: string; file: File }) =>
+      api.upload<{ message: string; brandCoverUrl: string; hash: string; size: number }>(
+        `/units/${input.unitId}/cover`,
+        input.file,
+      ),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: unitKeys.all })
+      void qc.invalidateQueries({ queryKey: ['unit', v.unitId] })
+    },
+  })
+}
+
+export function useDeleteUnitLogo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (unitId: string) => api.delete<{ message: string }>(`/units/${unitId}/logo`),
+    onSuccess: (_d, unitId) => {
+      void qc.invalidateQueries({ queryKey: unitKeys.all })
+      void qc.invalidateQueries({ queryKey: ['unit', unitId] })
+    },
+  })
+}
+
+export function useDeleteUnitCover() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (unitId: string) => api.delete<{ message: string }>(`/units/${unitId}/cover`),
+    onSuccess: (_d, unitId) => {
+      void qc.invalidateQueries({ queryKey: unitKeys.all })
+      void qc.invalidateQueries({ queryKey: ['unit', unitId] })
+    },
+  })
+}

@@ -78,6 +78,8 @@ var allowedCategoryDirs = map[string]string{
 	"evidence":   "evidence",
 	"gov_id":     "gov_ids",
 	"voice_note": "voice_notes",
+	"unit_logo":  "unit_logos",
+	"unit_cover": "unit_covers",
 }
 
 // Save persists the uploaded file under <category-dir>/<yyyy>/<mm>/<hash>.<ext>

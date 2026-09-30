@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Skeleton, ErrorState } from '@/components/ui/States'
 import { MapView } from '@/components/map/MapView'
+import { UnitMediaUploader } from '@/components/ui/UnitMediaUploader'
 import { api } from '@/lib/apiClient'
 import type { SecurityUnit } from '@/types/api'
 
@@ -30,6 +31,15 @@ export function UnitDetailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
       <Link to="/units" className="text-sm text-signal">← Back to units</Link>
+
+      <Card className="overflow-hidden">
+        <UnitMediaUploader
+          unitId={unit.id}
+          brandLogoUrl={unit.brandLogoUrl}
+          brandCoverUrl={unit.brandCoverUrl}
+          editable={false}
+        />
+      </Card>
 
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

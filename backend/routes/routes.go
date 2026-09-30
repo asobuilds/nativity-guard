@@ -74,6 +74,10 @@ func SetupRoutes(router *gin.Engine) {
 			units.POST("/government-id", middleware.AuthMiddleware(), handlers.SubmitGovernmentID)
 
 			units.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitByID)
+			units.POST("/:id/logo", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitLogo)
+			units.POST("/:id/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitCover)
+			units.DELETE("/:id/logo", middleware.AuthMiddleware(), handlers.DeleteUnitLogo)
+			units.DELETE("/:id/cover", middleware.AuthMiddleware(), handlers.DeleteUnitCover)
 			units.POST("", middleware.AuthMiddleware(), handlers.CreateUnit)
 			units.PUT("/:id", middleware.AuthMiddleware(), handlers.UpdateUnit)
 units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenAdminElection)

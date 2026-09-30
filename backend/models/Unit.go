@@ -37,6 +37,7 @@ type SecurityUnit struct {
 	MemberCount             int        `gorm:"default:0" json:"memberCount"`
 	BrandName               string     `gorm:"type:varchar(120)" json:"brandName,omitempty"`
 	BrandLogoURL            string     `gorm:"type:text" json:"brandLogoUrl,omitempty"`
+	BrandCoverURL           string     `gorm:"type:text" json:"brandCoverUrl,omitempty"`
 
 	// Registration form, Section B — commander.
 	CommanderName            string `gorm:"type:varchar(160)" json:"commanderName,omitempty"`

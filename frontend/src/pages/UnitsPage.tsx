@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { Input, Select } from '@/components/ui/Field'
 import { Skeleton, ErrorState, EmptyState } from '@/components/ui/States'
 import { useUnits, useNearbyUnits } from '@/hooks/useUnits'
+import { mediaURL } from '@/lib/apiClient'
 import { useLocation } from '@/hooks/useLocation'
 import type { SecurityUnit, UnitWithDistance } from '@/types/api'
 
@@ -110,7 +111,7 @@ export function UnitsPage() {
                 <Link to={`/units/${u.id}`} className="block h-full rounded-panel focus-visible:outline-2 focus-visible:outline-signal">
                   <Card className="flex h-full flex-col gap-2 p-4 transition-colors hover:border-signal/60">
                     <div className="flex items-start justify-between gap-2">
-                      <h2 className="text-sm font-semibold text-ink">{u.name}</h2>
+                      <div className="flex items-center gap-3">{u.brandLogoUrl ? <img src={mediaURL(u.brandLogoUrl) ?? undefined} alt="" className="size-10 rounded-full border border-border object-cover" /> : null}<h2 className="text-sm font-semibold text-ink">{u.name}</h2></div>
                       {u.verificationStatus === 'verified' ? <Shield className="size-4 shrink-0 text-signal" aria-hidden /> : null}
                     </div>
                     <p className="text-xs text-ink-muted">{u.type}</p>

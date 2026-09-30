@@ -261,6 +261,8 @@ export interface SecurityUnit {
   formationDate?: string
   totalMembers?: number
   brandName?: string
+  brandLogoUrl?: string
+  brandCoverUrl?: string
   memberCount?: number
   adminCount?: number
   status: string
