@@ -28,6 +28,8 @@ func main() {
 	defer config.CloseDatabase()
 
 	if err := config.AutoMigrateAll(); err != nil {
+	// Seed the current terms documents so /terms/:role always has content.
+	services.EnsureTermsSeeded()
 		log.Fatalf("auto-migration failed: %v", err)
 	}
 

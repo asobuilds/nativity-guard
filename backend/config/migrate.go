@@ -109,6 +109,8 @@ func AutoMigrateAll() error {
 		&models.RevocationVote{},
 
 		&models.RevokedToken{},
+		&models.TermsDocument{},
+		&models.TermsAcceptance{},
 		&models.RefreshToken{},
 		&models.UserSession{},
 		&models.IdempotencyRecord{},
