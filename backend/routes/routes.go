@@ -11,11 +11,11 @@ func SetupRoutes(router *gin.Engine) {
 	// (Render, UptimeRobot) poll this to determine if the server is
 	// alive and its subsystems are healthy.
 	router.GET("/health", handlers.GetHealth)
-		router.GET("/terms/:role", handlers.GetTermsForRole)
 
 	// API v1 routes
 	api := router.Group("/api/v1")
 	{
+		api.GET("/terms/:role", handlers.GetTermsForRole)
 		api.GET("/terms/my-acceptance", middleware.AuthMiddleware(), handlers.GetMyAcceptances)
 		// Public routes (no authentication required)
 		api.GET("/public/cases", middleware.RateLimitGeneral(), handlers.GetPublicCases)
