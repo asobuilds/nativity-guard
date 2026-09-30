@@ -88,3 +88,15 @@ backend/*.zip
 backend/.env
 .env.local
 backend/storage/
+
+
+# Added during repo cleanup 2026-09-29
+.kilo/
+*-hits.txt
+go-list*.txt
+go-list*.json
+test_out.txt
+rebrand-scan.txt
+frontend/dist/
+backend/main
+backend/main.exe
