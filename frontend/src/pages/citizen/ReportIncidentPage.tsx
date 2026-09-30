@@ -829,7 +829,7 @@ export function ReportIncidentPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col-reverse gap-2 border-t border-border-hi pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-2 flex flex-col-reverse gap-2 rounded-b-panel border-t border-border-hi bg-surface/90 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.20)] backdrop-blur-md sm:-mx-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <Button
               variant="ghost"
               onClick={() => setStepIndex((index) => Math.max(0, index - 1))}
