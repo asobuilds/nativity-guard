@@ -1244,42 +1244,75 @@ function Receipt({
   return (
     <div className="mx-auto w-full max-w-2xl p-4 sm:p-6">
       <Card>
-        <CardBody className="flex flex-col items-center gap-4 py-8 text-center">
-          <span className="grid size-12 place-items-center rounded-full bg-ok/10 text-ok">
-            <CheckCircle2 className="size-6" aria-hidden />
-          </span>
+        <div className="relative flex flex-col items-center gap-5 overflow-hidden rounded-panel glass-panel p-6 text-center sm:p-8">
+          {/* Success halo */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-0 size-64 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(34,197,94,0.22) 0%, transparent 70%)' }}
+          />
 
-          <div>
-            <h1 className="text-lg font-semibold text-ink">Report filed</h1>
-            <p className="mt-1 text-sm text-ink-muted">
-              It is with the unit for triage. Keep this reference — it is how you follow it.
-            </p>
+          <div className="relative flex flex-col items-center gap-4">
+            <span
+              className="grid size-16 place-items-center rounded-full border border-ok/40 bg-ok/15 text-ok shadow-[0_0_30px_rgba(34,197,94,0.35)]"
+              style={{ animation: 'ng-scale-in 420ms cubic-bezier(.34,1.56,.64,1) both' }}
+            >
+              <CheckCircle2 className="size-8" aria-hidden />
+            </span>
+
+            <div>
+              <h1 className="text-xl font-semibold text-ink">Report filed</h1>
+              <p className="mt-2 max-w-md text-sm text-ink-muted">
+                It is with the unit for triage. Keep this reference — it is how you follow it.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <StatusChip status={created.case.status} />
+              <PriorityChip level={created.priorityLevel} />
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <StatusChip status={created.case.status} />
-            <PriorityChip level={created.priorityLevel} />
-          </div>
-
-          <div className="w-full rounded-lg border border-border-hi bg-surface-hi p-3">
-            <p className="text-[11px] text-ink-faint">Tracking ID</p>
-            <div className="mt-1 flex items-center justify-center gap-2">
-              <p className="tabular-nums text-lg font-semibold tracking-wide text-ink">
+          {/* Tracking ID — larger and prominent */}
+          <div className="relative w-full rounded-panel border border-signal/30 bg-signal/5 p-4">
+            <p className="text-[11px] uppercase tracking-widest text-ink-faint">Tracking ID</p>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <p className="font-mono text-xl font-semibold tracking-wider text-ink tabular-nums">
                 {created.trackingId}
               </p>
               <Button
                 variant="ghost"
                 size="sm"
+                icon={<Copy className="size-4" aria-hidden />}
                 aria-label="Copy tracking ID"
                 onClick={() => onCopy(created.trackingId)}
               >
-                <Copy className="size-4" aria-hidden />
+                Copy
               </Button>
             </div>
           </div>
 
+          {/* What happens next */}
+          <div className="relative w-full rounded-panel border border-border-hi bg-surface-hi/40 p-4 text-left">
+            <p className="text-xs font-semibold uppercase tracking-widest text-ink-faint">What happens next</p>
+            <ol className="mt-3 space-y-3 text-sm">
+              <li className="flex items-start gap-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-signal/20 text-[11px] font-semibold text-signal">1</span>
+                <span className="text-ink-muted">The unit reviews your report and assigns an officer.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-signal/20 text-[11px] font-semibold text-signal">2</span>
+                <span className="text-ink-muted">You get a notification when the status changes.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-signal/20 text-[11px] font-semibold text-signal">3</span>
+                <span className="text-ink-muted">Follow everything from Home or this report's page.</span>
+              </li>
+            </ol>
+          </div>
+
           {attachments.length > 0 ? (
-            <div className="w-full text-left">
+            <div className="relative w-full text-left">
               <p className="text-xs font-medium text-ink-muted">Your links</p>
               <ul className="mt-1.5 flex flex-col gap-1.5">
                 {attachments.map((item, index) => (
@@ -1324,14 +1357,11 @@ function Receipt({
             </div>
           ) : null}
 
-          <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
-            {/* A Button, not a Link wrapping one: an anchor around a button is a
-                nested interactive element — invalid markup, and it breaks the
-                focus order for exactly the user who has to finish here. */}
+          <div className="relative mt-1 flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
             <Button
               variant="primary"
               block
-              className="sm:w-auto"
+              className="sm:w-auto sm:min-w-44"
               onClick={() => navigate(`/cases/${created.case.id}`)}
             >
               Track this report
@@ -1340,7 +1370,7 @@ function Receipt({
               File another report
             </Button>
           </div>
-        </CardBody>
+        </div>
       </Card>
 
       <p className="mt-4 text-center text-[11px] text-ink-faint">

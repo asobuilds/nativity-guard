@@ -386,3 +386,8 @@ body::after {
     background: rgba(37, 65, 55, 0.5);
   }
 }
+/* Receipt success icon entrance */
+@keyframes ng-scale-in {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
