@@ -17,7 +17,7 @@ type TermsDocument struct {
     Version     string    `gorm:"type:varchar(32);not null;index:idx_terms_kind_role_version,priority:3" json:"version"`
     Title       string    `gorm:"type:varchar(160);not null" json:"title"`
     Content     string    `gorm:"type:text;not null" json:"content"`
-    Summary     string    `gorm:"type:varchar(400)" json:"summary,omitempty"`
+    Summary     string    `gorm:"type:text" json:"summary,omitempty"`
     EffectiveAt time.Time `gorm:"not null" json:"effectiveAt"`
     IsActive    bool      `gorm:"default:true;index:idx_terms_active" json:"isActive"`
     CreatedAt   time.Time `json:"createdAt"`
