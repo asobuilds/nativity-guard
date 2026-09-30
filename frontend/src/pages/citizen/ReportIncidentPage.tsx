@@ -490,21 +490,57 @@ export function ReportIncidentPage() {
         </div>
       ) : null}
 
-      <div className="mb-3 flex items-center gap-3">
-        <ol className="flex flex-1 gap-1" aria-hidden>
-          {STEPS.map((item, index) => (
-            <li
-              key={item.key}
-              className={cn(
-                'h-1 flex-1 rounded-full',
-                index <= stepIndex ? 'bg-signal' : 'bg-border-hi',
-              )}
-            />
-          ))}
+      <div className="mb-3 rounded-panel glass-panel px-3 py-2">
+        <ol className="flex items-center gap-1.5" role="list">
+          {STEPS.map((item, index) => {
+            const state = index < stepIndex ? 'done' : index === stepIndex ? 'current' : 'upcoming'
+            const canJump = index < stepIndex
+            return (
+              <li key={item.key} className="flex flex-1 items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={!canJump}
+                  onClick={() => { if (canJump) setStepIndex(index) }}
+                  aria-current={state === 'current' ? 'step' : undefined}
+                  aria-label={`Step ${index + 1}: ${item.label}`}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors',
+                    canJump && 'cursor-pointer hover:bg-signal/10',
+                    !canJump && 'cursor-default',
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold tabular-nums',
+                      state === 'done' && 'bg-signal text-signal-ink',
+                      state === 'current' && 'border-2 border-signal bg-signal/15 text-signal',
+                      state === 'upcoming' && 'border border-border-hi text-ink-faint',
+                    )}
+                  >
+                    {state === 'done' ? <CheckCircle2 className="size-3.5" /> : index + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      'hidden text-[11px] font-medium sm:inline',
+                      state === 'current' && 'text-ink',
+                      state === 'done' && 'text-ink-muted',
+                      state === 'upcoming' && 'text-ink-faint',
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </button>
+                {index < STEPS.length - 1 ? (
+                  <span
+                    aria-hidden
+                    className={cn('h-px flex-1', index < stepIndex ? 'bg-signal/60' : 'bg-border-hi')}
+                  />
+                ) : null}
+              </li>
+            )
+          })}
         </ol>
-        <span className="tabular-nums text-[11px] text-ink-faint" aria-live="polite">
-          Step {stepIndex + 1} of {STEPS.length}
-        </span>
       </div>
 
       <Card>
