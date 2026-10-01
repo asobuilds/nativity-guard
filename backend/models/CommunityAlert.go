@@ -1,12 +1,13 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"time"
 )
 
-// CommunityAlert represents an alert sent to the community
+// CommunityAlert represents an alert sent to the community.
 type CommunityAlert struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Title       string         `gorm:"not null" json:"title"`
@@ -34,14 +35,20 @@ func (CommunityAlert) TableName() string {
 	return "community_alerts"
 }
 
-// AlertSubscription tracks users subscribed to alerts
+// AlertSubscription tracks users subscribed to alerts.
+//
+// Latitude and Longitude are where the subscriber wants to receive nearby
+// alerts from. Both zero means "no location set" — the subscriber then
+// receives every alert in their chosen categories, nationwide.
 type AlertSubscription struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	UserID    uuid.UUID      `gorm:"type:uuid;not null" json:"userId"`
 	UnitID    *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
-	Type      string         `gorm:"not null" json:"type"`          // security, weather, health, community, all
-	Channel   string         `gorm:"default:in_app" json:"channel"` // in_app, email, sms, push
+	Type      string         `gorm:"not null" json:"type"`          // CSV: security,weather,community,general or "all"
+	Channel   string         `gorm:"default:in_app" json:"channel"` // CSV: in_app,email,sms
 	Location  string         `json:"location"`
+	Latitude  float64        `json:"latitude"`
+	Longitude float64        `json:"longitude"`
 	Radius    float64        `json:"radius"` // Notification radius in km
 	IsActive  bool           `gorm:"default:true" json:"isActive"`
 	CreatedAt time.Time      `json:"createdAt"`

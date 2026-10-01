@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, Check, Trash2 } from 'lucide-react'
+import { Bell, Check, MapPin, Trash2 } from 'lucide-react'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Field, Input } from '@/components/ui/Field'
 import { useToast } from '@/components/ui/Toast'
 import { api, ApiError } from '@/lib/apiClient'
+import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { cn } from '@/lib/cn'
 
 interface Subscription {
@@ -14,6 +14,8 @@ interface Subscription {
   categories: string[]
   channels: string[]
   location: string
+  latitude: number
+  longitude: number
   radius: number
   isActive: boolean
   createdAt: string
@@ -34,18 +36,17 @@ const CHANNELS: { value: string; label: string; available: boolean }[] = [
 ]
 
 /**
- * `/subscriptions` — manage the single alert subscription a citizen has.
+ * `/subscriptions` — manage the caller's alert subscription.
  *
- * Real endpoints:
- *   GET    /alerts/subscriptions     → { subscription: Subscription | null }
- *   POST   /alerts/subscribe         → { subscription: Subscription }
- *   DELETE /alerts/subscriptions/:id → { message }
- *
- * No demo banner. Changes persist server-side immediately.
+ * Coordinates come from the browser (via useLocation) with an IP-derived
+ * fallback when permission is denied. If neither works, the subscription
+ * still saves with no location — the user then receives every matching
+ * alert nationwide (Option A).
  */
 export function SubscriptionsPage() {
   const queryClient = useQueryClient()
   const { notify } = useToast()
+  const loc = useLocation()
 
   const query = useQuery({
     queryKey: ['alert-subscription'],
@@ -55,16 +56,47 @@ export function SubscriptionsPage() {
 
   const [categories, setCategories] = useState<string[]>(['security'])
   const [channels, setChannels] = useState<string[]>(['in_app'])
-  const [location, setLocation] = useState('')
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [radius, setRadius] = useState(10)
+  const [locationLabel, setLocationLabel] = useState('')
+  const requestedRef = useRef(false)
 
+  // Once we have browser coordinates, keep them.
+  useEffect(() => {
+    if (loc.latitude !== null && loc.longitude !== null) {
+      setCoords({ lat: loc.latitude, lng: loc.longitude })
+    }
+  }, [loc.latitude, loc.longitude])
+
+  // Ask for location once on mount (if the browser hasn't decided yet). If
+  // permission is already denied or unavailable, try the IP fallback.
+  useEffect(() => {
+    if (requestedRef.current) return
+    if (coords) return
+    if (loc.loading) return
+
+    if (loc.permission === 'prompt' || loc.permission === 'unavailable') {
+      requestedRef.current = true
+      loc.request()
+    } else if (loc.permission === 'denied') {
+      requestedRef.current = true
+      void ipFallback().then((fb) => {
+        if (fb) setCoords({ lat: fb.latitude, lng: fb.longitude })
+      })
+    }
+  }, [loc, coords])
+
+  // Populate from server once loaded.
   useEffect(() => {
     const sub = query.data?.subscription
     if (sub) {
       setCategories(sub.categories)
       setChannels(sub.channels.length > 0 ? sub.channels : ['in_app'])
-      setLocation(sub.location)
       setRadius(sub.radius || 10)
+      setLocationLabel(sub.location)
+      if (sub.latitude !== 0 || sub.longitude !== 0) {
+        setCoords({ lat: sub.latitude, lng: sub.longitude })
+      }
     }
   }, [query.data])
 
@@ -73,7 +105,9 @@ export function SubscriptionsPage() {
       api.post<{ subscription: Subscription }>('/alerts/subscribe', {
         categories,
         channels,
-        location,
+        latitude: coords?.lat ?? 0,
+        longitude: coords?.lng ?? 0,
+        location: locationLabel,
         radius,
       }),
     onSuccess: () => {
@@ -117,7 +151,7 @@ export function SubscriptionsPage() {
         <h1 className="text-2xl font-bold text-ink">Alert subscriptions</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Choose which alerts you want to receive and how far from your location
-          they should reach.
+          they should reach. Your location is detected automatically.
         </p>
       </header>
 
@@ -139,6 +173,45 @@ export function SubscriptionsPage() {
       ) : (
         <>
           <Card className="space-y-5 p-5">
+            {/* Location status */}
+            <section>
+              <h2 className="text-sm font-semibold text-ink">Your location</h2>
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-border bg-surface-hi/30 p-3">
+                <MapPin
+                  className={cn(
+                    'mt-0.5 size-4 shrink-0',
+                    coords ? 'text-signal' : 'text-ink-faint',
+                  )}
+                  aria-hidden
+                />
+                <div className="text-xs text-ink-muted">
+                  {coords ? (
+                    <>
+                      Using your location (
+                      {coords.lat.toFixed(3)}, {coords.lng.toFixed(3)}). Alerts
+                      within the radius below will reach you.
+                    </>
+                  ) : loc.loading ? (
+                    <>Detecting your location…</>
+                  ) : (
+                    <>
+                      No location available. Without it, you will receive every
+                      alert in your chosen categories, nationwide.
+                    </>
+                  )}
+                </div>
+                {!coords && !loc.loading ? (
+                  <button
+                    type="button"
+                    onClick={() => loc.request()}
+                    className="ml-auto shrink-0 text-xs text-signal hover:underline"
+                  >
+                    Try again
+                  </button>
+                ) : null}
+              </div>
+            </section>
+
             <section>
               <h2 className="text-sm font-semibold text-ink">Alert categories</h2>
               <p className="mt-1 text-xs text-ink-muted">
@@ -220,35 +293,22 @@ export function SubscriptionsPage() {
             </section>
 
             <section>
-              <h2 className="text-sm font-semibold text-ink">Area of interest</h2>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field label="Location" hint="City, LGA or area name">
-                  {({ id, ...aria }) => (
-                    <Input
-                      id={id}
-                      {...aria}
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="e.g. Ikeja"
-                    />
-                  )}
-                </Field>
-                <Field label={`Radius: ${radius} km`}>
-                  {({ id, ...aria }) => (
-                    <input
-                      id={id}
-                      {...aria}
-                      type="range"
-                      min={1}
-                      max={50}
-                      step={1}
-                      value={radius}
-                      onChange={(e) => setRadius(Number(e.target.value))}
-                      className="mt-2 w-full accent-signal"
-                    />
-                  )}
-                </Field>
-              </div>
+              <h2 className="text-sm font-semibold text-ink">
+                Radius: {radius} km
+              </h2>
+              <p className="mt-1 text-xs text-ink-muted">
+                Only alerts whose location is within this distance from you will
+                reach your device.
+              </p>
+              <input
+                type="range"
+                min={1}
+                max={50}
+                step={1}
+                value={radius}
+                onChange={(e) => setRadius(Number(e.target.value))}
+                className="mt-3 w-full accent-signal"
+              />
             </section>
           </Card>
 

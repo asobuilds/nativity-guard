@@ -14,7 +14,11 @@ import (
 // UpsertAlertSubscription creates or replaces the caller's alert subscription.
 // A user has at most one active subscription at a time. Categories and
 // channels arrive as JSON arrays and are stored comma-separated in the
-// existing Type / Channel columns — no schema change required.
+// existing Type / Channel columns.
+//
+// Latitude/Longitude are where the subscriber wants to receive nearby
+// alerts. Both zero means "no location set" — the subscriber then receives
+// every alert in their chosen categories, nationwide.
 func UpsertAlertSubscription(c *gin.Context) {
 	value, exists := c.Get("user")
 	if !exists {
@@ -31,6 +35,8 @@ func UpsertAlertSubscription(c *gin.Context) {
 		Categories []string `json:"categories" binding:"required"`
 		Channels   []string `json:"channels"`
 		Location   string   `json:"location"`
+		Latitude   float64  `json:"latitude"`
+		Longitude  float64  `json:"longitude"`
 		Radius     float64  `json:"radius"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -80,6 +86,25 @@ func UpsertAlertSubscription(c *gin.Context) {
 		input.Radius = 50
 	}
 
+	// Validate coordinates. Outside these ranges means the client sent
+	// garbage — treat as "no location" instead of rejecting, so the
+	// subscription still saves (Option A fallback).
+	validCoords := true
+	if input.Latitude < -90 || input.Latitude > 90 {
+		validCoords = false
+	}
+	if input.Longitude < -180 || input.Longitude > 180 {
+		validCoords = false
+	}
+	// (0, 0) is the "no location set" sentinel.
+	if input.Latitude == 0 && input.Longitude == 0 {
+		validCoords = false
+	}
+	if !validCoords {
+		input.Latitude = 0
+		input.Longitude = 0
+	}
+
 	categoriesCSV := strings.Join(cleanCategories, ",")
 	channelsCSV := strings.Join(cleanChannels, ",")
 
@@ -93,6 +118,8 @@ func UpsertAlertSubscription(c *gin.Context) {
 		existing.Type = categoriesCSV
 		existing.Channel = channelsCSV
 		existing.Location = strings.TrimSpace(input.Location)
+		existing.Latitude = input.Latitude
+		existing.Longitude = input.Longitude
 		existing.Radius = input.Radius
 		if err := config.DB.Save(&existing).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update subscription"})
@@ -105,13 +132,15 @@ func UpsertAlertSubscription(c *gin.Context) {
 	}
 
 	sub := models.AlertSubscription{
-		UserID:   user.ID,
-		UnitID:   user.UnitID,
-		Type:     categoriesCSV,
-		Channel:  channelsCSV,
-		Location: strings.TrimSpace(input.Location),
-		Radius:   input.Radius,
-		IsActive: true,
+		UserID:    user.ID,
+		UnitID:    user.UnitID,
+		Type:      categoriesCSV,
+		Channel:   channelsCSV,
+		Location:  strings.TrimSpace(input.Location),
+		Latitude:  input.Latitude,
+		Longitude: input.Longitude,
+		Radius:    input.Radius,
+		IsActive:  true,
 	}
 	if err := config.DB.Create(&sub).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create subscription"})
@@ -199,6 +228,8 @@ func toSubscriptionJSON(s models.AlertSubscription) gin.H {
 		"categories": cats,
 		"channels":   chans,
 		"location":   s.Location,
+		"latitude":   s.Latitude,
+		"longitude":  s.Longitude,
 		"radius":     s.Radius,
 		"isActive":   s.IsActive,
 		"createdAt":  s.CreatedAt,
