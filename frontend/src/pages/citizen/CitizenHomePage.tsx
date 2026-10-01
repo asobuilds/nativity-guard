@@ -27,16 +27,11 @@ import type { CommunityAlert, CommunityPost } from '@/types/community'
 /**
  * Citizen home.
  *
- * The hero at the top shows the signed-in user's cover photo as a strip and
- * their profile photo as a circle overlapping its base. This is the first
- * thing a returning user sees — it makes the account feel like theirs. Both
- * images are also how responding officers will identify the reporter later.
- *
- * The page composes five data sources — the signed-in profile, the reporter's
- * own cases, the units near the reporter, the community feed, and two one-off
- * inline queries for alerts. Every hook is called unconditionally at the top:
- * a conditional `useQuery` would re-create the React #301 bug we fixed (hooks
- * shifting order between renders), so the guards live in the render body.
+ * The hero shows the signed-in user's cover photo as a strip and their
+ * profile photo as a large, centred circle overlapping its base. On a
+ * security platform, identity is not optional — the profile photo is
+ * deliberately prominent so the account holder recognises their own
+ * account immediately and responding officers can identify them later.
  */
 export function CitizenHomePage() {
   const { user } = useAuth()
@@ -49,7 +44,6 @@ export function CitizenHomePage() {
     10,
   )
   const profileQuery = useProfile()
-  // One-off inline queries — no new global hooks created.
   const alertsQuery = useQuery({
     queryKey: ['dashboard-alerts'],
     queryFn: () => api.get<{ alerts: CommunityAlert[] }>('/alerts'),
@@ -64,8 +58,8 @@ export function CitizenHomePage() {
     typeof location.latitude === 'number' && typeof location.longitude === 'number'
   const unitCount = nearby.data?.length ?? 0
   const heroSubtitle = hasLocation
-    ? `You're safe. ${unitCount} units active near you.`
-    : "You're safe. Share your location to see units near you."
+    ? `${unitCount} security units active near you.`
+    : 'Share your location to see units near you.'
 
   const profileWithImages = profileQuery.data as
     | (UserType & { avatarPath?: string; coverPath?: string })
@@ -73,6 +67,8 @@ export function CitizenHomePage() {
   const avatarUrl =
     mediaURL(profileWithImages?.avatarPath ?? profileQuery.data?.photoUrl) ?? null
   const coverUrl = mediaURL(profileWithImages?.coverPath) ?? null
+  const initialsValue = initials(user?.firstName, user?.lastName)
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
 
   const recentCases = (casesQuery.data ?? []).slice(0, 3)
   const nearbyList = (nearby.data ?? [])
@@ -91,47 +87,62 @@ export function CitizenHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      {/* HERO BAND with cover strip + avatar */}
+      {/* HERO — cover strip, big centred avatar, name, greeting, SOS */}
       <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
         {/* Cover strip */}
-        <div className="relative h-28 w-full bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-36">
+        <div className="relative h-32 w-full bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-44">
           {coverUrl ? (
             <img src={coverUrl} alt="" className="h-full w-full object-cover" />
           ) : null}
         </div>
-        {/* Body */}
-        <div className="relative px-6 pb-6">
-          {/* Avatar overlapping the cover */}
-          <div className="-mt-12 sm:-mt-14">
+
+        {/* Avatar — centred, overlapping cover, thick border */}
+        <div className="-mt-20 flex justify-center sm:-mt-24">
+          <Link
+            to="/profile"
+            aria-label="Open profile to change your photo"
+            className="block rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-signal/50"
+          >
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt=""
-                className="size-24 rounded-full border-4 border-base bg-base object-cover shadow-panel sm:size-28"
+                alt={fullName || 'Your profile photo'}
+                className="size-40 rounded-full border-[6px] border-base bg-base object-cover shadow-panel sm:size-48"
               />
             ) : (
-              <div className="grid size-24 place-items-center rounded-full border-4 border-base bg-surface-hi text-2xl font-semibold text-ink shadow-panel sm:size-28">
-                {initials(user?.firstName, user?.lastName)}
+              <div className="grid size-40 place-items-center rounded-full border-[6px] border-base bg-surface-hi text-5xl font-bold text-ink shadow-panel sm:size-48">
+                {initialsValue}
               </div>
             )}
-          </div>
-          {/* Greeting + SOS */}
-          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-ink">
-                Welcome back, {firstName || 'there'}
-              </h1>
-              <p className="mt-1 text-ink-muted">{heroSubtitle}</p>
-            </div>
+          </Link>
+        </div>
+
+        {/* Name + greeting + SOS */}
+        <div className="px-6 pb-6 pt-4 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">
+            {firstName ? `Hi, ${firstName}` : 'Welcome back'}
+          </h1>
+          <p className="mt-2 text-base text-ink-muted">{heroSubtitle}</p>
+
+          <div className="mt-5 flex justify-center">
             <Link
               to="/sos"
               aria-label="Open emergency SOS"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emergency px-5 py-3 font-semibold text-white hover:bg-emergency/90 min-h-[56px] md:w-auto md:min-w-[140px]"
+              className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-lg bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency/90 min-h-[56px]"
             >
               <ShieldAlert className="size-5" />
               SOS
             </Link>
           </div>
+
+          {!avatarUrl ? (
+            <p className="mt-3 text-xs text-ink-faint">
+              <Link to="/profile" className="text-signal hover:underline">
+                Add a profile photo
+              </Link>{' '}
+              so officers can identify you.
+            </p>
+          ) : null}
         </div>
       </section>
 
