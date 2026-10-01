@@ -3,12 +3,14 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"security-solution/config"
+	"security-solution/content"
 	"security-solution/models"
 	"security-solution/services"
 )
@@ -25,18 +27,53 @@ func NewAuthHandler() *AuthHandler {
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	var input struct {
-		Email         string `json:"email" binding:"required,email"`
-		Phone     string `json:"phone" binding:"required"`
-		FirstName     string `json:"firstName" binding:"required"`
-		LastName      string `json:"lastName" binding:"required"`
-		Password      string `json:"password" binding:"required,min=6"`
-		Role          string `json:"role"`
-		DateOfBirth   string `json:"dateOfBirth" binding:"required"`
+		Email                 string `json:"email" binding:"required,email"`
+		Phone                 string `json:"phone" binding:"required"`
+		FirstName             string `json:"firstName" binding:"required"`
+		LastName              string `json:"lastName" binding:"required"`
+		Password              string `json:"password" binding:"required,min=6"`
+		Role                  string `json:"role"`
+		DateOfBirth           string `json:"dateOfBirth" binding:"required"`
+		TermsVersion          string `json:"termsVersion"`
+		ConsentTerms          *bool  `json:"consentTerms"`
+		ConsentDataProcessing *bool  `json:"consentDataProcessing"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "email, phone, firstName, lastName, and password are required"})
 		return
+	}
+
+	// Terms consent is enforced unless TERMS_CONSENT_ENFORCED is explicitly
+	// set to "false". Absent variable = enforced (safe default).
+	enforced := !strings.EqualFold(os.Getenv("TERMS_CONSENT_ENFORCED"), "false")
+
+	var acceptanceRows []models.TermsAcceptance
+	if enforced {
+		// Gate 1 — both consents must be present and true.
+		if input.ConsentTerms == nil || !*input.ConsentTerms {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "terms_consent_required"})
+			return
+		}
+		if input.ConsentDataProcessing == nil || !*input.ConsentDataProcessing {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "data_processing_consent_required"})
+			return
+		}
+
+		// Gate 2 — version must be present.
+		if strings.TrimSpace(input.TermsVersion) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "terms_version_required"})
+			return
+		}
+
+		// Gate 3 — version must match the currently-published version.
+		if input.TermsVersion != content.TermsVersion {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":          "terms_version_stale",
+				"currentVersion": content.TermsVersion,
+			})
+			return
+		}
 	}
 
 	parsedDOB, minorStatus, err := validateDOB(input.DateOfBirth)
@@ -45,10 +82,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Enforce one-account-per-identifier before insert. Check both email
-	// and phone in a single case-insensitive query so duplicates are caught
-	// regardless of which field the attacker reuses. The error message is
-	// deliberately generic — it never reveals which field matched.
+	// Uniqueness check — same behavior as before.
 	normalizedEmail := strings.ToLower(strings.TrimSpace(input.Email))
 	normalizedPhone := strings.TrimSpace(input.Phone)
 	var dupCount int64
@@ -62,13 +96,64 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "An account with that email or phone number already exists"})
 		return
 	}
-
-	if strings.TrimSpace(normalizedPhone) == "" {
+	if normalizedPhone == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "phone number is required"})
 		return
 	}
 
-	// Public registration must always create citizens.
+	if enforced {
+		// Gate 4 — both active documents must exist for the current version.
+		// Any miss = fail closed: no user, no acceptance rows, 500.
+		var docs []models.TermsDocument
+		if err := config.DB.
+			Where("version = ? AND is_active = ?", content.TermsVersion, true).
+			Where("(kind = ? AND role = ?) OR (kind = ? AND role = ?)",
+				"terms", "citizen", "privacy", "all").
+			Find(&docs).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "terms_unavailable"})
+			return
+		}
+		var termsDoc, privacyDoc *models.TermsDocument
+		for i := range docs {
+			switch {
+			case docs[i].Kind == "terms" && docs[i].Role == "citizen":
+				termsDoc = &docs[i]
+			case docs[i].Kind == "privacy" && docs[i].Role == "all":
+				privacyDoc = &docs[i]
+			}
+		}
+		if termsDoc == nil || privacyDoc == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "terms_unavailable"})
+			return
+		}
+
+		ip := clientIPForConsent(c)
+		ua := clampStr(c.Request.UserAgent(), 400)
+		now := time.Now().UTC()
+
+		acceptanceRows = []models.TermsAcceptance{
+			{
+				DocumentID:      termsDoc.ID,
+				DocumentKind:    "terms",
+				DocumentRole:    "citizen",
+				DocumentVersion: content.TermsVersion,
+				AcceptedAt:      now,
+				IPAddress:       clampStr(ip, 64),
+				UserAgent:       ua,
+			},
+			{
+				DocumentID:      privacyDoc.ID,
+				DocumentKind:    "privacy",
+				DocumentRole:    "all",
+				DocumentVersion: content.TermsVersion,
+				AcceptedAt:      now,
+				IPAddress:       clampStr(ip, 64),
+				UserAgent:       ua,
+			},
+		}
+	}
+
+	// Public registration always creates citizens.
 	// Privileged roles should be assigned by an administrator.
 	user := &models.User{
 		Email:       normalizedEmail,
@@ -81,7 +166,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		MinorStatus: minorStatus,
 	}
 
-	createdUser, err := h.authService.Register(user)
+	createdUser, err := h.authService.Register(user, acceptanceRows...)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -97,6 +182,26 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			"role":      createdUser.Role,
 		},
 	})
+}
+
+// clientIPForConsent returns the client's IP, preferring the first hop of
+// X-Forwarded-For when present (Render and most proxies set this).
+func clientIPForConsent(c *gin.Context) string {
+	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i >= 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return strings.TrimSpace(xff)
+	}
+	return c.ClientIP()
+}
+
+// clampStr bounds a string to n bytes.
+func clampStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -231,16 +336,16 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":        freshUser.ID,
-			"email":     freshUser.Email,
-			"phone":     freshUser.Phone,
-			"firstName": freshUser.FirstName,
-			"lastName":  freshUser.LastName,
-			"role":      freshUser.Role,
-			"unitId":    freshUser.UnitID,
-			"status":    freshUser.Status,
-			"createdAt": freshUser.CreatedAt,
-			"updatedAt": freshUser.UpdatedAt,
+			"id":         freshUser.ID,
+			"email":      freshUser.Email,
+			"phone":      freshUser.Phone,
+			"firstName":  freshUser.FirstName,
+			"lastName":   freshUser.LastName,
+			"role":       freshUser.Role,
+			"unitId":     freshUser.UnitID,
+			"status":     freshUser.Status,
+			"createdAt":  freshUser.CreatedAt,
+			"updatedAt":  freshUser.UpdatedAt,
 			"avatarPath": freshUser.AvatarPath,
 			"coverPath":  freshUser.CoverPath,
 			"photoUrl":   freshUser.AvatarPath,
@@ -489,11 +594,6 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 // ForgotPassword initiates a password reset. The endpoint is public and
 // rate-limited. It always returns 200 with a generic message so callers
 // cannot enumerate which identifiers map to real accounts.
-//
-// TODO: email delivery is not yet wired. When the identifier is an email,
-// the token is currently sent to the resolved user's PHONE number
-// (Correction 1). Replace the SMS branch with an email dispatch once an
-// email service is added.
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var input struct {
 		Identifier string `json:"identifier" binding:"required"`
@@ -564,8 +664,8 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	if err := config.DB.Model(&models.User{}).
 		Where("id = ?", userObj.ID).
 		Updates(map[string]interface{}{
-			"deleted_at":              now,
-			"deletion_requested_at":   now,
+			"deleted_at":            now,
+			"deletion_requested_at": now,
 		}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule account deletion"})
 		return
@@ -581,8 +681,8 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	_ = sessionSvc.RevokeAll(userObj.ID, "account_deletion")
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":                "Account scheduled for deletion. You can cancel within 30 days.",
-		"deletionScheduledAt":    now,
+		"message":             "Account scheduled for deletion. You can cancel within 30 days.",
+		"deletionScheduledAt": now,
 	})
 }
 

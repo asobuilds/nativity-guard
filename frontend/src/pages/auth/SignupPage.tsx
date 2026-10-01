@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -17,21 +17,26 @@ import {
 import type { RegisterResponse } from '@/types/api'
 import { useAuth } from '@/auth/AuthContext'
 
+interface TermsResponse {
+  document: {
+    id: string
+    version: string
+    title: string
+  }
+  version: string
+}
+
 /**
  * Create an account.
  *
- * Two facts about `POST /auth/register` shape this screen, both read off
- * `handlers/auth_handler.go` and recorded in frontReadme Appendix B:
+ * Registration requires two separate consents (Terms of Service and NDPR
+ * data processing) plus the current terms version. The version is fetched
+ * from the backend on mount — never hardcoded — so a stale bundle cannot
+ * submit an out-of-date version and be rejected with `terms_version_stale`.
  *
- *  1. It returns **no token** — `{ message, user }` and nothing else. After
- *     registration, sign in with the submitted credentials to establish a session.
- *  2. It **ignores any `role` you send** and hardcodes `"citizen"`. There is no
- *     role selector here, and the copy says plainly what kind of account this
- *     creates rather than offering a choice that does not exist.
- *
- * The age gate is checked here *and* on the server. That duplication is
- * deliberate: the server's refusal is the authority, but a person should not have
- * to submit a form to be told they are too young to have one.
+ * The backend is authoritative: these checks exist so the user is not
+ * asked to submit a form only to be told "no". Every refusal the backend
+ * can produce is translated into a plain sentence in `friendlyError`.
  */
 export function SignupPage() {
   const navigate = useNavigate()
@@ -42,10 +47,37 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
 
-  const errors = validateSignup(draft)
-  const complete = SIGNUP_FIELDS.every((field) => !errors[field])
+  const [termsVersion, setTermsVersion] = useState<string | null>(null)
+  const [termsError, setTermsError] = useState<string | null>(null)
 
-  /** An error is shown once you have left the field, or once you have tried to submit. */
+  const [consentTerms, setConsentTerms] = useState(false)
+  const [consentDataProcessing, setConsentDataProcessing] = useState(false)
+  const [consentTouched, setConsentTouched] = useState(false)
+
+  // Fetch the currently-published terms version on mount.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get<TermsResponse>('/terms/citizen')
+      .then((res) => {
+        if (cancelled) return
+        if (res?.version) setTermsVersion(res.version)
+        else setTermsError('Could not load the terms version. Please reload the page.')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTermsError('Could not load the terms. Check your connection and reload the page.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const errors = validateSignup(draft)
+  const formComplete = SIGNUP_FIELDS.every((field) => !errors[field])
+  const consentsGiven = consentTerms && consentDataProcessing
+  const canSubmit = formComplete && consentsGiven && !!termsVersion && !termsError
+
   const errorFor = (field: SignupField) => (touched.has(field) ? errors[field] : undefined)
 
   function update(field: SignupField, value: string) {
@@ -57,11 +89,28 @@ export function SignupPage() {
     setTouched((current) => new Set(current).add(field))
   }
 
+  function friendlyError(message: string): string {
+    const map: Record<string, string> = {
+      terms_consent_required:
+        'You must accept the Terms of Service to create an account.',
+      data_processing_consent_required:
+        'You must consent to data processing to create an account.',
+      terms_version_required:
+        'Terms version is missing. Please reload the page and try again.',
+      terms_version_stale:
+        'The terms have been updated since this page loaded. Please reload the page and try again.',
+      terms_unavailable:
+        'Terms are temporarily unavailable. Please try again in a moment.',
+    }
+    return map[message] ?? message
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setTouched(new Set(SIGNUP_FIELDS))
+    setConsentTouched(true)
     setRefusal(null)
-    if (!complete) return
+    if (!canSubmit || !termsVersion) return
 
     setSubmitting(true)
     let registered = false
@@ -73,8 +122,9 @@ export function SignupPage() {
         lastName: draft.lastName.trim(),
         dateOfBirth: draft.dateOfBirth,
         password: draft.password,
-        // No `role` — the endpoint ignores it, and sending one would suggest
-        // this form can choose a privileged account. It cannot.
+        termsVersion,
+        consentTerms,
+        consentDataProcessing,
       })
       registered = true
       await login(draft.email.trim(), draft.password)
@@ -88,14 +138,11 @@ export function SignupPage() {
         })
         return
       }
-      // The server's refusal is repeated verbatim. Its duplicate-account message is
-      // deliberately generic — it never says *which* of email or phone matched — and
-      // guessing a field here would undo that.
-      setRefusal(
+      const raw =
         cause instanceof ApiError
           ? cause.message
-          : 'Could not create your account. Check your connection and try again.',
-      )
+          : 'Could not create your account. Check your connection and try again.'
+      setRefusal(friendlyError(raw))
     } finally {
       setSubmitting(false)
     }
@@ -235,6 +282,75 @@ export function SignupPage() {
               )}
             </Field>
 
+            {/* Consent block — both boxes are required by the backend. */}
+            <fieldset className="mt-2 flex flex-col gap-3 rounded-lg border border-border p-3">
+              <legend className="px-1 text-xs font-medium text-ink-muted">
+                Before you continue
+              </legend>
+
+              <label className="flex items-start gap-3 text-sm text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={consentTerms}
+                  onChange={(event) => {
+                    setConsentTerms(event.target.checked)
+                    setRefusal(null)
+                  }}
+                  className="mt-0.5 size-4 shrink-0 accent-signal"
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <Link
+                    to="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-signal hover:underline"
+                  >
+                    Terms of Service
+                  </Link>
+                  . <span className="text-ink-faint">(opens in a new tab)</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-sm text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={consentDataProcessing}
+                  onChange={(event) => {
+                    setConsentDataProcessing(event.target.checked)
+                    setRefusal(null)
+                  }}
+                  className="mt-0.5 size-4 shrink-0 accent-signal"
+                />
+                <span>
+                  I consent to my personal data being processed as described in the{' '}
+                  <Link
+                    to="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-signal hover:underline"
+                  >
+                    Privacy Notice
+                  </Link>
+                  .
+                </span>
+              </label>
+
+              {consentTouched && !consentsGiven ? (
+                <p className="text-xs text-warn">
+                  Both boxes must be ticked before your account can be created.
+                </p>
+              ) : null}
+
+              {termsError ? (
+                <p className="text-xs text-warn">{termsError}</p>
+              ) : null}
+
+              {!termsError && !termsVersion ? (
+                <p className="text-xs text-ink-faint">Loading the current terms…</p>
+              ) : null}
+            </fieldset>
+
             {refusal ? (
               <p
                 role="alert"
@@ -245,15 +361,19 @@ export function SignupPage() {
               </p>
             ) : null}
 
-            <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              block
+              loading={submitting}
+              disabled={!canSubmit || submitting}
+            >
               Create account
             </Button>
           </form>
 
           <p className="mt-6 text-sm text-ink-muted">
-            Please read the <Link to="/terms" className="text-signal hover:underline">user rules for your account</Link> before creating an account.
-          </p>
-          <p className="mt-3 text-sm text-ink-muted">
             Already have an account?{' '}
             <Link to="/auth/login" className="text-signal hover:text-signal-ink">
               Sign in

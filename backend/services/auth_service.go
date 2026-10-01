@@ -27,7 +27,11 @@ func (s *AuthService) GenerateJWT(user *models.User) (string, error) {
 	return s.generateJWT(user)
 }
 
-func (s *AuthService) Register(user *models.User) (*models.User, error) {
+// Register creates a user. When consents are supplied, the user row and
+// every acceptance row are inserted inside a single transaction — either
+// all land, or none do. Callers that pass no consents get the original
+// single-insert behavior (used by legacy call sites and unit tests).
+func (s *AuthService) Register(user *models.User, consents ...models.TermsAcceptance) (*models.User, error) {
 	// Normalize email to lowercase so the DB unique constraint is
 	// case-insensitive at the application layer. Phone is left as-is
 	// (no formatting rules yet); uniqueness is checked by the caller.
@@ -40,13 +44,46 @@ func (s *AuthService) Register(user *models.User) (*models.User, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	user.Password = string(hashedPassword)
 
-	if err := config.DB.Create(user).Error; err != nil {
+	// No consents requested — single insert. Preserves legacy behavior.
+	if len(consents) == 0 {
+		if err := config.DB.Create(user).Error; err != nil {
+			return nil, err
+		}
+		return user, nil
+	}
+
+	// Atomic path — user and all acceptance rows commit together or not at all.
+	tx := config.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err := tx.Create(user).Error; err != nil {
 		return nil, err
 	}
 
+	for i := range consents {
+		consents[i].UserID = user.ID
+		if consents[i].AcceptedAt.IsZero() {
+			consents[i].AcceptedAt = time.Now().UTC()
+		}
+		if err := tx.Create(&consents[i]).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+	committed = true
 	return user, nil
 }
 

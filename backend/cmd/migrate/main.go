@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"log"
@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 
 	"security-solution/config"
-	"security-solution/models"
 )
 
 func main() {
