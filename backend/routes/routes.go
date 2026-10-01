@@ -331,6 +331,11 @@ func SetupRoutes(router *gin.Engine) {
 		settings := api.Group("/settings")
 		{
 			settings.GET("/public", handlers.GetPublicSettings)
+
+			// Preference endpoints — placed BEFORE the /:key catch-all.
+			settings.GET("/preferences", middleware.AuthMiddleware(), handlers.GetMyPreferences)
+			settings.PUT("/preferences", middleware.AuthMiddleware(), handlers.UpdateMyPreferences)
+
 			settings.GET("/templates/:name", middleware.AuthMiddleware(), handlers.GetEmailTemplate)
 			settings.PUT("/templates/:name", middleware.AuthMiddleware(), handlers.UpdateEmailTemplate)
 			settings.POST("/exports", middleware.AuthMiddleware(), handlers.CreateDataExport)

@@ -6,16 +6,15 @@ import (
 	"security-solution/models"
 )
 
-// AutoMigrateAll runs AutoMigrate on every model in the schema.
-// Called on every boot so new columns and tables land in production
-// without a manual migration step.
 func AutoMigrateAll() error {
 	log.Println("running auto-migration...")
 	err := DB.AutoMigrate(
 		&models.User{},
+		&models.UserPreferences{},
 		&models.SecurityUnit{},
 		&models.Officer{},
 		&models.GovernmentIDVerification{},
+		&models.IdentityVerification{},
 
 		&models.Case{},
 		&models.CaseAccountabilityEvent{},
@@ -44,8 +43,6 @@ func AutoMigrateAll() error {
 		&models.NewsAlert{},
 
 		&models.SOSAlert{},
-		// SOSResponder references SOSAlert and SecurityUnit, so it is
-		// registered after both are migrated.
 		&models.SOSResponder{},
 		&models.BankAccount{},
 		&models.Donation{},

@@ -1,10 +1,13 @@
 ﻿@import 'tailwindcss';
 @import 'leaflet/dist/leaflet.css';
+@import './theme.css';
 
 /*
   Nativity Guard — "Dawn Canopy" design tokens (Tailwind v4 CSS-first).
   Forest shelter, dawn warmth and readable operational surfaces.
   Red stays reserved for emergency. See frontend/frontReadme.md §0.5.
+
+  Theme overrides live in theme.css — this file is the base palette.
 */
 @theme {
   /* Surfaces */
@@ -27,10 +30,7 @@
   --color-warn: #f59e0b;
   --color-ok: #22c55e;
 
-  /* Case lifecycle — colour-blind-safe, one hue per state.
-     The first five are the one-way field lifecycle; the next two are the review
-     phase, which is a loop and not a sixth and seventh step on a straight line.
-     Labels carry the meaning; hue only reinforces it. */
+  /* Case lifecycle */
   --color-status-pending: #94a3b8;
   --color-status-assigned: #38bdf8;
   --color-status-dispatched: #f59e0b;
@@ -49,11 +49,6 @@
   --radius-panel: 0.875rem;
   --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -18px rgb(0 0 0 / 0.9);
 }
-
-/* Personal accents only change the signal colour; operational status and SOS stay fixed. */
-html[data-accent='sky'] { --color-signal: #8bd3f7; --color-signal-ink: #112a37; }
-html[data-accent='forest'] { --color-signal: #a7dfad; --color-signal-ink: #142d1e; }
-html[data-text-size='large'] { font-size: 112.5%; }
 
 @layer base {
   html,
@@ -89,17 +84,12 @@ html[data-text-size='large'] { font-size: 112.5%; }
 }
 
 @layer components {
-  /* A quiet dawn sky above a forest horizon: atmosphere only, never behind form fields. */
+  /* A quiet dawn sky above a forest horizon: atmosphere only, never behind form fields.
+     Theme override in theme.css. */
   .dawn-hero {
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    background:
-      radial-gradient(circle at 82% 18%, rgb(244 203 120 / 0.78) 0 1px, transparent 2px),
-      radial-gradient(circle at 68% 39%, rgb(248 245 233 / 0.65) 0 1px, transparent 2px),
-      radial-gradient(circle at 93% 54%, rgb(248 245 233 / 0.68) 0 1px, transparent 2px),
-      radial-gradient(ellipse at 82% 85%, rgb(238 167 103 / 0.22), transparent 42%),
-      linear-gradient(145deg, #10221d 12%, #26473e 67%, #586f60 100%);
   }
 
   .dawn-hero::after {
@@ -108,7 +98,6 @@ html[data-text-size='large'] { font-size: 112.5%; }
     inset: auto -8% -38% 45%;
     height: 64%;
     border-radius: 50% 50% 0 0;
-    background: linear-gradient(180deg, rgb(21 55 42 / 0.65), #10221d);
     content: '';
     pointer-events: none;
   }
@@ -134,47 +123,29 @@ html[data-text-size='large'] { font-size: 112.5%; }
     border-bottom-color: var(--color-border);
   }
 
-  /* Monospace treatment for IDs, coordinates and timestamps. */
   .tabular {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
 
-  /* Hide the scrollbar on the horizontally-scrollable mobile bottom nav while
-     keeping it swipe-scrollable. `scrollbar-width`/`msOverflowStyle` are applied
-     inline on the element itself for Firefox/IE; this covers WebKit. */
   .mobile-nav-scroll::-webkit-scrollbar {
     display: none;
   }
 }
 
-/* Loading banner mark: a gentle scale pulse, scoped to the component. */
+/* Loading banner mark */
 @keyframes loading-banner-pulse {
-  0%,
-  100% {
-    transform: scale(0.95);
-  }
-  50% {
-    transform: scale(1.05);
-  }
+  0%, 100% { transform: scale(0.95); }
+  50%      { transform: scale(1.05); }
 }
 .loading-banner-pulse {
   animation: loading-banner-pulse 1.6s ease-in-out infinite;
 }
 
-/* ============================ NGS brand mark ===========================
-   SVG logo motion: shield draw, sonar rings + rotating sweep, checkmark
-   draw, twinkling compass dots, wordmark fade-up. All pure CSS — no
-   third-party animation libraries. Durations honour a [data-speed="fast"]
-   multiplier via the inherited --ng-speed custom property.
-*/
-.ng-logo-mark {
-  --ng-speed: 1;
-}
-.ng-logo-mark[data-speed='fast'] {
-  --ng-speed: 0.7;
-}
+/* NGS brand mark animations */
+.ng-logo-mark { --ng-speed: 1; }
+.ng-logo-mark[data-speed='fast'] { --ng-speed: 0.7; }
 
 @keyframes ng-shield-draw {
   from { stroke-dashoffset: var(--ng-draw-offset, 400); }
@@ -233,8 +204,6 @@ html[data-text-size='large'] { font-size: 112.5%; }
 .ng-logo-word[data-line='2'] { animation-delay: 1300ms; }
 .ng-logo-word[data-line='3'] { animation-delay: 1400ms; }
 
-/* Respect reduced-motion preference: disable all motion and ensure the
-   mark is fully visible (drawn, static). */
 @media (prefers-reduced-motion: reduce) {
   .ng-logo-shield-draw,
   .ng-logo-check-draw,
@@ -250,21 +219,12 @@ html[data-text-size='large'] { font-size: 112.5%; }
   }
 }
 
-/* ============================================================
-   Dawn Canopy v2 — glassmorphism + layered depth background
-   Added during UX-1. All layers respect reduced-motion and
-   reduced-transparency preferences.
-   ============================================================ */
-
-/* The base color moves to <body> so AppShell can be transparent
-   and the depth layers below actually show through. */
+/* Dawn Canopy v2 — glassmorphism + layered depth background */
 body {
   background-color: var(--color-base);
   color: var(--color-ink);
 }
 
-/* Layer 1 — Nigeria flag (green/white/green) — hugely blurred,
-   tilted, dark-friendly opacity so it reads as atmosphere. */
 body::before {
   content: '';
   position: fixed;
@@ -281,40 +241,29 @@ body::before {
     #008751 100%
   );
   filter: blur(140px) saturate(120%);
-  opacity: 0.14;
+  opacity: 0.14; /* overridden by theme.css */
   transform: rotate(-14deg);
 }
 
-/* Layer 2 — radial warm glow, adds "dawn" depth without noise. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 55% at 50% 35%, rgba(244, 203, 120, 0.10), transparent 65%),
-    radial-gradient(ellipse 90% 70% at 20% 100%, rgba(0, 135, 81, 0.08), transparent 60%);
+  /* overridden by theme.css */
 }
 
-/* Layer 3 — shield watermark, rendered by <AppBackground />. */
 .ng-shield-watermark {
   opacity: 0.05;
   filter: blur(3px);
   transform: scale(1.4);
 }
 
-/* ── Glass primitives ─────────────────────────────────────── */
-
+/* Glass primitives — visuals set by theme.css, transitions here */
 .glass-panel {
-  background: linear-gradient(
-    145deg,
-    rgba(37, 65, 55, 0.55) 0%,
-    rgba(25, 49, 41, 0.45) 100%
-  );
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(82, 116, 102, 0.35);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 8px 32px rgba(0, 0, 0, 0.28);
@@ -322,7 +271,6 @@ body::after {
 }
 
 .glass-panel--lift:hover {
-  border-color: rgba(82, 116, 102, 0.6);
   transform: translateY(-2px);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
@@ -330,13 +278,9 @@ body::after {
 }
 
 .glass-bar {
-  background: rgba(16, 34, 29, 0.75);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
-  border-bottom: 1px solid rgba(82, 116, 102, 0.28);
 }
-
-/* ── Accessibility fallbacks ──────────────────────────────── */
 
 @media (prefers-reduced-transparency: reduce) {
   body::before,
@@ -362,21 +306,12 @@ body::after {
   }
 }
 
-/* ── Skeleton shimmer (upgrades the flat pulse) ───────────── */
-
 @keyframes ng-shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 .ng-skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(37, 65, 55, 0.4) 0%,
-    rgba(82, 116, 102, 0.35) 50%,
-    rgba(37, 65, 55, 0.4) 100%
-  );
-  background-size: 200% 100%;
   animation: ng-shimmer 1.6s ease-in-out infinite;
 }
 
@@ -386,7 +321,7 @@ body::after {
     background: rgba(37, 65, 55, 0.5);
   }
 }
-/* Receipt success icon entrance */
+
 @keyframes ng-scale-in {
   from { transform: scale(0.4); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }

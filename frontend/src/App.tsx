@@ -10,7 +10,9 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
 import { useRouteLoading } from '@/hooks/useRouteLoading'
+import { usePreferences } from '@/hooks/usePreferences'
 import { LandingPage } from '@/pages/LandingPage'
+
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
@@ -66,6 +68,12 @@ const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
 
+/** Applies theme + text size on every render. Mounted once, inside AuthProvider. */
+function PreferencesBootstrap() {
+  usePreferences()
+  return null
+}
+
 function ProtectedShell({ children }: { children?: ReactNode }) {
   return (
     <RequireRole roles={ALL_ROLES}>
@@ -112,6 +120,7 @@ export function App() {
         <BrowserRouter>
           <RouteLoadingBanner />
           <AuthProvider>
+            <PreferencesBootstrap />
             <Suspense fallback={<FullPageSpinner />}>
               <Routes>
                 <Route path="/auth/login" element={<LoginPage />} />

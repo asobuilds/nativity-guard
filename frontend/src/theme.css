@@ -1,0 +1,278 @@
+/* =====================================================================
+   Nativity Guard — themes and text sizes
+   =====================================================================
+   Every theme redefines the same set of tokens, so nothing relies on
+   the base palette remaining dark. Five themes ship: forest (default),
+   midnight, daylight, ocean, stone.
+
+   Also in this file: the glass / hero / depth variables used by
+   index.css, so those visual layers recolour with the theme too.
+   ===================================================================== */
+
+/* ---- Default tokens (used by Forest) ------------------------------- */
+html {
+  /* Glass panel tints */
+  --panel-tint-1: rgba(37, 65, 55, 0.55);
+  --panel-tint-2: rgba(25, 49, 41, 0.45);
+  --panel-border: rgba(82, 116, 102, 0.35);
+  --panel-border-hover: rgba(82, 116, 102, 0.6);
+
+  /* Glass top bar */
+  --bar-bg: rgba(16, 34, 29, 0.75);
+  --bar-border: rgba(82, 116, 102, 0.28);
+
+  /* Hero gradients — the three stops + the arc */
+  --hero-end-1: #10221d;
+  --hero-mid: #26473e;
+  --hero-end-2: #586f60;
+  --hero-arc-1: rgba(21, 55, 42, 0.65);
+  --hero-arc-2: #10221d;
+  --hero-warm: rgba(238, 167, 103, 0.22);
+  --hero-star: rgba(244, 203, 120, 0.78);
+  --hero-dot: rgba(248, 245, 233, 0.65);
+
+  /* Background depth layers */
+  --depth-tilt-opacity: 0.14;
+  --depth-glow-warm: rgba(244, 203, 120, 0.10);
+  --depth-glow-green: rgba(0, 135, 81, 0.08);
+
+  /* Skeleton shimmer */
+  --skeleton-a: rgba(37, 65, 55, 0.4);
+  --skeleton-b: rgba(82, 116, 102, 0.35);
+}
+
+/* ---- FOREST (default — no override needed, matches base palette) --- */
+html[data-theme='forest'] {
+  /* inherits every default above; signal stays the current #f4cb78 */
+}
+
+/* ---- MIDNIGHT ------------------------------------------------------ */
+html[data-theme='midnight'] {
+  --color-void: #000000;
+  --color-base: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-hi: #1e1e1e;
+  --color-border: #2a2a2a;
+  --color-border-hi: #3a3a3a;
+
+  --color-ink: #f5f5f5;
+  --color-ink-muted: #b5b5b5;
+  --color-ink-faint: #888888;
+
+  --color-signal: #f4cb78;
+  --color-signal-ink: #121212;
+
+  --panel-tint-1: rgba(30, 30, 30, 0.6);
+  --panel-tint-2: rgba(20, 20, 20, 0.5);
+  --panel-border: rgba(80, 80, 80, 0.4);
+  --panel-border-hover: rgba(120, 120, 120, 0.55);
+  --bar-bg: rgba(10, 10, 10, 0.85);
+  --bar-border: rgba(80, 80, 80, 0.3);
+
+  --hero-end-1: #0a0a0a;
+  --hero-mid: #1a1a1a;
+  --hero-end-2: #2a2a2a;
+  --hero-arc-1: rgba(20, 20, 20, 0.7);
+  --hero-arc-2: #0a0a0a;
+  --hero-warm: rgba(80, 80, 80, 0.2);
+  --hero-star: rgba(200, 200, 200, 0.5);
+  --hero-dot: rgba(255, 255, 255, 0.4);
+
+  --depth-tilt-opacity: 0.03;
+  --depth-glow-warm: rgba(80, 80, 80, 0.06);
+  --depth-glow-green: rgba(40, 40, 40, 0.08);
+
+  --skeleton-a: rgba(30, 30, 30, 0.5);
+  --skeleton-b: rgba(60, 60, 60, 0.45);
+}
+
+/* ---- DAYLIGHT ------------------------------------------------------ */
+html[data-theme='daylight'] {
+  --color-void: #d8d8d2;
+  --color-base: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-surface-hi: #ebebe8;
+  --color-border: #d0d0cc;
+  --color-border-hi: #a8a8a4;
+
+  --color-ink: #1a1a1a;
+  --color-ink-muted: #4a4a4a;
+  --color-ink-faint: #707070;
+
+  --color-signal: #b8851a;
+  --color-signal-ink: #ffffff;
+
+  --panel-tint-1: rgba(255, 255, 255, 0.9);
+  --panel-tint-2: rgba(240, 240, 238, 0.85);
+  --panel-border: rgba(180, 180, 176, 0.7);
+  --panel-border-hover: rgba(140, 140, 136, 0.9);
+  --bar-bg: rgba(255, 255, 255, 0.92);
+  --bar-border: rgba(180, 180, 176, 0.6);
+
+  --hero-end-1: #f7f7f5;
+  --hero-mid: #e8e5d8;
+  --hero-end-2: #d4c9a8;
+  --hero-arc-1: rgba(200, 190, 165, 0.6);
+  --hero-arc-2: #f7f7f5;
+  --hero-warm: rgba(200, 150, 80, 0.15);
+  --hero-star: rgba(180, 130, 40, 0.9);
+  --hero-dot: rgba(120, 100, 60, 0.5);
+
+  --depth-tilt-opacity: 0.05;
+  --depth-glow-warm: rgba(200, 150, 80, 0.08);
+  --depth-glow-green: rgba(0, 135, 81, 0.05);
+
+  --skeleton-a: rgba(230, 230, 228, 0.8);
+  --skeleton-b: rgba(200, 200, 196, 0.7);
+}
+
+/* ---- OCEAN --------------------------------------------------------- */
+html[data-theme='ocean'] {
+  --color-void: #051025;
+  --color-base: #0a1a30;
+  --color-surface: #10263f;
+  --color-surface-hi: #173354;
+  --color-border: #22456d;
+  --color-border-hi: #356090;
+
+  --color-ink: #eaf2fb;
+  --color-ink-muted: #b6cbe4;
+  --color-ink-faint: #7f9dbf;
+
+  --color-signal: #8bd3f7;
+  --color-signal-ink: #082238;
+
+  --panel-tint-1: rgba(23, 51, 84, 0.55);
+  --panel-tint-2: rgba(16, 38, 63, 0.45);
+  --panel-border: rgba(53, 96, 144, 0.4);
+  --panel-border-hover: rgba(53, 96, 144, 0.7);
+  --bar-bg: rgba(10, 26, 48, 0.8);
+  --bar-border: rgba(53, 96, 144, 0.35);
+
+  --hero-end-1: #0a1a30;
+  --hero-mid: #14385e;
+  --hero-end-2: #2f5c85;
+  --hero-arc-1: rgba(15, 40, 70, 0.7);
+  --hero-arc-2: #0a1a30;
+  --hero-warm: rgba(139, 211, 247, 0.18);
+  --hero-star: rgba(180, 230, 255, 0.8);
+  --hero-dot: rgba(230, 245, 255, 0.65);
+
+  --depth-tilt-opacity: 0.08;
+  --depth-glow-warm: rgba(139, 211, 247, 0.08);
+  --depth-glow-green: rgba(20, 60, 120, 0.10);
+
+  --skeleton-a: rgba(23, 51, 84, 0.5);
+  --skeleton-b: rgba(53, 96, 144, 0.4);
+}
+
+/* ---- STONE --------------------------------------------------------- */
+html[data-theme='stone'] {
+  --color-void: #1a1714;
+  --color-base: #232019;
+  --color-surface: #2f2a22;
+  --color-surface-hi: #3d372d;
+  --color-border: #4d463b;
+  --color-border-hi: #6a6052;
+
+  --color-ink: #f4ede0;
+  --color-ink-muted: #c9bda9;
+  --color-ink-faint: #9a8e7a;
+
+  --color-signal: #e8b478;
+  --color-signal-ink: #231a0c;
+
+  --panel-tint-1: rgba(61, 55, 45, 0.55);
+  --panel-tint-2: rgba(47, 42, 34, 0.5);
+  --panel-border: rgba(106, 96, 82, 0.4);
+  --panel-border-hover: rgba(106, 96, 82, 0.7);
+  --bar-bg: rgba(35, 32, 25, 0.85);
+  --bar-border: rgba(106, 96, 82, 0.35);
+
+  --hero-end-1: #232019;
+  --hero-mid: #3d372d;
+  --hero-end-2: #6a6052;
+  --hero-arc-1: rgba(35, 32, 25, 0.7);
+  --hero-arc-2: #232019;
+  --hero-warm: rgba(232, 180, 120, 0.15);
+  --hero-star: rgba(244, 220, 180, 0.7);
+  --hero-dot: rgba(244, 237, 224, 0.6);
+
+  --depth-tilt-opacity: 0.10;
+  --depth-glow-warm: rgba(232, 180, 120, 0.08);
+  --depth-glow-green: rgba(80, 60, 30, 0.08);
+
+  --skeleton-a: rgba(61, 55, 45, 0.5);
+  --skeleton-b: rgba(106, 96, 82, 0.4);
+}
+
+/* ---- Text sizes ---------------------------------------------------- */
+html[data-text-size='standard'] { font-size: 100%; }
+html[data-text-size='large']    { font-size: 112.5%; }
+html[data-text-size='xlarge']   { font-size: 125%; }
+html[data-text-size='xxlarge']  { font-size: 140%; }
+
+/* ---- Theme-aware overrides for index.css primitives ---------------- */
+/* Glass panel */
+.glass-panel {
+  background: linear-gradient(145deg, var(--panel-tint-1), var(--panel-tint-2));
+  border: 1px solid var(--panel-border);
+}
+.glass-panel--lift:hover {
+  border-color: var(--panel-border-hover);
+}
+
+/* Glass top bar */
+.glass-bar {
+  background: var(--bar-bg);
+  border-bottom: 1px solid var(--bar-border);
+}
+
+/* Hero gradient */
+.dawn-hero {
+  background:
+    radial-gradient(circle at 82% 18%, var(--hero-star) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 39%, var(--hero-dot) 0 1px, transparent 2px),
+    radial-gradient(circle at 93% 54%, var(--hero-dot) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 82% 85%, var(--hero-warm), transparent 42%),
+    linear-gradient(145deg, var(--hero-end-1) 12%, var(--hero-mid) 67%, var(--hero-end-2) 100%);
+}
+.dawn-hero::after {
+  background: linear-gradient(180deg, var(--hero-arc-1), var(--hero-arc-2));
+}
+
+/* Background depth layers */
+body::before {
+  opacity: var(--depth-tilt-opacity);
+}
+body::after {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 35%, var(--depth-glow-warm), transparent 65%),
+    radial-gradient(ellipse 90% 70% at 20% 100%, var(--depth-glow-green), transparent 60%);
+}
+
+/* Skeleton shimmer */
+.ng-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-a) 0%,
+    var(--skeleton-b) 50%,
+    var(--skeleton-a) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Daylight needs darker ink on tinted chips and inputs */
+html[data-theme='daylight'] input,
+html[data-theme='daylight'] textarea,
+html[data-theme='daylight'] select {
+  color-scheme: light;
+}
+html[data-theme='midnight'] input,
+html[data-theme='midnight'] textarea,
+html[data-theme='midnight'] select,
+html[data-theme='ocean'] input,
+html[data-theme='ocean'] textarea,
+html[data-theme='ocean'] select {
+  color-scheme: dark;
+}

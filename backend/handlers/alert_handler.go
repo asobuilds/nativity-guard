@@ -47,7 +47,6 @@ func CreateCommunityAlert(c *gin.Context) {
 	if strings.TrimSpace(input.Severity) == "" {
 		input.Severity = "medium"
 	}
-
 	if input.Radius < 1 {
 		input.Radius = 10
 	}
@@ -78,8 +77,6 @@ func CreateCommunityAlert(c *gin.Context) {
 		return
 	}
 
-	// Notify matching subscribers in the background so the API responds
-	// immediately. The notify loop does its own distance filtering.
 	go notifyAlertSubscribers(alert)
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -97,9 +94,6 @@ func GetCommunityAlerts(c *gin.Context) {
 	if exists {
 		userObj := user.(*models.User)
 		if userObj.Role == "citizen" {
-			// Citizens see non-critical alerts plus any critical alert
-			// targeted at their unit's area (matched by unit id in the
-			// location text, which is the only cross-reference we have).
 			if userObj.UnitID != nil {
 				query = query.Where(
 					"severity != ? OR location ILIKE ?",
@@ -178,17 +172,14 @@ func ConfirmAlert(c *gin.Context) {
 	})
 }
 
-// notifyAlertSubscribers runs after an alert is created. It selects every
-// active subscription whose categories include the alert's type, then
-// filters by distance:
+// notifyAlertSubscribers runs after an alert is created. Rules:
 //
-//   - Subscription has no coordinates (0, 0) → gets every matching alert.
-//     This is the "Option A" fallback when location is unavailable.
-//   - Subscription has coordinates → gets the alert only if the distance
-//     between the subscriber and the alert's centre is within the
-//     subscriber's chosen radius.
-//
-// The distance is Haversine (great-circle) in kilometres.
+//   - The subscriber's category list must include the alert's type
+//     (or "all").
+//   - If the subscriber has a location (lat/lng != 0), the alert must
+//     be within the subscriber's radius.
+//   - If the subscriber has turned alert notifications off in their
+//     preferences, they are skipped.
 func notifyAlertSubscribers(alert models.CommunityAlert) {
 	var subs []models.AlertSubscription
 	if err := config.DB.Where("is_active = ?", true).Find(&subs).Error; err != nil {
@@ -202,7 +193,6 @@ func notifyAlertSubscribers(alert models.CommunityAlert) {
 			continue
 		}
 
-		// Distance filter only applies when the subscriber has a location.
 		hasLocation := sub.Latitude != 0 || sub.Longitude != 0
 		if hasLocation {
 			radius := sub.Radius
@@ -211,6 +201,15 @@ func notifyAlertSubscribers(alert models.CommunityAlert) {
 			}
 			dist := haversineKm(sub.Latitude, sub.Longitude, alert.Latitude, alert.Longitude)
 			if dist > radius {
+				continue
+			}
+		}
+
+		// Check the subscriber's notification preferences. A missing
+		// preferences row is treated as "notifications on".
+		var prefs models.UserPreferences
+		if err := config.DB.Where("user_id = ?", sub.UserID).First(&prefs).Error; err == nil {
+			if !prefs.NotifyAlerts {
 				continue
 			}
 		}
@@ -226,9 +225,6 @@ func notifyAlertSubscribers(alert models.CommunityAlert) {
 	}
 }
 
-// subscriptionMatchesCategory reports whether a CSV-encoded subscription
-// type ("security,community") covers the given alert type. "all" matches
-// anything.
 func subscriptionMatchesCategory(subTypeCSV, alertType string) bool {
 	if strings.TrimSpace(subTypeCSV) == "" {
 		return false
@@ -242,8 +238,7 @@ func subscriptionMatchesCategory(subTypeCSV, alertType string) bool {
 	return false
 }
 
-// haversineKm returns the great-circle distance between two points in
-// kilometres. Standard formula; radius of Earth 6371 km.
+// haversineKm is the great-circle distance between two points in kilometres.
 func haversineKm(lat1, lon1, lat2, lon2 float64) float64 {
 	const earthRadiusKm = 6371.0
 
