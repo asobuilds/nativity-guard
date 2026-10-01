@@ -9,15 +9,14 @@ import (
 	"security-solution/models"
 )
 
-// UpdateCoverPosition sets the vertical focus anchor for the caller's cover
-// photo. Allowed values are "top", "center", "bottom". Anything else is
-// rejected with 400 before touching the database.
+// UpdateCoverAdjustment saves the caller's cover-photo focus:
+//   - x, y: object-position percentage, 0–100
+//   - zoom: 100–300, where 100 = 1.0× and 300 = 3.0×
 //
-// This is deliberately a small, single-purpose endpoint rather than a field
-// on the general user update — the position changes often (each time a user
-// experiments with cropping), and mixing it into PUT /users/me would mean
-// resubmitting name and phone on every crop adjustment.
-func UpdateCoverPosition(c *gin.Context) {
+// Out-of-range values are clamped rather than rejected — a client that
+// sends 105 while the user drags should not fail. Values are stored on
+// the user record so the adjustment follows the account across devices.
+func UpdateCoverAdjustment(c *gin.Context) {
 	value, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -30,33 +29,45 @@ func UpdateCoverPosition(c *gin.Context) {
 	}
 
 	var input struct {
-		Position string `json:"position" binding:"required"`
+		X    int `json:"x"`
+		Y    int `json:"y"`
+		Zoom int `json:"zoom"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "position is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "x, y and zoom are required"})
 		return
 	}
 
-	switch input.Position {
-	case "top", "center", "bottom":
-		// accepted
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "position must be one of: top, center, bottom",
-		})
-		return
-	}
+	x := clampInt(input.X, 0, 100)
+	y := clampInt(input.Y, 0, 100)
+	zoom := clampInt(input.Zoom, 100, 300)
 
 	if err := config.DB.
 		Model(&models.User{}).
 		Where("id = ?", userObj.ID).
-		Update("cover_position", input.Position).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save cover position"})
+		Updates(map[string]interface{}{
+			"cover_position_x": x,
+			"cover_position_y": y,
+			"cover_zoom":       zoom,
+		}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save cover adjustment"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Cover position updated",
-		"coverPosition": input.Position,
+		"message":        "Cover adjustment updated",
+		"coverPositionX": x,
+		"coverPositionY": y,
+		"coverZoom":      zoom,
 	})
+}
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }

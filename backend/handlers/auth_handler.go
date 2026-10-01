@@ -321,22 +321,24 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":            freshUser.ID,
-			"email":         freshUser.Email,
-			"phone":         freshUser.Phone,
-			"firstName":     freshUser.FirstName,
-			"lastName":      freshUser.LastName,
-			"role":          freshUser.Role,
-			"unitId":        freshUser.UnitID,
-			"status":        freshUser.Status,
-			"createdAt":     freshUser.CreatedAt,
-			"updatedAt":     freshUser.UpdatedAt,
-			"avatarPath":    freshUser.AvatarPath,
-			"coverPath":     freshUser.CoverPath,
-			"coverPosition": freshUser.CoverPosition,
-			"photoUrl":      freshUser.AvatarPath,
+			"id":             freshUser.ID,
+			"email":          freshUser.Email,
+			"phone":          freshUser.Phone,
+			"firstName":      freshUser.FirstName,
+			"lastName":       freshUser.LastName,
+			"role":           freshUser.Role,
+			"unitId":         freshUser.UnitID,
+			"status":         freshUser.Status,
+			"createdAt":      freshUser.CreatedAt,
+			"updatedAt":      freshUser.UpdatedAt,
+			"avatarPath":     freshUser.AvatarPath,
+			"coverPath":      freshUser.CoverPath,
+			"coverPositionX": freshUser.CoverPositionX,
+			"coverPositionY": freshUser.CoverPositionY,
+			"coverZoom":      freshUser.CoverZoom,
+			"photoUrl":       freshUser.AvatarPath,
 		},
 	})
 }

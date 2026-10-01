@@ -23,18 +23,23 @@ type User struct {
 	IsSuperAdmin          bool           `gorm:"default:false" json:"isSuperAdmin"`
 	LocationSharingEnabled bool          `gorm:"default:false;index:idx_user_location_sharing" json:"locationSharingEnabled"`
 	DateOfBirth           *time.Time     `gorm:"type:date;index:idx_user_dob" json:"dateOfBirth,omitempty"`
-	MinorStatus           string         `gorm:"type:varchar(16);default:'adult';index:idx_user_minor_status" json:"minorStatus"` // minor | adult
+	MinorStatus           string         `gorm:"type:varchar(16);default:'adult';index:idx_user_minor_status" json:"minorStatus"`
 	DOBVerified           bool           `gorm:"default:false;index:idx_user_dob_verified" json:"dobVerified"`
 	MinorExceptionGranted bool           `gorm:"default:false;index:idx_user_minor_exception" json:"minorExceptionGranted"`
 	GuardianID            *uuid.UUID     `gorm:"type:uuid;index:idx_user_guardian" json:"guardianId,omitempty"`
 	Impersonating *uuid.UUID     `gorm:"type:uuid" json:"impersonating,omitempty"`
-	MedicalInfo   string         `gorm:"type:text" json:"medicalInfo,omitempty"` // encrypted at rest via BeforeSave/AfterFind
+	MedicalInfo   string         `gorm:"type:text" json:"medicalInfo,omitempty"`
 	AvatarPath    string         `gorm:"type:varchar(255)" json:"avatarPath,omitempty"`
 	CoverPath     string         `gorm:"type:varchar(255)" json:"coverPath,omitempty"`
-	// CoverPosition is the object-position anchor for the cover photo:
-	// "top" (default), "center", or "bottom". Stored server-side so it
+
+	// Cover photo focus — three server-side values so the adjustment
 	// follows the account across devices.
-	CoverPosition string         `gorm:"type:varchar(16);default:'top'" json:"coverPosition"`
+	//   X, Y: object-position percentage 0–100
+	//   Zoom: integer 100–300 (100 = 1.0×, 300 = 3.0×)
+	CoverPositionX int `gorm:"default:50" json:"coverPositionX"`
+	CoverPositionY int `gorm:"default:20" json:"coverPositionY"`
+	CoverZoom      int `gorm:"default:100" json:"coverZoom"`
+
 	LastLogin     *time.Time     `json:"lastLogin,omitempty"`
 	CreatedAt     time.Time      `json:"createdAt"`
 	UpdatedAt     time.Time      `json:"updatedAt"`
@@ -46,9 +51,6 @@ func (User) TableName() string {
 	return "users"
 }
 
-// BeforeSave encrypts MedicalInfo at rest. If ENCRYPTION_KEY is missing, the save
-// fails rather than persisting plaintext. Values already carrying the encryption
-// prefix are skipped, so this hook is idempotent.
 func (u *User) BeforeSave(tx *gorm.DB) error {
 	if u.MedicalInfo == "" {
 		return nil
@@ -65,8 +67,8 @@ func (u *User) BeforeSave(tx *gorm.DB) error {
 }
 
 // AfterFind decrypts MedicalInfo on read. cryptoutil.Decrypt returns the
-// plaintext directly — on failure it returns the input unchanged, which
-// leaves the encrypted value in place rather than failing the row load.
+// plaintext directly — on failure it returns the input unchanged, leaving
+// the encrypted value in place rather than failing the row load.
 func (u *User) AfterFind(tx *gorm.DB) error {
 	if u.MedicalInfo == "" {
 		return nil

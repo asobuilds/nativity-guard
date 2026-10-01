@@ -15,25 +15,20 @@ import type { User as UserType } from '@/types/api'
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/auth/AuthContext'
 import { LinkedCases } from '@/components/profile/LinkedCases'
-import { normalizeCoverPosition, type CoverPosition } from '@/lib/coverPosition'
+import {
+  DEFAULT_COVER_ADJUST,
+  normalizeCoverAdjust,
+  type CoverAdjust,
+} from '@/lib/coverPosition'
 
 interface ProfileWithImages extends UserType {
   avatarPath?: string
   coverPath?: string
-  coverPosition?: string
+  coverPositionX?: number
+  coverPositionY?: number
+  coverZoom?: number
 }
 
-/**
- * Profile page.
- *
- * Two large images anchor the top of the page:
- *   - Cover photo, full width of the content column. Users pick the crop
- *     anchor (Top/Mid/Bot), stored server-side so it follows the account.
- *   - Profile photo, large circle overlapping the bottom of the cover.
- *
- * Neither is shown to other citizens; both are used for facial
- * identification by responding officers.
- */
 export function ProfilePage() {
   const queryClient = useQueryClient()
   const { data: profile, isLoading, error } = useProfile()
@@ -48,14 +43,25 @@ export function ProfilePage() {
     phone: '',
   })
 
-  const [coverPosition, setCoverPosition] = useState<CoverPosition>('top')
+  const [coverAdjust, setCoverAdjust] = useState<CoverAdjust>(DEFAULT_COVER_ADJUST)
 
   const profileWithImages = profile as ProfileWithImages | undefined
 
-  // Keep local state in sync with the server value on load / refetch.
   useEffect(() => {
-    setCoverPosition(normalizeCoverPosition(profileWithImages?.coverPosition))
-  }, [profileWithImages?.coverPosition])
+    if (profileWithImages) {
+      setCoverAdjust(
+        normalizeCoverAdjust({
+          coverPositionX: profileWithImages.coverPositionX,
+          coverPositionY: profileWithImages.coverPositionY,
+          coverZoom: profileWithImages.coverZoom,
+        }),
+      )
+    }
+  }, [
+    profileWithImages?.coverPositionX,
+    profileWithImages?.coverPositionY,
+    profileWithImages?.coverZoom,
+  ])
 
   useEffect(() => {
     if (profile) {
@@ -68,25 +74,28 @@ export function ProfilePage() {
     }
   }, [profile])
 
-  const positionMutation = useMutation({
-    mutationFn: (position: CoverPosition) =>
-      api.put<{ coverPosition: CoverPosition }>('/users/me/cover-position', { position }),
+  const adjustMutation = useMutation({
+    mutationFn: (next: CoverAdjust) =>
+      api.put<CoverAdjust>('/users/me/cover-adjust', {
+        x: next.x,
+        y: next.y,
+        zoom: next.zoom,
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['profile'] })
     },
     onError: (err) => {
       notify(
-        err instanceof Error ? err.message : 'Could not save cover position',
+        err instanceof Error ? err.message : 'Could not save cover adjustment',
         'error',
       )
-      // Revert to whatever the server has.
       void queryClient.invalidateQueries({ queryKey: ['profile'] })
     },
   })
 
-  function handlePositionChange(next: CoverPosition) {
-    setCoverPosition(next) // optimistic — instant visual feedback
-    positionMutation.mutate(next)
+  function handleAdjustSaved(next: CoverAdjust) {
+    setCoverAdjust(next) // optimistic
+    adjustMutation.mutate(next)
   }
 
   const handleChange = (key: keyof typeof form, value: string) => {
@@ -144,14 +153,17 @@ export function ProfilePage() {
       <Card className="mb-4 overflow-hidden">
         <CoverUpload
           currentUrl={coverUrl}
-          position={coverPosition}
-          savingPosition={positionMutation.isPending}
+          adjust={coverAdjust}
+          savingAdjust={adjustMutation.isPending}
           onUploaded={refreshProfile}
           onDeleted={refreshProfile}
-          onPositionChange={handlePositionChange}
+          onAdjustSaved={handleAdjustSaved}
         />
-        <div className="px-6 pb-6">
-          <div className="-mt-16 flex flex-col gap-4 sm:-mt-20 sm:flex-row sm:items-end">
+
+        {/* Content block — clear padding-top so the avatar overlap has room
+            and the name + email sit BELOW the avatar, never behind it. */}
+        <div className="px-6 pb-6 pt-24 sm:pt-28">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:text-left">
             <AvatarUpload
               currentUrl={avatarUrl}
               size={140}
@@ -159,12 +171,12 @@ export function ProfilePage() {
               onUploaded={refreshProfile}
               onDeleted={refreshProfile}
             />
-            <div className="min-w-0 flex-1 pb-2">
-              <h2 className="text-xl font-bold text-ink">
+            <div className="min-w-0 flex-1 pt-2 text-center sm:text-left">
+              <h2 className="text-2xl font-bold text-ink">
                 {fullName || 'Your profile'}
               </h2>
-              <p className="text-sm text-ink-muted">{profile?.email}</p>
-              <p className="mt-1 text-xs text-ink-faint">
+              <p className="mt-1 text-sm text-ink-muted break-all">{profile?.email}</p>
+              <p className="mt-2 text-xs text-ink-faint">
                 Click either photo to change it. Max 5 MB · JPEG, PNG, WebP, GIF
               </p>
             </div>

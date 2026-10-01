@@ -21,23 +21,25 @@ import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/auth/AuthContext'
 import { relativeTime, initials } from '@/lib/format'
 import { api, mediaURL } from '@/lib/apiClient'
-import { coverObjectPosition, normalizeCoverPosition } from '@/lib/coverPosition'
+import { coverImageStyle, normalizeCoverAdjust } from '@/lib/coverPosition'
 import type { User as UserType } from '@/types/api'
 import type { CommunityAlert, CommunityPost } from '@/types/community'
 
 interface ProfileWithImages extends UserType {
   avatarPath?: string
   coverPath?: string
-  coverPosition?: string
+  coverPositionX?: number
+  coverPositionY?: number
+  coverZoom?: number
 }
 
 /**
  * Citizen home.
  *
- * Hero layout: cover strip on top, avatar absolutely positioned and
- * centered so it overlaps the bottom edge of the cover. The avatar uses
- * `object-position: 50% 20%` so a portrait photo shows the face rather
- * than the chest — matching how ID verification will use this photo.
+ * Hero layout: cover strip, absolutely-centred avatar overlapping the
+ * bottom edge, then the greeting content clear of the avatar below.
+ * Cover and avatar both render from server-side focus values, so any
+ * adjustment made on the profile page shows here too.
  */
 export function CitizenHomePage() {
   const { user } = useAuth()
@@ -71,7 +73,11 @@ export function CitizenHomePage() {
   const avatarUrl =
     mediaURL(profileWithImages?.avatarPath ?? profileQuery.data?.photoUrl) ?? null
   const coverUrl = mediaURL(profileWithImages?.coverPath) ?? null
-  const coverPosition = normalizeCoverPosition(profileWithImages?.coverPosition)
+  const coverAdjust = normalizeCoverAdjust({
+    coverPositionX: profileWithImages?.coverPositionX,
+    coverPositionY: profileWithImages?.coverPositionY,
+    coverZoom: profileWithImages?.coverZoom,
+  })
   const initialsValue = initials(user?.firstName, user?.lastName)
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
 
@@ -92,22 +98,21 @@ export function CitizenHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      {/* HERO — cover strip with the avatar cleanly overlapping its bottom */}
+      {/* HERO */}
       <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
         <div className="relative">
-          {/* Cover strip */}
           <div className="h-40 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-56">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt=""
-                className="h-full w-full object-cover"
-                style={{ objectPosition: coverObjectPosition(coverPosition) }}
+                draggable={false}
+                className="select-none"
+                style={coverImageStyle(coverAdjust)}
               />
             ) : null}
           </div>
 
-          {/* Avatar — absolutely centred, overlapping the cover's bottom edge */}
           <Link
             to="/profile"
             aria-label="Open profile to change your photo"
@@ -128,7 +133,6 @@ export function CitizenHomePage() {
           </Link>
         </div>
 
-        {/* Content — padded to clear the avatar overlap */}
         <div className="px-6 pb-6 pt-24 text-center sm:pt-28">
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             {firstName ? `Hi, ${firstName}` : 'Welcome back'}
@@ -296,7 +300,6 @@ export function CitizenHomePage() {
         </Card>
       </div>
 
-      {/* COMMUNITY PULSE */}
       {postsQuery.isError || posts.length === 0 ? null : (
         <section className="mt-4">
           <Card>
@@ -337,7 +340,6 @@ export function CitizenHomePage() {
         </section>
       )}
 
-      {/* AWARENESS STRIP */}
       <section className="mt-4">
         <Card className="border border-warn/30">
           <CardBody className="flex items-center justify-between gap-3">
