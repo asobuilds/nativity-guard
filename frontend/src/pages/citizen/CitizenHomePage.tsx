@@ -17,24 +17,26 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useCases } from '@/hooks/useCases'
 import { useNearbyUnits } from '@/hooks/useUnits'
 import { useLocation } from '@/hooks/useLocation'
+import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/auth/AuthContext'
 import { relativeTime, initials } from '@/lib/format'
-import { api } from '@/lib/apiClient'
+import { api, mediaURL } from '@/lib/apiClient'
+import type { User as UserType } from '@/types/api'
 import type { CommunityAlert, CommunityPost } from '@/types/community'
 
 /**
- * Citizen home, rebuilt as a single dashboard rather than a bare cases list.
+ * Citizen home.
  *
- * The page composes four data sources — the signed-in profile, the reporter's
- * own cases, the units near the reporter, and the community feed — plus two
- * one-off inline queries for alerts. Every hook is called unconditionally at
- * the top: a conditional `useQuery` would move past the Rules-of-Hooks line
- * and re-create the React #301 bug we fixed (hooks shifting order between
- * renders), so the guards live in the render body, not before the hooks.
+ * The hero at the top shows the signed-in user's cover photo as a strip and
+ * their profile photo as a circle overlapping its base. This is the first
+ * thing a returning user sees — it makes the account feel like theirs. Both
+ * images are also how responding officers will identify the reporter later.
  *
- * The SOS FAB in `AppShell` is untouched here — this hero button is a
- * deliberate, confirmable secondary trigger, kept distinct from the always
- * present emergency floater.
+ * The page composes five data sources — the signed-in profile, the reporter's
+ * own cases, the units near the reporter, the community feed, and two one-off
+ * inline queries for alerts. Every hook is called unconditionally at the top:
+ * a conditional `useQuery` would re-create the React #301 bug we fixed (hooks
+ * shifting order between renders), so the guards live in the render body.
  */
 export function CitizenHomePage() {
   const { user } = useAuth()
@@ -46,6 +48,7 @@ export function CitizenHomePage() {
     location.longitude ?? undefined,
     10,
   )
+  const profileQuery = useProfile()
   // One-off inline queries — no new global hooks created.
   const alertsQuery = useQuery({
     queryKey: ['dashboard-alerts'],
@@ -64,6 +67,13 @@ export function CitizenHomePage() {
     ? `You're safe. ${unitCount} units active near you.`
     : "You're safe. Share your location to see units near you."
 
+  const profileWithImages = profileQuery.data as
+    | (UserType & { avatarPath?: string; coverPath?: string })
+    | undefined
+  const avatarUrl =
+    mediaURL(profileWithImages?.avatarPath ?? profileQuery.data?.photoUrl) ?? null
+  const coverUrl = mediaURL(profileWithImages?.coverPath) ?? null
+
   const recentCases = (casesQuery.data ?? []).slice(0, 3)
   const nearbyList = (nearby.data ?? [])
     .slice()
@@ -81,21 +91,47 @@ export function CitizenHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      {/* HERO BAND */}
-      <section className="mb-4 rounded-panel border border-border bg-surface/50 p-6">
-        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-ink">Welcome back, {firstName || 'there'}</h1>
-            <p className="mt-1 text-ink-muted">{heroSubtitle}</p>
+      {/* HERO BAND with cover strip + avatar */}
+      <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
+        {/* Cover strip */}
+        <div className="relative h-28 w-full bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-36">
+          {coverUrl ? (
+            <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+          ) : null}
+        </div>
+        {/* Body */}
+        <div className="relative px-6 pb-6">
+          {/* Avatar overlapping the cover */}
+          <div className="-mt-12 sm:-mt-14">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                className="size-24 rounded-full border-4 border-base bg-base object-cover shadow-panel sm:size-28"
+              />
+            ) : (
+              <div className="grid size-24 place-items-center rounded-full border-4 border-base bg-surface-hi text-2xl font-semibold text-ink shadow-panel sm:size-28">
+                {initials(user?.firstName, user?.lastName)}
+              </div>
+            )}
           </div>
-          <Link
-            to="/sos"
-            aria-label="Open emergency SOS"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emergency px-5 py-3 font-semibold text-white hover:bg-emergency/90 min-h-[56px] md:w-auto md:min-w-[140px]"
-          >
-            <ShieldAlert className="size-5" />
-            SOS
-          </Link>
+          {/* Greeting + SOS */}
+          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-ink">
+                Welcome back, {firstName || 'there'}
+              </h1>
+              <p className="mt-1 text-ink-muted">{heroSubtitle}</p>
+            </div>
+            <Link
+              to="/sos"
+              aria-label="Open emergency SOS"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emergency px-5 py-3 font-semibold text-white hover:bg-emergency/90 min-h-[56px] md:w-auto md:min-w-[140px]"
+            >
+              <ShieldAlert className="size-5" />
+              SOS
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -124,7 +160,9 @@ export function CitizenHomePage() {
           <CardHeader title="Your recent reports" />
           <CardBody className="flex flex-col gap-3">
             {casesQuery.isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))
             ) : casesQuery.isError ? (
               <ErrorState
                 title="Could not load your reports"
@@ -185,7 +223,9 @@ export function CitizenHomePage() {
                 }
               />
             ) : nearby.isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))
             ) : nearby.isError || nearbyList.length === 0 ? (
               <EmptyState
                 icon={<MapPin className="size-5" aria-hidden />}
@@ -197,7 +237,11 @@ export function CitizenHomePage() {
                 }
                 action={
                   nearby.isError ? (
-                    <Button variant="secondary" size="sm" onClick={() => void nearby.refetch()}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void nearby.refetch()}
+                    >
                       Retry
                     </Button>
                   ) : undefined
@@ -230,7 +274,7 @@ export function CitizenHomePage() {
         </Card>
       </div>
 
-      {/* COMMUNITY PULSE — hidden silently when it errors or is empty */}
+      {/* COMMUNITY PULSE */}
       {postsQuery.isError || posts.length === 0 ? null : (
         <section className="mt-4">
           <Card>
@@ -240,7 +284,9 @@ export function CitizenHomePage() {
             />
             <CardBody className="flex flex-col gap-3">
               {postsQuery.isLoading ? (
-                Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
+                Array.from({ length: 2 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))
               ) : (
                 <ul className="flex flex-col gap-3">
                   {posts.map((p) => (
@@ -253,7 +299,9 @@ export function CitizenHomePage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-ink">{p.title}</p>
-                        <p className="text-xs text-ink-faint">{relativeTime(p.createdAt)}</p>
+                        <p className="text-xs text-ink-faint">
+                          {relativeTime(p.createdAt)}
+                        </p>
                       </div>
                       <Link to="/community" className="shrink-0 text-xs font-medium text-signal">
                         View
