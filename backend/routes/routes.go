@@ -8,17 +8,12 @@ import (
 )
 
 func SetupRoutes(router *gin.Engine) {
-	// Health check endpoint — PUBLIC, no auth. External monitors
-	// (Render, UptimeRobot) poll this to determine if the server is
-	// alive and its subsystems are healthy.
 	router.GET("/health", handlers.GetHealth)
 
-	// API v1 routes
 	api := router.Group("/api/v1")
 	{
 		api.GET("/terms/:role", handlers.GetTermsForRole)
 		api.GET("/terms/my-acceptance", middleware.AuthMiddleware(), handlers.GetMyAcceptances)
-		// Public routes (no authentication required)
 		api.GET("/public/cases", middleware.RateLimitGeneral(), handlers.GetPublicCases)
 		api.GET("/public/units", middleware.RateLimitGeneral(), handlers.GetPublicUnits)
 		api.GET("/public/units/:id/bank-accounts", handlers.GetPublicBankAccounts)
@@ -36,7 +31,6 @@ func SetupRoutes(router *gin.Engine) {
 		api.GET("/public/units/:id/auth", handlers.GetPublicUnitAuth)
 		api.POST("/invites/validate", middleware.RateLimitAuth(), handlers.ValidateInvite)
 
-		// Auth routes
 		authHandler := handlers.NewAuthHandler()
 		auth := api.Group("/auth")
 		{
@@ -50,14 +44,25 @@ func SetupRoutes(router *gin.Engine) {
 			auth.DELETE("/sessions/:jti", middleware.AuthMiddleware(), authHandler.RevokeSession)
 			auth.DELETE("/sessions", middleware.AuthMiddleware(), authHandler.RevokeAllSessions)
 
-			// Account lifecycle (Wave 5c)
 			auth.POST("/forgot-password", middleware.RateLimitOTP(), authHandler.ForgotPassword)
 			auth.POST("/reset-password", middleware.RateLimitOTP(), authHandler.ResetPassword)
 			auth.DELETE("/account", middleware.AuthMiddleware(), authHandler.DeleteAccount)
 			auth.POST("/account/cancel-deletion", middleware.AuthMiddleware(), authHandler.CancelDeletion)
 		}
 
-		// OTP routes
+		// Identity verification — user side.
+		identity := api.Group("/identity")
+		{
+			identity.POST(
+				"/document",
+				middleware.AuthMiddleware(),
+				middleware.UploadValidationMiddleware("document"),
+				handlers.UploadIdentityDocument,
+			)
+			identity.POST("/submit", middleware.AuthMiddleware(), handlers.SubmitIdentityVerification)
+			identity.GET("/me", middleware.AuthMiddleware(), handlers.GetMyIdentityVerification)
+		}
+
 		otp := api.Group("/otp")
 		{
 			otp.POST("/send", middleware.RateLimitOTP(), handlers.SendOTP)
@@ -65,17 +70,14 @@ func SetupRoutes(router *gin.Engine) {
 			otp.POST("/resend", middleware.RateLimitOTP(), handlers.ResendOTP)
 		}
 
-		// Unit routes
 		units := api.Group("/units")
 		{
 			units.GET("/nearby", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetNearbyUnits)
 			units.GET("/by-location", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetUnitsByLocation)
 			units.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllUnits)
-
 			units.POST("/apply", middleware.AuthMiddleware(), handlers.ApplyForSecurityUnit)
 			units.GET("/my-memberships", middleware.AuthMiddleware(), handlers.GetMyUnitMembership)
 			units.POST("/government-id", middleware.AuthMiddleware(), handlers.SubmitGovernmentID)
-
 			units.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitByID)
 			units.POST("/:id/logo", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitLogo)
 			units.POST("/:id/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitCover)
@@ -105,7 +107,6 @@ func SetupRoutes(router *gin.Engine) {
 			users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
 			users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
 			users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
-			// Cover adjustment — server-side, follows the account.
 			users.PUT("/me/cover-adjust", middleware.AuthMiddleware(), handlers.UpdateCoverAdjustment)
 		}
 
@@ -114,7 +115,6 @@ func SetupRoutes(router *gin.Engine) {
 			files.GET("/:category/:hash", middleware.AuthMiddleware(), handlers.ServeFile)
 		}
 
-		// Push notification routes
 		notify := api.Group("/notifications")
 		{
 			notify.POST("/register", middleware.AuthMiddleware(), handlers.RegisterDevice)
@@ -122,7 +122,6 @@ func SetupRoutes(router *gin.Engine) {
 			notify.POST("/test", middleware.AuthMiddleware(), handlers.TestNotification)
 		}
 
-		// Case routes
 		cases := api.Group("/cases")
 		{
 			cases.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllCases)
@@ -144,13 +143,12 @@ func SetupRoutes(router *gin.Engine) {
 			cases.GET("/:id/review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseReview)
 			cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.RequestCaseChanges)
 			cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ApproveCaseClosure)
-
 			cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitWeeklyCaseUpdate)
 			cases.GET("/:id/weekly-updates", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseWeeklyUpdates)
 			cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PutCounterStatement)
 			cases.GET("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCounterStatement)
 		}
-		// Election routes
+
 		elections := api.Group("/elections")
 		{
 			elections.POST("/:id/vote", middleware.AuthMiddleware(), middleware.RateLimitVote(), middleware.IdempotencyMiddleware(), handlers.CastAdminVote)
@@ -158,7 +156,7 @@ func SetupRoutes(router *gin.Engine) {
 			elections.GET("/:id/results", middleware.AuthMiddleware(), handlers.GetElectionResults)
 			elections.POST("/seats/:id/fill", middleware.AuthMiddleware(), handlers.FillSeatVacancy)
 		}
-		// Revocation routes
+
 		revocations := api.Group("/revocations")
 		{
 			revocations.POST("/:id/vote", middleware.AuthMiddleware(), middleware.RateLimitVote(), middleware.IdempotencyMiddleware(), handlers.CastRevocationVote)
@@ -166,7 +164,6 @@ func SetupRoutes(router *gin.Engine) {
 			revocations.GET("/:id", middleware.AuthMiddleware(), handlers.GetRevocationCycle)
 		}
 
-		// Geo routes (Wave 10.1c) — public reverse geocoding.
 		geo := api.Group("/geo")
 		{
 			geo.GET("/reverse", middleware.RateLimitMap(), handlers.ReverseGeocode)
@@ -174,7 +171,6 @@ func SetupRoutes(router *gin.Engine) {
 			geo.GET("/lgas", middleware.RateLimitMap(), handlers.ListLGAs)
 		}
 
-		// Location routes
 		location := api.Group("/location")
 		{
 			location.POST("", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.UpdateMyLocation)
@@ -182,7 +178,6 @@ func SetupRoutes(router *gin.Engine) {
 			location.PUT("/sharing", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UpdateLocationSharing)
 		}
 
-		// Evidence routes
 		evidence := api.Group("/evidence")
 		{
 			evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
@@ -194,14 +189,12 @@ func SetupRoutes(router *gin.Engine) {
 			evidence.PATCH("/:id/verify", middleware.AuthMiddleware(), handlers.VerifyEvidence)
 		}
 
-		// Rating routes
 		ratings := api.Group("/ratings")
 		{
 			ratings.POST("", middleware.AuthMiddleware(), handlers.SubmitRating)
 			ratings.POST("/:id/flag", middleware.AuthMiddleware(), handlers.FlagRating)
 		}
 
-		// SOS routes
 		sos := api.Group("/sos")
 		{
 			sos.POST("/send", middleware.AuthMiddleware(), handlers.SendSOSAlert)
@@ -214,7 +207,6 @@ func SetupRoutes(router *gin.Engine) {
 			sos.POST("/:id/assign", middleware.AuthMiddleware(), handlers.AssignSOS)
 		}
 
-		// Suspect routes
 		suspects := api.Group("/suspects")
 		{
 			suspects.GET("/me/cases", middleware.AuthMiddleware(), handlers.GetMySuspectCases)
@@ -231,7 +223,6 @@ func SetupRoutes(router *gin.Engine) {
 			suspects.GET("/:id/expungement", middleware.AuthMiddleware(), handlers.ListMyExpungementRequests)
 		}
 
-		// Expungement decision routes
 		expungementGroup := api.Group("/expungement-requests")
 		{
 			expungementGroup.PUT("/:id/decision", middleware.AuthMiddleware(), handlers.DecideExpungement)
@@ -245,7 +236,6 @@ func SetupRoutes(router *gin.Engine) {
 			appeals.PUT("/:id/decision", middleware.AuthMiddleware(), handlers.DecideAppeal)
 		}
 
-		// Transfer routes
 		transfers := api.Group("/transfers")
 		{
 			transfers.POST("", middleware.AuthMiddleware(), handlers.RequestTransfer)
@@ -255,7 +245,6 @@ func SetupRoutes(router *gin.Engine) {
 			transfers.GET("/:id/approvals", middleware.AuthMiddleware(), handlers.GetTransferApprovals)
 		}
 
-		// News routes
 		news := api.Group("/news")
 		{
 			news.POST("", middleware.AuthMiddleware(), handlers.CreateNews)
@@ -263,7 +252,6 @@ func SetupRoutes(router *gin.Engine) {
 			news.GET("/:id", middleware.AuthMiddleware(), handlers.GetNewsByID)
 		}
 
-		// AI routes
 		ai := api.Group("/ai")
 		{
 			ai.POST("/chatbot", middleware.AuthMiddleware(), handlers.AIChatbot)
@@ -276,7 +264,6 @@ func SetupRoutes(router *gin.Engine) {
 			ai.POST("/predict-hotspots", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIPredictHotspots)
 		}
 
-		// Bank Account routes
 		bank := api.Group("/bank")
 		{
 			bank.POST("/accounts", middleware.AuthMiddleware(), handlers.AddBankAccount)
@@ -290,7 +277,6 @@ func SetupRoutes(router *gin.Engine) {
 			bank.GET("/:id/donations", middleware.AuthMiddleware(), handlers.GetDonations)
 		}
 
-		// Finance routes
 		finance := api.Group("/finance")
 		{
 			finance.POST("/transactions", middleware.AuthMiddleware(), handlers.CreateTransaction)
@@ -305,7 +291,6 @@ func SetupRoutes(router *gin.Engine) {
 			finance.GET("/units/:id/reports", middleware.AuthMiddleware(), handlers.GetFinancialReports)
 		}
 
-		// Community routes
 		community := api.Group("/community")
 		{
 			community.POST("/posts", middleware.AuthMiddleware(), handlers.CreateForumPost)
@@ -319,7 +304,6 @@ func SetupRoutes(router *gin.Engine) {
 			community.POST("/events/:id/rsvp", middleware.AuthMiddleware(), handlers.RSVPToEvent)
 		}
 
-		// Audit routes
 		audit := api.Group("/audit")
 		{
 			audit.POST("/activity", middleware.AuthMiddleware(), handlers.LogActivity)
@@ -331,40 +315,30 @@ func SetupRoutes(router *gin.Engine) {
 			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
 		}
 
-		// Alert routes
 		alerts := api.Group("/alerts")
 		{
 			alerts.GET("/news", middleware.AuthMiddleware(), handlers.GetNewsAlerts)
-
 			alerts.POST("", middleware.AuthMiddleware(), handlers.CreateCommunityAlert)
 			alerts.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCommunityAlerts)
-
 			alerts.POST("/subscribe", middleware.AuthMiddleware(), handlers.SubscribeToAlerts)
 			alerts.GET("/subscriptions", middleware.AuthMiddleware(), handlers.GetAlertSubscriptions)
-
 			alerts.GET("/:id", middleware.AuthMiddleware(), handlers.GetAlertByID)
 			alerts.POST("/:id/confirm", middleware.AuthMiddleware(), handlers.ConfirmAlert)
 		}
 
-		// Settings routes
 		settings := api.Group("/settings")
 		{
 			settings.GET("/public", handlers.GetPublicSettings)
-
 			settings.GET("/templates/:name", middleware.AuthMiddleware(), handlers.GetEmailTemplate)
 			settings.PUT("/templates/:name", middleware.AuthMiddleware(), handlers.UpdateEmailTemplate)
-
 			settings.POST("/exports", middleware.AuthMiddleware(), handlers.CreateDataExport)
 			settings.GET("/exports", middleware.AuthMiddleware(), handlers.GetDataExports)
-
 			settings.GET("/onboarding", middleware.AuthMiddleware(), handlers.GetUserOnboarding)
 			settings.PUT("/onboarding", middleware.AuthMiddleware(), handlers.UpdateUserOnboarding)
-
 			settings.GET("/:key", middleware.AuthMiddleware(), handlers.GetSystemSetting)
 			settings.PUT("/:key", middleware.AuthMiddleware(), handlers.UpdateSystemSetting)
 		}
 
-		// Mobile API routes
 		mobile := api.Group("/mobile")
 		{
 			mobile.GET("/config", middleware.AuthMiddleware(), handlers.MobileAppConfig)
@@ -376,7 +350,6 @@ func SetupRoutes(router *gin.Engine) {
 			mobile.POST("/crash-report", middleware.AuthMiddleware(), handlers.MobileCrashReport)
 		}
 
-		// Video Analytics routes
 		video := api.Group("/video")
 		{
 			video.POST("/cameras", middleware.AuthMiddleware(), handlers.AddCamera)
@@ -388,7 +361,6 @@ func SetupRoutes(router *gin.Engine) {
 			video.GET("/social/posts", middleware.AuthMiddleware(), handlers.GetSocialMediaPosts)
 		}
 
-		// Communication routes
 		commGroup := api.Group("/communication")
 		{
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
@@ -401,14 +373,12 @@ func SetupRoutes(router *gin.Engine) {
 			commGroup.GET("/rooms/:roomId/sync-status", middleware.AuthMiddleware(), handlers.GetSyncStatus)
 		}
 
-		// SMS routes
 		sms := api.Group("/sms")
 		{
 			sms.POST("/incoming", middleware.SMSWebhookSignature(), handlers.HandleIncomingSMS)
 			sms.POST("/ussd", middleware.SMSWebhookSignature(), handlers.HandleUSSD)
 		}
 
-		// Peacebuilding routes
 		peace := api.Group("/peacebuilding")
 		{
 			peace.POST("/committees", middleware.AuthMiddleware(), handlers.CreatePeaceCommittee)
@@ -422,7 +392,6 @@ func SetupRoutes(router *gin.Engine) {
 			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
 		}
 
-		// Super Admin routes
 		superAdmin := api.Group("/admin")
 		superAdmin.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
 		{
@@ -437,12 +406,13 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.GET("/stats", handlers.GetSystemStats)
 			superAdmin.GET("/platform-donations", handlers.ListPlatformDonations)
 			superAdmin.POST("/platform-donations/:id/confirm", handlers.ConfirmPlatformDonation)
+
+			superAdmin.GET("/identity", handlers.ListIdentityVerifications)
+			superAdmin.POST("/identity/:id/approve", handlers.ApproveIdentityVerification)
+			superAdmin.POST("/identity/:id/reject", handlers.RejectIdentityVerification)
 		}
 	}
 
-	// WebSocket route (protected)
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
-
-	// Metrics endpoint — authed, super-admin only.
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
