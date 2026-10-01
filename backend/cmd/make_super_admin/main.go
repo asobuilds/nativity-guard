@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -18,11 +19,11 @@ import (
 	"security-solution/models"
 )
 
-// make_super_admin creates (or promotes) a super-admin account.
+// make_super_admin creates (or upserts) a super-admin account.
 //
-// Reads the password from the SUPER_ADMIN_PASSWORD environment variable so
-// it is never committed to source. Idempotent: rerunning with the same
-// email promotes the existing user instead of failing.
+// Reads the password from SUPER_ADMIN_PASSWORD. Always resets the password
+// to that value — so rerunning the command makes the account's password
+// deterministic instead of leaving whatever was there before.
 //
 // Run once:
 //   $env:SUPER_ADMIN_PASSWORD = "the-password"
@@ -53,68 +54,112 @@ func main() {
 		log.Fatal("DATABASE_URL is not set")
 	}
 
+	// Show which host we're about to write to, with the password masked.
+	log.Printf("connecting to: %s", maskDSN(dsn))
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("database connection failed: ", err)
 	}
 	config.DB = db
 
+	log.Println("running auto-migration for the models this command touches...")
+	if err := db.AutoMigrate(
+		&models.User{},
+		&models.TermsDocument{},
+		&models.TermsAcceptance{},
+		&models.IdentityVerification{},
+	); err != nil {
+		log.Fatal("auto-migration failed: ", err)
+	}
+	log.Println("auto-migration complete")
+
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
 	normalizedPhone := strings.TrimSpace(phone)
-
-	var user models.User
-	err = db.Where("LOWER(email) = ?", normalizedEmail).First(&user).Error
-
-	if err == nil {
-		log.Printf("user exists (id=%s, current role=%s) — promoting", user.ID, user.Role)
-		if err := db.Model(&user).Updates(map[string]interface{}{
-			"role":            "super_admin",
-			"is_super_admin":  true,
-			"status":          "active",
-		}).Error; err != nil {
-			log.Fatal("failed to promote: ", err)
-		}
-		if user.Phone == "" && normalizedPhone != "" {
-			_ = db.Model(&user).Update("phone", normalizedPhone)
-		}
-		ensureAcceptances(db, user.ID)
-		log.Println("done — user promoted to super_admin")
-		return
-	}
-
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Fatal("query failed: ", err)
-	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal("bcrypt: ", err)
 	}
 
-	user = models.User{
-		ID:           uuid.New(),
-		Email:        normalizedEmail,
-		Phone:        normalizedPhone,
-		FirstName:    firstName,
-		LastName:     lastName,
-		Password:     string(hash),
-		Role:         "super_admin",
-		Status:       "active",
-		IsSuperAdmin: true,
+	var user models.User
+	err = db.Unscoped().Where("LOWER(email) = ?", normalizedEmail).First(&user).Error
+
+	switch {
+	case err == nil:
+		log.Printf("user exists (id=%s, role=%s, status=%s) — updating", user.ID, user.Role, user.Status)
+		updates := map[string]interface{}{
+			"first_name":     firstName,
+			"last_name":      lastName,
+			"password":       string(hash), // always reset the password
+			"role":           "super_admin",
+			"is_super_admin": true,
+			"status":         "active",
+			"deleted_at":     nil, // undelete if it was soft-deleted
+		}
+		if user.Phone == "" && normalizedPhone != "" {
+			updates["phone"] = normalizedPhone
+		}
+		if err := db.Unscoped().Model(&models.User{}).Where("id = ?", user.ID).Updates(updates).Error; err != nil {
+			log.Fatal("failed to update user: ", err)
+		}
+
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		user = models.User{
+			ID:           uuid.New(),
+			Email:        normalizedEmail,
+			Phone:        normalizedPhone,
+			FirstName:    firstName,
+			LastName:     lastName,
+			Password:     string(hash),
+			Role:         "super_admin",
+			Status:       "active",
+			IsSuperAdmin: true,
+		}
+		if err := db.Create(&user).Error; err != nil {
+			log.Fatal("create user: ", err)
+		}
+		log.Printf("created super_admin %s (%s)", user.Email, user.ID)
+
+	default:
+		log.Fatal("query failed: ", err)
 	}
 
-	if err := db.Create(&user).Error; err != nil {
-		log.Fatal("create user: ", err)
+	// Reload and print the final DB state so we can see exactly what landed.
+	var final models.User
+	if err := db.Unscoped().Where("LOWER(email) = ?", normalizedEmail).First(&final).Error; err != nil {
+		log.Fatal("could not reload user: ", err)
 	}
-	ensureAcceptances(db, user.ID)
 
-	log.Printf("created super_admin %s (%s)", user.Email, user.ID)
+	ensureAcceptances(db, final.ID)
+
+	passwordOK := bcrypt.CompareHashAndPassword([]byte(final.Password), []byte(password)) == nil
+	log.Printf("---- FINAL DB STATE ----")
+	log.Printf("id            = %s", final.ID)
+	log.Printf("email         = %s", final.Email)
+	log.Printf("phone         = %s", final.Phone)
+	log.Printf("role          = %s", final.Role)
+	log.Printf("status        = %s", final.Status)
+	log.Printf("isSuperAdmin  = %v", final.IsSuperAdmin)
+	log.Printf("deleted_at    = %v", final.DeletedAt)
+	log.Printf("password hash verifies against the SUPPLIED password: %v", passwordOK)
 	log.Println("done")
 }
 
-// ensureAcceptances records the current terms + privacy acceptance for a
-// user that was created by this command. Every account on the platform
-// must have these rows so the audit trail is complete.
+// maskDSN hides the password portion of a postgres URL.
+func maskDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "(unparseable)"
+	}
+	if u.User != nil {
+		u.User = url.UserPassword(u.User.Username(), "****")
+	}
+	return u.String()
+}
+
+// ensureAcceptances records the current terms + privacy acceptance for the
+// user. Every account on the platform must have these rows.
 func ensureAcceptances(db *gorm.DB, userID uuid.UUID) {
 	var docs []models.TermsDocument
 	err := db.

@@ -50,7 +50,6 @@ func SetupRoutes(router *gin.Engine) {
 			auth.POST("/account/cancel-deletion", middleware.AuthMiddleware(), authHandler.CancelDeletion)
 		}
 
-		// Identity verification — user side.
 		identity := api.Group("/identity")
 		{
 			identity.POST(
@@ -320,8 +319,11 @@ func SetupRoutes(router *gin.Engine) {
 			alerts.GET("/news", middleware.AuthMiddleware(), handlers.GetNewsAlerts)
 			alerts.POST("", middleware.AuthMiddleware(), handlers.CreateCommunityAlert)
 			alerts.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCommunityAlerts)
-			alerts.POST("/subscribe", middleware.AuthMiddleware(), handlers.SubscribeToAlerts)
-			alerts.GET("/subscriptions", middleware.AuthMiddleware(), handlers.GetAlertSubscriptions)
+
+			alerts.POST("/subscribe", middleware.AuthMiddleware(), handlers.UpsertAlertSubscription)
+			alerts.GET("/subscriptions", middleware.AuthMiddleware(), handlers.GetMyAlertSubscription)
+			alerts.DELETE("/subscriptions/:id", middleware.AuthMiddleware(), handlers.DeleteAlertSubscription)
+
 			alerts.GET("/:id", middleware.AuthMiddleware(), handlers.GetAlertByID)
 			alerts.POST("/:id/confirm", middleware.AuthMiddleware(), handlers.ConfirmAlert)
 		}
@@ -410,6 +412,11 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.GET("/identity", handlers.ListIdentityVerifications)
 			superAdmin.POST("/identity/:id/approve", handlers.ApproveIdentityVerification)
 			superAdmin.POST("/identity/:id/reject", handlers.RejectIdentityVerification)
+
+			superAdmin.GET("/units/verifications", handlers.ListUnitVerifications)
+			superAdmin.POST("/units/:id/verify", handlers.ApproveUnit)
+			superAdmin.POST("/units/:id/reject", handlers.RejectUnit)
+			superAdmin.POST("/units/:id/under-review", handlers.MarkUnitUnderReview)
 		}
 	}
 
