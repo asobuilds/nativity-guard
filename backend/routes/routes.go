@@ -62,6 +62,12 @@ func SetupRoutes(router *gin.Engine) {
 			identity.GET("/me", middleware.AuthMiddleware(), handlers.GetMyIdentityVerification)
 		}
 
+		feedback := api.Group("/feedback")
+		{
+			feedback.POST("", middleware.AuthMiddleware(), handlers.CreateFeedback)
+			feedback.GET("/my", middleware.AuthMiddleware(), handlers.ListMyFeedback)
+		}
+
 		otp := api.Group("/otp")
 		{
 			otp.POST("/send", middleware.RateLimitOTP(), handlers.SendOTP)
@@ -331,11 +337,8 @@ func SetupRoutes(router *gin.Engine) {
 		settings := api.Group("/settings")
 		{
 			settings.GET("/public", handlers.GetPublicSettings)
-
-			// Preference endpoints — placed BEFORE the /:key catch-all.
 			settings.GET("/preferences", middleware.AuthMiddleware(), handlers.GetMyPreferences)
 			settings.PUT("/preferences", middleware.AuthMiddleware(), handlers.UpdateMyPreferences)
-
 			settings.GET("/templates/:name", middleware.AuthMiddleware(), handlers.GetEmailTemplate)
 			settings.PUT("/templates/:name", middleware.AuthMiddleware(), handlers.UpdateEmailTemplate)
 			settings.POST("/exports", middleware.AuthMiddleware(), handlers.CreateDataExport)
@@ -422,6 +425,10 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.POST("/units/:id/verify", handlers.ApproveUnit)
 			superAdmin.POST("/units/:id/reject", handlers.RejectUnit)
 			superAdmin.POST("/units/:id/under-review", handlers.MarkUnitUnderReview)
+
+			superAdmin.GET("/feedback", handlers.ListAllFeedback)
+			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
+			superAdmin.POST("/feedback/:id/close", handlers.CloseFeedback)
 		}
 	}
 

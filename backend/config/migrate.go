@@ -16,6 +16,8 @@ func AutoMigrateAll() error {
 		&models.GovernmentIDVerification{},
 		&models.IdentityVerification{},
 
+		&models.Feedback{},
+
 		&models.Case{},
 		&models.CaseAccountabilityEvent{},
 		&models.Evidence{},

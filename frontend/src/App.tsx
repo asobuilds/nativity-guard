@@ -63,13 +63,14 @@ const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => (
 const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
 const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
+const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
+const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
 import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
 
-/** Applies theme + text size on every render. Mounted once, inside AuthProvider. */
 function PreferencesBootstrap() {
   usePreferences()
   return null
@@ -143,6 +144,7 @@ export function App() {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/verify-identity" element={<VerifyIdentityPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/invites" element={<InvitationsPage />} />
                   <Route path="/sessions" element={<SessionsPage />} />
                   <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
@@ -227,6 +229,14 @@ export function App() {
                     element={
                       <RequireRole roles={['super_admin']}>
                         <UnitVerificationQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <FeedbackQueuePage />
                       </RequireRole>
                     }
                   />

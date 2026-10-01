@@ -11,6 +11,7 @@ import {
   Map as MapIcon,
   Megaphone,
   Menu,
+  MessageSquare,
   Shield,
   ShieldAlert,
   Settings,
@@ -30,7 +31,6 @@ interface NavItem {
   to: string
   label: string
   icon: ReactNode
-  /** Not built yet — rendered disabled with an explanation, never a dead link. */
   soon?: boolean
 }
 
@@ -45,6 +45,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
     { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
+    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
   ],
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
@@ -52,6 +53,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/officer/comms', label: 'Comms', icon: <Users className="size-4" />, soon: true },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
+    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
   ],
   unit_admin: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
@@ -67,11 +69,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/governance-audit', label: 'Governance overview', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
+    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
   ],
-  // A super admin sees the citizen actions, the officer queue and the platform
-  // consoles — every surface a role below can reach, plus the admin routes.
-  // Icon set is whatever the blocks above already use; `Megaphone` stands in for
-  // `/notifications` because `Bell` is not imported here.
   super_admin: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
@@ -86,12 +85,15 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/notifications', label: 'Notifications', icon: <Megaphone className="size-4" /> },
 
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
-{ to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
+    { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
     { to: '/super/overview', label: 'Governance', icon: <ShieldAlert className="size-4" /> },
     { to: '/super/units', label: 'Units', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/super/users', label: 'Users', icon: <Users className="size-4" /> },
+    { to: '/admin/identity', label: 'Identity queue', icon: <Shield className="size-4" /> },
+    { to: '/admin/units-verification', label: 'Unit verification', icon: <Shield className="size-4" /> },
+    { to: '/admin/feedback', label: 'Feedback queue', icon: <MessageSquare className="size-4" /> },
     { to: '/super/audit', label: 'Audit', icon: <FileText className="size-4" /> },
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Settings', icon: <FileText className="size-4" /> },
@@ -112,8 +114,6 @@ function NavItems({
 }: {
   items: NavItem[]
   variant: 'sidebar' | 'bottom'
-  /** Drawer-only: close the mobile sidebar after a tap. Never wired to the
-   *  bottom nav, which must keep behaving exactly as it does today. */
   onNavigate?: () => void
 }) {
   return (
@@ -167,15 +167,6 @@ function NavItems({
   )
 }
 
-/**
- * Application shell: desktop sidebar + top bar, mobile bottom nav.
- * Role-aware, and honest about what isn't built yet.
- *
- * Below `md` the same sidebar becomes an off-canvas drawer: hidden by
- * default, opened from the top bar, dismissed by the backdrop, the close
- * button, Escape, or any nav link. At `md` and up it is the permanent
- * sidebar it always was, and the drawer affordances are all `md:hidden`.
- */
 export function AppShell({ children }: { children?: ReactNode } = {}) {
   const { user, role, logout } = useAuth()
   const navigate = useNavigate()
@@ -187,14 +178,10 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
     setMobileNavOpen(false)
   }
 
-  // A route change dismisses the drawer. Plain state only — never scroll
-  // here, or the browser's own scroll restoration fights it on mobile.
   useEffect(() => {
     setMobileNavOpen(false)
   }, [pathname])
 
-  // Escape closes the drawer while it is open; the listener only exists
-  // for as long as it is.
   useEffect(() => {
     if (!mobileNavOpen) return
     function onKeyDown(event: KeyboardEvent) {
@@ -212,7 +199,6 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
   return (
     <div className="relative flex min-h-screen">
       <AppBackground />
-      {/* Scrim behind the drawer. `md:hidden` keeps it off desktop entirely. */}
       {mobileNavOpen ? (
         <div
           className="fixed inset-0 z-40 bg-black/60 md:hidden"
@@ -221,7 +207,6 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
         />
       ) : null}
 
-      {/* Sidebar: off-canvas drawer below md, permanent rail at md and up. */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-200',
@@ -276,7 +261,6 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-base/90 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2 md:hidden">
             <button
@@ -309,13 +293,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
         </header>
 
         <main className="min-w-0 flex-1 pb-20 md:pb-0">
-          {/* Narrow boundary: a page that throws takes out the content area only,
-              so the header and navigation survive and the user can walk away from
-              the broken screen instead of losing the whole console. */}
           <ErrorBoundary title="This page failed to render">
-            {/* `children` when a caller renders the shell directly (`/` does, since
-                it has to decide between the landing page and the console before
-                the router picks a child); `<Outlet/>` for every nested route. */}
             {children ?? <Outlet />}
           </ErrorBoundary>
         </main>
@@ -330,9 +308,6 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           </NavLink>
         ) : null}
 
-        {/* Mobile bottom nav — horizontally scrollable so every role's items are
-            reachable. super_admins and unit_admins carry more entries than fit a
-            phone, so the bar scrolls instead of truncating. */}
         <nav
           aria-label="Primary"
           className="mobile-nav-scroll fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 py-1.5 backdrop-blur md:hidden"
