@@ -52,6 +52,7 @@ const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPa
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
+const AboutPage = lazy(() => import('@/pages/AboutPage').then(m => ({ default: m.AboutPage })))
 const UnitPolicyPage = lazy(() => import('@/pages/admin/UnitPolicyPage').then(m => ({ default: m.UnitPolicyPage })))
 const GovernanceAuditPage = lazy(() => import('@/pages/admin/GovernanceAuditPage').then(m => ({ default: m.GovernanceAuditPage })))
 const InvitationsPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
@@ -126,6 +127,7 @@ export function App() {
                 <Route path="/auth/login" element={<LoginPage />} />
                 <Route path="/auth/signup" element={<SignupPage />} />
                 <Route path="/terms" element={<TermsPage />} />
+                <Route path="/about" element={<AboutPage />} />
                 <Route path="/invite" element={<InviteLandingPage />} />
 
                 <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />

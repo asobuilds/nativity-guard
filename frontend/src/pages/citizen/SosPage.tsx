@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, LocateFixed, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/cn'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select, Textarea } from '@/components/ui/Field'
@@ -12,6 +11,7 @@ import { useUnits } from '@/hooks/useUnits'
 import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { MapView } from '@/components/map/MapView'
+import { SosTracker } from '@/components/sos/SosTracker'
 import { ApiError } from '@/lib/apiClient'
 import { formatDateTime } from '@/lib/format'
 
@@ -20,7 +20,7 @@ const statusLabel = {
   dispatched: 'Dispatched',
   resolved: 'Resolved',
   escalated: 'Escalated',
-}
+} as Record<string, string>
 
 /** An explicit confirmation is required before any emergency request leaves the device. */
 export function SosPage() {
@@ -46,16 +46,12 @@ export function SosPage() {
   const [showEnableModal, setShowEnableModal] = useState(false)
   const ipAttemptedRef = useRef(false)
 
-  // Auto-fill SOS coordinates from the device fix the moment they arrive.
   useEffect(() => {
     if (userLat == null || userLng == null) return
     setLat((prev) => (prev.trim() === '' ? String(userLat) : prev))
     setLng((prev) => (prev.trim() === '' ? String(userLng) : prev))
   }, [userLat, userLng])
 
-  // When the browser has remembered a prior "denied", GPS is unavailable.
-  // As a last resort, try an IP-based fix once and pre-fill the fields —
-  // but never block the send button on it.
   useEffect(() => {
     if (permission === 'denied' && !ipAttemptedRef.current) {
       ipAttemptedRef.current = true
@@ -110,8 +106,6 @@ export function SosPage() {
         ...(unitId ? { unitId } : {}),
         ...(contacts.trim() ? { emergencyContacts: contacts.split(",").map(function(s){ return s.trim(); }).filter(Boolean) } : {}),
         ...(medical.trim() ? { medicalInfo: medical.trim() } : {}),
-        // SOS keeps the precise coordinates internally for responders; this only
-        // strips the reporter's identity from public feeds.
         ...(hideLocation ? { hideLocation: true } : {}),
       })
       setReceipt({ trackingId: resp.sos.id, status: resp.sos.status })
@@ -120,7 +114,6 @@ export function SosPage() {
       setMedical('')
     } catch (err) {
       console.error('[SOS] send failed:', err)
-      // Keep the confirmation and every field available for an explicit retry.
     }
   }
 
@@ -142,7 +135,6 @@ export function SosPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-5 p-4 pb-28 sm:p-6">
-      {/* Hero band — the emergency action lives here and nowhere else. */}
       <div className="relative overflow-hidden rounded-panel glass-panel p-5 sm:p-6">
         <div
           aria-hidden
@@ -161,8 +153,6 @@ export function SosPage() {
           </div>
         </div>
       </div>
-
-      
 
       {receipt ? (
         <div className="relative overflow-hidden rounded-panel glass-panel p-5">
@@ -203,15 +193,15 @@ export function SosPage() {
           <Button className="mt-3" loading={locating} icon={<LocateFixed className="size-4" />} onClick={locate}>
             Use my location
           </Button>
-           {locationError ? <p className="mt-2 text-sm text-warn" role="alert">{locationError}</p> : null}
-           {permission === 'denied' && (
-             <p className="mt-2 text-xs text-warn">
-               Using approximate location. Precise GPS is off.{' '}
-               <button type="button" className="underline" onClick={() => setShowEnableModal(true)}>
-                 Enable location
-               </button>
-             </p>
-           )}
+          {locationError ? <p className="mt-2 text-sm text-warn" role="alert">{locationError}</p> : null}
+          {permission === 'denied' && (
+            <p className="mt-2 text-xs text-warn">
+              Using approximate location. Precise GPS is off.{' '}
+              <button type="button" className="underline" onClick={() => setShowEnableModal(true)}>
+                Enable location
+              </button>
+            </p>
+          )}
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-ink-muted">Latitude
               <Input type="number" step="any" value={lat} onChange={(e) => setLat(e.target.value)} placeholder="6.5244" />
@@ -253,8 +243,6 @@ export function SosPage() {
           <Textarea value={medical} maxLength={500} onChange={(e) => setMedical(e.target.value)} placeholder="Only what responders need to know" />
         </label>
 
-        {/* hideLocation: SOS keeps precise coords internally for responders; this
-            only hides the reporter's identity from public feeds (POST /sos). */}
         <label
           htmlFor="sos-hide-location"
           className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${hideLocation ? 'border-warn/40 bg-warn/10' : 'border-border-hi bg-surface-hi'}`}
@@ -308,36 +296,21 @@ export function SosPage() {
                   to={`/sos/${alert.id}`}
                   className="block rounded-panel focus-visible:outline-2 focus-visible:outline-signal"
                 >
-                  <Card className="glass-panel--lift flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="font-mono text-xs font-medium text-ink tabular-nums">
-                        {alert.id.slice(0, 8)}…
-                      </p>
-                      <p className="mt-1 text-xs text-ink-muted">
-                        {formatDateTime(alert.createdAt)}
-                      </p>
+                  <Card className="glass-panel--lift flex flex-col gap-3 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs font-medium text-ink tabular-nums">
+                          {alert.id.slice(0, 8)}…
+                        </p>
+                        <p className="mt-1 text-xs text-ink-muted">
+                          {formatDateTime(alert.createdAt)}
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-medium text-ink-muted">
+                        {statusLabel[alert.status] ?? alert.status}
+                      </span>
                     </div>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        alert.status === 'resolved' && 'bg-ok/15 text-ok',
-                        alert.status === 'escalated' && 'bg-warn/15 text-warn',
-                        alert.status === 'dispatched' && 'bg-signal/15 text-signal',
-                        alert.status === 'pending' && 'bg-surface-hi text-ink-muted',
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'size-1.5 rounded-full',
-                          alert.status === 'resolved' && 'bg-ok',
-                          alert.status === 'escalated' && 'bg-warn',
-                          alert.status === 'dispatched' && 'bg-signal',
-                          alert.status === 'pending' && 'bg-ink-faint',
-                        )}
-                      />
-                      {statusLabel[alert.status] ?? alert.status}
-                    </span>
+                    <SosTracker alert={alert} compact />
                   </Card>
                 </Link>
               </li>

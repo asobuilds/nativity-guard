@@ -27,6 +27,7 @@ import { WeeklyUpdates } from '@/components/case/WeeklyUpdates'
 import { EvidenceGallery } from '@/components/case/EvidenceGallery'
 import { EvidenceUpload } from '@/components/case/EvidenceUpload'
 import { ReviewHistory, ReviewNextStep, ReviewNotice } from '@/components/case/CaseReviewTrail'
+import { CaseTracker } from '@/components/cases/CaseTracker'
 import { useCaseActions, useCaseDetail } from '@/hooks/useCases'
 import { useCaseReview } from '@/hooks/useCaseReview'
 import { useAddProgress, useCaseProgress } from '@/hooks/useProgress'
@@ -79,9 +80,6 @@ export function OfficerCasePage() {
   const progress = progressQuery.data ?? []
   const evidence = evidenceQuery.data ?? []
 
-  /* Filing a weekly narrative is the *assigned officer's* action — the endpoint is
-   * gated to it — so the composer is offered only to them. `closed` is declared
-   * below, alongside the other status gates and after the early returns. */
   const ownsCase = Boolean(caseItem?.assignedTo && user?.id && caseItem.assignedTo === user.id)
 
   const networkIssue =
@@ -212,8 +210,6 @@ export function OfficerCasePage() {
                   icon={<Send className="size-4" aria-hidden />}
                   onClick={() => {
                     setSubmitConflict(null)
-                    // Prefill with whatever is already on the case: an officer sent
-                    // back for changes is revising a report, not writing a new one.
                     setFinalReport(caseItem.finalReport ?? '')
                     setSubmitOpen(true)
                   }}
@@ -237,8 +233,12 @@ export function OfficerCasePage() {
           }
         />
 
-        {/* What the reviewer wants, or what they are waiting on — put where the
-            officer already works, so a refusal reads as the next task. */}
+        {/* Progress tracker — the officer and the reporter look at the same rail. */}
+        <Card className="space-y-2 p-5">
+          <h2 className="text-sm font-semibold text-ink">Case progress</h2>
+          <CaseTracker caseItem={caseItem} timeline={detail.data?.timeline} />
+        </Card>
+
         <ReviewNotice status={status} reviews={review.data?.reviews ?? []} />
 
         {submitConflict ? (
@@ -367,8 +367,6 @@ export function OfficerCasePage() {
 
           {tab === 'weekly' ? (
             <TabPanel id="weekly">
-              {/* Filing is the assigned officer's job and the endpoint is gated to it: a
-                  closed case, or one the viewer does not own, gets the read-only view. */}
               <WeeklyUpdates
                 caseId={id}
                 canFile={ownsCase && !closed}
@@ -426,8 +424,6 @@ export function OfficerCasePage() {
         </Card>
       </div>
 
-      {/* Submit for closure review — the officer's half of the accountability loop.
-          The old "Close case" modal posted to a route the backend no longer serves. */}
       <Modal
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
@@ -511,22 +507,12 @@ export function OfficerCasePage() {
   )
 }
 
-/**
- * Why progress cannot be added right now — the real reason, per state.
- *
- * The gate is not "once the case is dispatched" any more: `investigating` allows
- * progress (the review workflow needs a written record of the investigation), and
- * a case sitting in `pending_admin_review` allows none until an admin decides.
- */
 function progressGateMessage(status: string): string {
   if (status === 'closed') return 'This case is closed — the progress record is now read-only.'
   if (isAwaitingDispatch(status)) {
     return 'Progress updates can be added once the case is dispatched. This case has not been dispatched yet.'
   }
   if (status === 'admin_changes_requested') {
-    // Checked before the review phase branch: the case is back with *this*
-    // officer, not sitting with an administrator, so the generic "until they
-    // decide" wording would be wrong twice over.
     return 'An administrator asked for changes to this case, so the progress record is read-only. Revise the final report and submit it for review again.'
   }
   if (isInReviewPhase(status)) {
@@ -538,13 +524,6 @@ function progressGateMessage(status: string): string {
     : `Progress updates cannot be added while a case is in a state this app does not recognise (${status}).`
 }
 
-/**
- * The status the backend returned inside a 409 body, if it sent one.
- *
- * `POST /cases/:id/submit-review` refuses a submission from the wrong state with
- * `{ error, status }`, so the UI can name the state the case actually moved to
- * rather than guessing why it was refused.
- */
 function conflictStatus(cause: unknown): string | undefined {
   if (!(cause instanceof ApiError) || cause.status !== 409) return undefined
   const body = cause.body as { status?: unknown } | undefined
