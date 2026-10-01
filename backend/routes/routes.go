@@ -105,8 +105,8 @@ func SetupRoutes(router *gin.Engine) {
 			users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
 			users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
 			users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
-			// Cover position — server-side so it follows the account.
-			users.PUT("/me/cover-position", middleware.AuthMiddleware(), handlers.UpdateCoverPosition)
+			// Cover adjustment — server-side, follows the account.
+			users.PUT("/me/cover-adjust", middleware.AuthMiddleware(), handlers.UpdateCoverAdjustment)
 		}
 
 		files := api.Group("/files")
@@ -443,9 +443,6 @@ func SetupRoutes(router *gin.Engine) {
 	// WebSocket route (protected)
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 
-	// Metrics endpoint — authed, super-admin only. Exposes in-process
-	// counters (request rate, error rate, rolling latency). A future wave
-	// can swap the JSON serializer for a Prometheus text encoder without
-	// changing this route registration.
+	// Metrics endpoint — authed, super-admin only.
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
