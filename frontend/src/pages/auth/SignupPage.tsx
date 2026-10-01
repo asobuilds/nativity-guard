@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, Shield } from 'lucide-react'
+import { AlertCircle, Shield, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { api, ApiError } from '@/lib/apiClient'
@@ -17,52 +17,130 @@ import {
 import type { RegisterResponse } from '@/types/api'
 import { useAuth } from '@/auth/AuthContext'
 
-interface TermsResponse {
-  document: {
-    id: string
-    version: string
-    title: string
+const DRAFT_KEY = 'cs.signup.draft'
+
+interface PersistedDraft {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  dateOfBirth: string
+  consentTerms: boolean
+  consentDataProcessing: boolean
+}
+
+function loadPersisted(): PersistedDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PersistedDraft>
+    if (!parsed || typeof parsed !== 'object') return null
+    return {
+      firstName: typeof parsed.firstName === 'string' ? parsed.firstName : '',
+      lastName: typeof parsed.lastName === 'string' ? parsed.lastName : '',
+      email: typeof parsed.email === 'string' ? parsed.email : '',
+      phone: typeof parsed.phone === 'string' ? parsed.phone : '',
+      dateOfBirth: typeof parsed.dateOfBirth === 'string' ? parsed.dateOfBirth : '',
+      consentTerms: parsed.consentTerms === true,
+      consentDataProcessing: parsed.consentDataProcessing === true,
+    }
+  } catch {
+    return null
   }
+}
+
+function savePersisted(state: PersistedDraft): void {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(state))
+  } catch {
+    /* storage unavailable (private mode) - draft stays in memory only */
+  }
+}
+
+function clearPersisted(): void {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+interface TermsDocument {
+  id: string
+  kind: string
+  role: string
+  version: string
+  title: string
+  content: string
+  effectiveAt: string
+}
+
+interface TermsResponse {
+  document: TermsDocument
   version: string
 }
+
+type ModalKind = 'terms' | 'privacy'
 
 /**
  * Create an account.
  *
- * Registration requires two separate consents (Terms of Service and NDPR
- * data processing) plus the current terms version. The version is fetched
- * from the backend on mount — never hardcoded — so a stale bundle cannot
- * submit an out-of-date version and be rejected with `terms_version_stale`.
+ * Terms and Privacy open in modals over this page - never navigate away.
+ * That guarantees the form is preserved exactly where the user left it,
+ * regardless of browser back button, tab behavior, or mobile quirks.
  *
- * The backend is authoritative: these checks exist so the user is not
- * asked to submit a form only to be told "no". Every refusal the backend
- * can produce is translated into a plain sentence in `friendlyError`.
+ * The form draft is also persisted to `sessionStorage` (except password)
+ * so a manual close-and-reopen of the tab doesn't lose progress either.
+ * The draft is cleared on successful signup.
  */
 export function SignupPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const [draft, setDraft] = useState<SignupDraft>(EMPTY_SIGNUP)
+  const [draft, setDraft] = useState<SignupDraft>(() => {
+    const p = loadPersisted()
+    return p
+      ? {
+          ...EMPTY_SIGNUP,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          email: p.email,
+          phone: p.phone,
+          dateOfBirth: p.dateOfBirth,
+        }
+      : EMPTY_SIGNUP
+  })
+  const [consentTerms, setConsentTerms] = useState<boolean>(
+    () => loadPersisted()?.consentTerms ?? false,
+  )
+  const [consentDataProcessing, setConsentDataProcessing] = useState<boolean>(
+    () => loadPersisted()?.consentDataProcessing ?? false,
+  )
+
   const [touched, setTouched] = useState<ReadonlySet<SignupField>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
 
   const [termsVersion, setTermsVersion] = useState<string | null>(null)
+  const [termsDoc, setTermsDoc] = useState<TermsDocument | null>(null)
+  const [privacyDoc, setPrivacyDoc] = useState<TermsDocument | null>(null)
   const [termsError, setTermsError] = useState<string | null>(null)
-
-  const [consentTerms, setConsentTerms] = useState(false)
-  const [consentDataProcessing, setConsentDataProcessing] = useState(false)
   const [consentTouched, setConsentTouched] = useState(false)
 
-  // Fetch the currently-published terms version on mount.
+  const [openModal, setOpenModal] = useState<ModalKind | null>(null)
+
+  // Fetch BOTH documents once on mount so opening the modal is instant.
   useEffect(() => {
     let cancelled = false
-    api
-      .get<TermsResponse>('/terms/citizen')
-      .then((res) => {
+    Promise.all([
+      api.get<TermsResponse>('/terms/citizen'),
+      api.get<TermsResponse>('/terms/citizen?kind=privacy'),
+    ])
+      .then(([t, p]) => {
         if (cancelled) return
-        if (res?.version) setTermsVersion(res.version)
-        else setTermsError('Could not load the terms version. Please reload the page.')
+        setTermsDoc(t.document)
+        setPrivacyDoc(p.document)
+        setTermsVersion(t.version)
       })
       .catch(() => {
         if (cancelled) return
@@ -72,6 +150,29 @@ export function SignupPage() {
       cancelled = true
     }
   }, [])
+
+  // Persist the draft on every change.
+  useEffect(() => {
+    savePersisted({
+      firstName: draft.firstName,
+      lastName: draft.lastName,
+      email: draft.email,
+      phone: draft.phone,
+      dateOfBirth: draft.dateOfBirth,
+      consentTerms,
+      consentDataProcessing,
+    })
+  }, [draft, consentTerms, consentDataProcessing])
+
+  // Esc closes the modal.
+  useEffect(() => {
+    if (!openModal) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenModal(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openModal])
 
   const errors = validateSignup(draft)
   const formComplete = SIGNUP_FIELDS.every((field) => !errors[field])
@@ -91,18 +192,22 @@ export function SignupPage() {
 
   function friendlyError(message: string): string {
     const map: Record<string, string> = {
-      terms_consent_required:
-        'You must accept the Terms of Service to create an account.',
+      terms_consent_required: 'You must accept the Terms of Service to create an account.',
       data_processing_consent_required:
         'You must consent to data processing to create an account.',
-      terms_version_required:
-        'Terms version is missing. Please reload the page and try again.',
+      terms_version_required: 'Terms version is missing. Please reload the page and try again.',
       terms_version_stale:
         'The terms have been updated since this page loaded. Please reload the page and try again.',
-      terms_unavailable:
-        'Terms are temporarily unavailable. Please try again in a moment.',
+      terms_unavailable: 'Terms are temporarily unavailable. Please try again in a moment.',
     }
     return map[message] ?? message
+  }
+
+  function agreeFromModal(kind: ModalKind) {
+    if (kind === 'terms') setConsentTerms(true)
+    if (kind === 'privacy') setConsentDataProcessing(true)
+    setOpenModal(null)
+    setRefusal(null)
   }
 
   async function onSubmit(event: FormEvent) {
@@ -127,11 +232,12 @@ export function SignupPage() {
         consentDataProcessing,
       })
       registered = true
+      clearPersisted()
       await login(draft.email.trim(), draft.password)
-      navigate('/', { replace: true })
+      // Send new users to complete their profile.
+      navigate('/onboarding', { replace: true })
     } catch (cause) {
       if (registered) {
-        // The account exists even if session creation failed. Never retry registration.
         navigate('/auth/login', {
           replace: true,
           state: { email: draft.email.trim(), registered: true },
@@ -147,6 +253,10 @@ export function SignupPage() {
       setSubmitting(false)
     }
   }
+
+  const activeModalDoc = openModal === 'terms' ? termsDoc : openModal === 'privacy' ? privacyDoc : null
+  const activeModalTitle =
+    openModal === 'terms' ? 'Terms of Service' : openModal === 'privacy' ? 'Privacy Notice' : ''
 
   return (
     <div className="grid min-h-screen bg-base lg:grid-cols-2">
@@ -181,7 +291,7 @@ export function SignupPage() {
 
           <h2 className="text-xl font-semibold text-ink">Create your account</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            This creates a citizen account — you can report incidents and follow them. Joining a
+            This creates a citizen account - you can report incidents and follow them. Joining a
             unit as an officer or administrator is arranged separately, by that unit.
           </p>
 
@@ -282,7 +392,7 @@ export function SignupPage() {
               )}
             </Field>
 
-            {/* Consent block — both boxes are required by the backend. */}
+            {/* Consent block. Links open modals, never navigate away. */}
             <fieldset className="mt-2 flex flex-col gap-3 rounded-lg border border-border p-3">
               <legend className="px-1 text-xs font-medium text-ink-muted">
                 Before you continue
@@ -300,15 +410,14 @@ export function SignupPage() {
                 />
                 <span>
                   I have read and agree to the{' '}
-                  <Link
-                    to="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-signal hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => setOpenModal('terms')}
+                    className="cursor-pointer text-signal hover:underline"
                   >
                     Terms of Service
-                  </Link>
-                  . <span className="text-ink-faint">(opens in a new tab)</span>
+                  </button>
+                  .
                 </span>
               </label>
 
@@ -324,14 +433,13 @@ export function SignupPage() {
                 />
                 <span>
                   I consent to my personal data being processed as described in the{' '}
-                  <Link
-                    to="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-signal hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => setOpenModal('privacy')}
+                    className="cursor-pointer text-signal hover:underline"
                   >
                     Privacy Notice
-                  </Link>
+                  </button>
                   .
                 </span>
               </label>
@@ -342,12 +450,10 @@ export function SignupPage() {
                 </p>
               ) : null}
 
-              {termsError ? (
-                <p className="text-xs text-warn">{termsError}</p>
-              ) : null}
+              {termsError ? <p className="text-xs text-warn">{termsError}</p> : null}
 
               {!termsError && !termsVersion ? (
-                <p className="text-xs text-ink-faint">Loading the current terms…</p>
+                <p className="text-xs text-ink-faint">Loading the current terms...</p>
               ) : null}
             </fieldset>
 
@@ -381,6 +487,51 @@ export function SignupPage() {
           </p>
         </div>
       </div>
+
+      {/* Terms / Privacy modal - renders over the form, never navigates. */}
+      {openModal && activeModalDoc ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeModalTitle}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setOpenModal(null)
+          }}
+        >
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-base shadow-2xl">
+            <header className="flex items-center justify-between border-b border-border p-4">
+              <div>
+                <h3 className="text-base font-semibold text-ink">{activeModalTitle}</h3>
+                <p className="text-xs text-ink-faint">
+                  Version {activeModalDoc.version}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setOpenModal(null)}
+                className="grid size-8 place-items-center rounded-md text-ink-muted hover:bg-surface-hi"
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+            </header>
+            <div className="overflow-y-auto p-5">
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink-muted">
+                {activeModalDoc.content}
+              </pre>
+            </div>
+            <footer className="flex items-center justify-end gap-2 border-t border-border p-4">
+              <Button variant="ghost" onClick={() => setOpenModal(null)}>
+                Close
+              </Button>
+              <Button variant="primary" onClick={() => agreeFromModal(openModal)}>
+                I agree
+              </Button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

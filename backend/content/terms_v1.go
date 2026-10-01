@@ -4,14 +4,14 @@ package content
 // Bump this string whenever ANY document changes, then update the content.
 // Previous versions remain in the database and are still linked from the
 // acceptance rows that referenced them.
-const TermsVersion = "2026-09-30-v1"
+//
+// 2026-09-30-v2: finalized wording; removed draft labels.
+const TermsVersion = "2026-09-30-v2"
 
 // UniversalTerms is the master text that applies to every role. The
 // role-specific section (RoleTerms) is appended when the service seeds
 // a document.
-//
-// DRAFT — pending legal review.
-const UniversalTerms = `# Nativity Guard — Terms of Service (DRAFT — pending legal review)
+const UniversalTerms = `# Nativity Guard - Terms of Service
 
 **Version: ` + TermsVersion + `**
 **Effective: 30 September 2026**
@@ -47,7 +47,7 @@ unit and are made independently of the platform.
 You release the Operators from every past, present and future claim,
 demand, or dispute arising from or connected to the actions, omissions,
 delays, or outcomes of any security unit, any other user, or any third
-party using or interacting with this platform — including any harm,
+party using or interacting with this platform - including any harm,
 loss, injury, or failure to respond.
 
 ## 3. Acceptable use
@@ -76,7 +76,7 @@ the new version.
 `
 
 var RoleTerms = map[string]string{
-    "citizen": `## Your responsibilities as a citizen
+	"citizen": `## Your responsibilities as a citizen
 
 - Report incidents truthfully and to the best of your knowledge.
 - Do not use the platform to publish unverified allegations.
@@ -84,7 +84,7 @@ var RoleTerms = map[string]string{
 - You can withdraw location consent at any time in Settings; doing so
   means reports you file from then on will not carry your coordinates.
 `,
-    "officer": `## Your responsibilities as an officer
+	"officer": `## Your responsibilities as an officer
 
 - Access only the cases assigned to you or to your unit.
 - Record progress, evidence and outcomes accurately and promptly.
@@ -95,7 +95,7 @@ var RoleTerms = map[string]string{
 - Treat AI suggestions as suggestions; verify independently before
   acting.
 `,
-    "unit_admin": `## Your responsibilities as a unit administrator
+	"unit_admin": `## Your responsibilities as a unit administrator
 
 - Grant and review access only for legitimate unit work.
 - Review case decisions, assignments, and public notices through the
@@ -104,7 +104,7 @@ var RoleTerms = map[string]string{
   permissions.
 - Protect the privacy of reporters, officers, and the wider public.
 `,
-    "super_admin": `## Your responsibilities as a platform administrator
+	"super_admin": `## Your responsibilities as a platform administrator
 
 - Use platform-wide access only for approved operational, security, and
   governance purposes.
@@ -116,11 +116,10 @@ var RoleTerms = map[string]string{
 `,
 }
 
-// PrivacyContent — NDPR requires that data-processing consent is separate
-// from general terms acceptance, so this is stored as its own document.
-//
-// DRAFT — pending legal review.
-const PrivacyContent = `# Nativity Guard — Privacy Notice (DRAFT — pending legal review)
+// PrivacyContent is the privacy notice. NDPR requires that data-processing
+// consent is separate from general terms acceptance, so this is stored as
+// its own document.
+const PrivacyContent = `# Nativity Guard - Privacy Notice
 
 **Version: ` + TermsVersion + `**
 **Effective: 30 September 2026**
