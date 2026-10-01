@@ -14,19 +14,19 @@ export interface CoverAdjust {
 }
 
 /**
- * Sensible default: horizontally centered, vertically at 50% so a portrait
- * photo shows the face rather than the very top of the head.
+ * Sensible default for a portrait selfie: horizontally centered, vertically
+ * at 35% so the whole head is visible. The previous default (y=50) cropped
+ * the top of the head off on typical portrait photos.
  */
-export const DEFAULT_COVER_ADJUST: CoverAdjust = { x: 50, y: 50, zoom: 100 }
+export const DEFAULT_COVER_ADJUST: CoverAdjust = { x: 50, y: 35, zoom: 100 }
 
 /**
  * Coerce unknown values from the API into a valid CoverAdjust.
  *
- * Special case: the previous release shipped a buggy default of
- * `{ x: 50, y: 20, zoom: 100 }` which anchored the crop too high and
- * cropped faces off. If those exact values come back, we treat them as
- * "never customized" and return the new default. A user who has moved the
- * image or adjusted zoom at all is respected — their choice is kept.
+ * Upgrade path: any value matching a previous default that we know crops
+ * faces badly (y=20 from an older release, y=50 from the immediate previous
+ * release) with no other customization is replaced by the new default.
+ * Users who moved the image or adjusted zoom keep their choice.
  */
 export function normalizeCoverAdjust(
   input:
@@ -41,10 +41,9 @@ export function normalizeCoverAdjust(
   const y = clampNumber(input?.coverPositionY, 0, 100, DEFAULT_COVER_ADJUST.y)
   const zoom = clampNumber(input?.coverZoom, 100, 300, DEFAULT_COVER_ADJUST.zoom)
 
-  // Upgrade path: the old buggy default was exactly x=50, y=20, zoom=100.
-  if (x === 50 && y === 20 && zoom === 100) {
-    return DEFAULT_COVER_ADJUST
-  }
+  // Old defaults we shipped and now consider broken for face framing.
+  const isOldBadDefault = x === 50 && (y === 20 || y === 50) && zoom === 100
+  if (isOldBadDefault) return DEFAULT_COVER_ADJUST
 
   return { x, y, zoom }
 }

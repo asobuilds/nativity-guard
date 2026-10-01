@@ -107,17 +107,17 @@ export function CitizenHomePage() {
           <Link
             to="/profile"
             aria-label="Open profile to change your photo"
-            className="absolute left-1/2 -bottom-16 block -translate-x-1/2 rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-signal/50 sm:-bottom-20"
+            className="absolute left-1/2 -bottom-20 block -translate-x-1/2 rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-signal/50 sm:-bottom-24"
           >
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt={fullName || 'Your profile photo'}
-                className="size-32 rounded-full border-[6px] border-base bg-base object-cover shadow-panel sm:size-40"
+                className="size-40 rounded-full border-[6px] border-base bg-base object-cover shadow-panel sm:size-48"
                 style={{ objectPosition: '50% 20%' }}
               />
             ) : (
-              <div className="grid size-32 place-items-center rounded-full border-[6px] border-base bg-surface-hi text-4xl font-bold text-ink shadow-panel sm:size-40 sm:text-5xl">
+              <div className="grid size-40 place-items-center rounded-full border-[6px] border-base bg-surface-hi text-5xl font-bold text-ink shadow-panel sm:size-48">
                 {initialsValue}
               </div>
             )}

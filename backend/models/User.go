@@ -34,11 +34,11 @@ type User struct {
 
 	// Cover photo focus — three server-side values so the adjustment
 	// follows the account across devices.
-	//   X, Y: object-position percentage 0–100. Y=50 is centered, which is
-	//         the correct default for a typical portrait.
+	//   X, Y: object-position percentage 0–100. Default Y=35 keeps the
+	//         face in frame on a typical portrait (y=50 crops the head).
 	//   Zoom: integer 100–300 (100 = 1.0×, 300 = 3.0×)
 	CoverPositionX int `gorm:"default:50" json:"coverPositionX"`
-	CoverPositionY int `gorm:"default:50" json:"coverPositionY"`
+	CoverPositionY int `gorm:"default:35" json:"coverPositionY"`
 	CoverZoom      int `gorm:"default:100" json:"coverZoom"`
 
 	LastLogin     *time.Time     `json:"lastLogin,omitempty"`

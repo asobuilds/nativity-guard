@@ -94,7 +94,7 @@ export function ProfilePage() {
   })
 
   function handleAdjustSaved(next: CoverAdjust) {
-    setCoverAdjust(next) // optimistic
+    setCoverAdjust(next)
     adjustMutation.mutate(next)
   }
 
@@ -160,26 +160,28 @@ export function ProfilePage() {
           onAdjustSaved={handleAdjustSaved}
         />
 
-        {/* Content block — clear padding-top so the avatar overlap has room
-            and the name + email sit BELOW the avatar, never behind it. */}
-        <div className="px-6 pb-6 pt-24 sm:pt-28">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:text-left">
+        {/* Avatar absolutely positioned so it overlaps the cover's bottom
+            edge instead of pushing a whole green band down below it.
+            Info sits to the right of the avatar — no vertical gap. */}
+        <div className="relative pb-6 pt-6">
+          <div className="absolute -top-24 left-6 sm:left-8">
             <AvatarUpload
               currentUrl={avatarUrl}
-              size={140}
+              size={180}
               fallbackInitials={initialsValue}
               onUploaded={refreshProfile}
               onDeleted={refreshProfile}
             />
-            <div className="min-w-0 flex-1 pt-2 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-ink">
-                {fullName || 'Your profile'}
-              </h2>
-              <p className="mt-1 text-sm text-ink-muted break-all">{profile?.email}</p>
-              <p className="mt-2 text-xs text-ink-faint">
-                Click either photo to change it. Max 5 MB · JPEG, PNG, WebP, GIF
-              </p>
-            </div>
+          </div>
+
+          <div className="flex min-h-[110px] flex-col justify-center pl-52 pr-6 sm:pl-56">
+            <h2 className="text-2xl font-bold text-ink">
+              {fullName || 'Your profile'}
+            </h2>
+            <p className="mt-1 break-all text-sm text-ink-muted">{profile?.email}</p>
+            <p className="mt-2 text-xs text-ink-faint">
+              Click either photo to change it. Max 5 MB · JPEG, PNG, WebP, GIF
+            </p>
           </div>
         </div>
       </Card>
