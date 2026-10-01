@@ -14,12 +14,9 @@ interface CoverUploadProps {
 }
 
 /**
- * Cover strip. Clicking anywhere opens the file picker when there is no
- * cover yet. Once a cover exists, clicking the image does nothing;
- * "Adjust" opens the editor dialog, and the trash icon removes it.
- *
- * Rendering uses `coverImageStyle` — the same style the editor previews,
- * so what users save is what every page shows.
+ * Cover strip. Tall enough to show a face; the same style function used
+ * everywhere renders the image so the crop the user picks in the editor
+ * is exactly what every page displays.
  */
 export function CoverUpload({
   currentUrl,
@@ -69,7 +66,7 @@ export function CoverUpload({
 
   return (
     <>
-      <div className="relative h-40 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-56">
+      <div className="relative h-48 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-64">
         {currentUrl ? (
           <img
             src={currentUrl}

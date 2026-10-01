@@ -33,14 +33,6 @@ interface ProfileWithImages extends UserType {
   coverZoom?: number
 }
 
-/**
- * Citizen home.
- *
- * Hero layout: cover strip, absolutely-centred avatar overlapping the
- * bottom edge, then the greeting content clear of the avatar below.
- * Cover and avatar both render from server-side focus values, so any
- * adjustment made on the profile page shows here too.
- */
 export function CitizenHomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -98,10 +90,9 @@ export function CitizenHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      {/* HERO */}
       <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
         <div className="relative">
-          <div className="h-40 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-56">
+          <div className="h-48 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-64">
             {coverUrl ? (
               <img
                 src={coverUrl}
@@ -161,7 +152,6 @@ export function CitizenHomePage() {
         </div>
       </section>
 
-      {/* QUICK ACTIONS */}
       <nav aria-label="Quick actions" className="mb-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
           Quick actions
@@ -180,7 +170,6 @@ export function CitizenHomePage() {
         </div>
       </nav>
 
-      {/* TWO-COLUMN: recent cases | nearby units */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card as="section">
           <CardHeader title="Your recent reports" />
