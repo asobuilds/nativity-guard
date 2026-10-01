@@ -34,9 +34,10 @@ interface ProfileWithImages extends UserType {
 /**
  * Citizen home.
  *
- * The hero shows the signed-in user's cover photo as a strip and their
- * profile photo as a large, centred circle overlapping its base. Both use
- * server-side values, so a change on any device appears on every device.
+ * Hero layout: cover strip on top, avatar absolutely positioned and
+ * centered so it overlaps the bottom edge of the cover. The avatar uses
+ * `object-position: 50% 20%` so a portrait photo shows the face rather
+ * than the chest — matching how ID verification will use this photo.
  */
 export function CitizenHomePage() {
   const { user } = useAuth()
@@ -91,40 +92,44 @@ export function CitizenHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-      {/* HERO — cover strip, big centred avatar, name, greeting, SOS */}
+      {/* HERO — cover strip with the avatar cleanly overlapping its bottom */}
       <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
-        <div className="relative h-32 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-44">
-          {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt=""
-              className="h-full w-full object-cover"
-              style={{ objectPosition: coverObjectPosition(coverPosition) }}
-            />
-          ) : null}
-        </div>
+        <div className="relative">
+          {/* Cover strip */}
+          <div className="h-40 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-56">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                style={{ objectPosition: coverObjectPosition(coverPosition) }}
+              />
+            ) : null}
+          </div>
 
-        <div className="-mt-20 flex justify-center sm:-mt-24">
+          {/* Avatar — absolutely centred, overlapping the cover's bottom edge */}
           <Link
             to="/profile"
             aria-label="Open profile to change your photo"
-            className="block rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-signal/50"
+            className="absolute left-1/2 -bottom-16 block -translate-x-1/2 rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-signal/50 sm:-bottom-20"
           >
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt={fullName || 'Your profile photo'}
-                className="size-40 rounded-full border-[6px] border-base bg-base object-cover shadow-panel sm:size-48"
+                className="size-32 rounded-full border-[6px] border-base bg-base object-cover shadow-panel sm:size-40"
+                style={{ objectPosition: '50% 20%' }}
               />
             ) : (
-              <div className="grid size-40 place-items-center rounded-full border-[6px] border-base bg-surface-hi text-5xl font-bold text-ink shadow-panel sm:size-48">
+              <div className="grid size-32 place-items-center rounded-full border-[6px] border-base bg-surface-hi text-4xl font-bold text-ink shadow-panel sm:size-40 sm:text-5xl">
                 {initialsValue}
               </div>
             )}
           </Link>
         </div>
 
-        <div className="px-6 pb-6 pt-4 text-center">
+        {/* Content — padded to clear the avatar overlap */}
+        <div className="px-6 pb-6 pt-24 text-center sm:pt-28">
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             {firstName ? `Hi, ${firstName}` : 'Welcome back'}
           </h1>
