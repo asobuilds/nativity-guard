@@ -21,17 +21,22 @@ import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/auth/AuthContext'
 import { relativeTime, initials } from '@/lib/format'
 import { api, mediaURL } from '@/lib/apiClient'
+import { coverObjectPosition, normalizeCoverPosition } from '@/lib/coverPosition'
 import type { User as UserType } from '@/types/api'
 import type { CommunityAlert, CommunityPost } from '@/types/community'
+
+interface ProfileWithImages extends UserType {
+  avatarPath?: string
+  coverPath?: string
+  coverPosition?: string
+}
 
 /**
  * Citizen home.
  *
  * The hero shows the signed-in user's cover photo as a strip and their
- * profile photo as a large, centred circle overlapping its base. On a
- * security platform, identity is not optional — the profile photo is
- * deliberately prominent so the account holder recognises their own
- * account immediately and responding officers can identify them later.
+ * profile photo as a large, centred circle overlapping its base. Both use
+ * server-side values, so a change on any device appears on every device.
  */
 export function CitizenHomePage() {
   const { user } = useAuth()
@@ -61,12 +66,11 @@ export function CitizenHomePage() {
     ? `${unitCount} security units active near you.`
     : 'Share your location to see units near you.'
 
-  const profileWithImages = profileQuery.data as
-    | (UserType & { avatarPath?: string; coverPath?: string })
-    | undefined
+  const profileWithImages = profileQuery.data as ProfileWithImages | undefined
   const avatarUrl =
     mediaURL(profileWithImages?.avatarPath ?? profileQuery.data?.photoUrl) ?? null
   const coverUrl = mediaURL(profileWithImages?.coverPath) ?? null
+  const coverPosition = normalizeCoverPosition(profileWithImages?.coverPosition)
   const initialsValue = initials(user?.firstName, user?.lastName)
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
 
@@ -89,14 +93,17 @@ export function CitizenHomePage() {
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
       {/* HERO — cover strip, big centred avatar, name, greeting, SOS */}
       <section className="mb-4 overflow-hidden rounded-panel border border-border bg-surface/50">
-        {/* Cover strip */}
-        <div className="relative h-32 w-full bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-44">
+        <div className="relative h-32 w-full overflow-hidden bg-gradient-to-r from-signal/25 via-signal/10 to-warn/20 sm:h-44">
           {coverUrl ? (
-            <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+            <img
+              src={coverUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{ objectPosition: coverObjectPosition(coverPosition) }}
+            />
           ) : null}
         </div>
 
-        {/* Avatar — centred, overlapping cover, thick border */}
         <div className="-mt-20 flex justify-center sm:-mt-24">
           <Link
             to="/profile"
@@ -117,7 +124,6 @@ export function CitizenHomePage() {
           </Link>
         </div>
 
-        {/* Name + greeting + SOS */}
         <div className="px-6 pb-6 pt-4 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-ink">
             {firstName ? `Hi, ${firstName}` : 'Welcome back'}

@@ -44,13 +44,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Terms consent is enforced unless TERMS_CONSENT_ENFORCED is explicitly
-	// set to "false". Absent variable = enforced (safe default).
 	enforced := !strings.EqualFold(os.Getenv("TERMS_CONSENT_ENFORCED"), "false")
 
 	var acceptanceRows []models.TermsAcceptance
 	if enforced {
-		// Gate 1 — both consents must be present and true.
 		if input.ConsentTerms == nil || !*input.ConsentTerms {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "terms_consent_required"})
 			return
@@ -59,14 +56,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "data_processing_consent_required"})
 			return
 		}
-
-		// Gate 2 — version must be present.
 		if strings.TrimSpace(input.TermsVersion) == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "terms_version_required"})
 			return
 		}
-
-		// Gate 3 — version must match the currently-published version.
 		if input.TermsVersion != content.TermsVersion {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":          "terms_version_stale",
@@ -82,7 +75,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Uniqueness check — same behavior as before.
 	normalizedEmail := strings.ToLower(strings.TrimSpace(input.Email))
 	normalizedPhone := strings.TrimSpace(input.Phone)
 	var dupCount int64
@@ -102,8 +94,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if enforced {
-		// Gate 4 — both active documents must exist for the current version.
-		// Any miss = fail closed: no user, no acceptance rows, 500.
 		var docs []models.TermsDocument
 		if err := config.DB.
 			Where("version = ? AND is_active = ?", content.TermsVersion, true).
@@ -153,8 +143,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		}
 	}
 
-	// Public registration always creates citizens.
-	// Privileged roles should be assigned by an administrator.
 	user := &models.User{
 		Email:       normalizedEmail,
 		Phone:       normalizedPhone,
@@ -216,7 +204,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Accept either "identifier" or legacy "email" field.
 	ident := strings.TrimSpace(input.Identifier)
 	if ident == "" {
 		ident = strings.TrimSpace(input.Email)
@@ -336,19 +323,20 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":         freshUser.ID,
-			"email":      freshUser.Email,
-			"phone":      freshUser.Phone,
-			"firstName":  freshUser.FirstName,
-			"lastName":   freshUser.LastName,
-			"role":       freshUser.Role,
-			"unitId":     freshUser.UnitID,
-			"status":     freshUser.Status,
-			"createdAt":  freshUser.CreatedAt,
-			"updatedAt":  freshUser.UpdatedAt,
-			"avatarPath": freshUser.AvatarPath,
-			"coverPath":  freshUser.CoverPath,
-			"photoUrl":   freshUser.AvatarPath,
+			"id":            freshUser.ID,
+			"email":         freshUser.Email,
+			"phone":         freshUser.Phone,
+			"firstName":     freshUser.FirstName,
+			"lastName":      freshUser.LastName,
+			"role":          freshUser.Role,
+			"unitId":        freshUser.UnitID,
+			"status":        freshUser.Status,
+			"createdAt":     freshUser.CreatedAt,
+			"updatedAt":     freshUser.UpdatedAt,
+			"avatarPath":    freshUser.AvatarPath,
+			"coverPath":     freshUser.CoverPath,
+			"coverPosition": freshUser.CoverPosition,
+			"photoUrl":      freshUser.AvatarPath,
 		},
 	})
 }
@@ -671,8 +659,6 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	// Revoke all existing sessions so the user cannot keep using the account
-	// while it is pending deletion.
 	tokenSvc := services.NewTokenService()
 	_ = tokenSvc.RevokeAllForUser(userObj.ID, "account_deletion")
 	refreshSvc := services.NewRefreshTokenService()

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, Briefcase, Users, Loader2, Save, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { mediaURL } from '@/lib/apiClient'
+import { api, mediaURL } from '@/lib/apiClient'
 import { initials } from '@/lib/format'
 import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { CoverUpload } from '@/components/ui/CoverUpload'
@@ -15,17 +15,24 @@ import type { User as UserType } from '@/types/api'
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/auth/AuthContext'
 import { LinkedCases } from '@/components/profile/LinkedCases'
+import { normalizeCoverPosition, type CoverPosition } from '@/lib/coverPosition'
+
+interface ProfileWithImages extends UserType {
+  avatarPath?: string
+  coverPath?: string
+  coverPosition?: string
+}
 
 /**
  * Profile page.
  *
  * Two large images anchor the top of the page:
- *   - Cover photo, full width of the content column (~224px tall on desktop)
- *   - Profile photo, ~140px circle overlapping the bottom of the cover
+ *   - Cover photo, full width of the content column. Users pick the crop
+ *     anchor (Top/Mid/Bot), stored server-side so it follows the account.
+ *   - Profile photo, large circle overlapping the bottom of the cover.
  *
- * Both are used for facial identification later: an officer comparing the
- * account holder to their government ID has the profile photo for the face
- * and the cover for a second reference. Neither is shown to other citizens.
+ * Neither is shown to other citizens; both are used for facial
+ * identification by responding officers.
  */
 export function ProfilePage() {
   const queryClient = useQueryClient()
@@ -41,6 +48,15 @@ export function ProfilePage() {
     phone: '',
   })
 
+  const [coverPosition, setCoverPosition] = useState<CoverPosition>('top')
+
+  const profileWithImages = profile as ProfileWithImages | undefined
+
+  // Keep local state in sync with the server value on load / refetch.
+  useEffect(() => {
+    setCoverPosition(normalizeCoverPosition(profileWithImages?.coverPosition))
+  }, [profileWithImages?.coverPosition])
+
   useEffect(() => {
     if (profile) {
       setForm((prev) => ({
@@ -51,6 +67,27 @@ export function ProfilePage() {
       }))
     }
   }, [profile])
+
+  const positionMutation = useMutation({
+    mutationFn: (position: CoverPosition) =>
+      api.put<{ coverPosition: CoverPosition }>('/users/me/cover-position', { position }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['profile'] })
+    },
+    onError: (err) => {
+      notify(
+        err instanceof Error ? err.message : 'Could not save cover position',
+        'error',
+      )
+      // Revert to whatever the server has.
+      void queryClient.invalidateQueries({ queryKey: ['profile'] })
+    },
+  })
+
+  function handlePositionChange(next: CoverPosition) {
+    setCoverPosition(next) // optimistic — instant visual feedback
+    positionMutation.mutate(next)
+  }
 
   const handleChange = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -89,9 +126,6 @@ export function ProfilePage() {
     )
   }
 
-  const profileWithImages = profile as
-    | (UserType & { avatarPath?: string; coverPath?: string })
-    | undefined
   const avatarUrl =
     mediaURL(profileWithImages?.avatarPath ?? profile?.photoUrl) ?? undefined
   const coverUrl = mediaURL(profileWithImages?.coverPath) ?? undefined
@@ -107,12 +141,14 @@ export function ProfilePage() {
         </Link>
       </div>
 
-      {/* Hero: cover + avatar + name — the big visual anchor */}
       <Card className="mb-4 overflow-hidden">
         <CoverUpload
           currentUrl={coverUrl}
+          position={coverPosition}
+          savingPosition={positionMutation.isPending}
           onUploaded={refreshProfile}
           onDeleted={refreshProfile}
+          onPositionChange={handlePositionChange}
         />
         <div className="px-6 pb-6">
           <div className="-mt-16 flex flex-col gap-4 sm:-mt-20 sm:flex-row sm:items-end">
@@ -129,7 +165,7 @@ export function ProfilePage() {
               </h2>
               <p className="text-sm text-ink-muted">{profile?.email}</p>
               <p className="mt-1 text-xs text-ink-faint">
-                Click a photo to change it. Max 5 MB · JPEG, PNG, WebP, GIF
+                Click either photo to change it. Max 5 MB · JPEG, PNG, WebP, GIF
               </p>
             </div>
           </div>

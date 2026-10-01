@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"security-solution/handlers"
 	"security-solution/middleware"
 )
@@ -82,36 +83,38 @@ func SetupRoutes(router *gin.Engine) {
 			units.DELETE("/:id/cover", middleware.AuthMiddleware(), handlers.DeleteUnitCover)
 			units.POST("", middleware.AuthMiddleware(), handlers.CreateUnit)
 			units.PUT("/:id", middleware.AuthMiddleware(), handlers.UpdateUnit)
-units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenAdminElection)
-    units.POST("/:id/head-admin-elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenHeadAdminElection)
-    units.POST("/:id/revocations", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenRevocationCycle)
-    units.GET("/:id/auth", middleware.AuthMiddleware(), handlers.GetUnitAuth)
-    units.PUT("/:id/auth", middleware.AuthMiddleware(), handlers.UpsertUnitAuth)
-    units.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersByUnit)
-    units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInUnitRanking)
-    units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
-	}
+			units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenAdminElection)
+			units.POST("/:id/head-admin-elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenHeadAdminElection)
+			units.POST("/:id/revocations", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenRevocationCycle)
+			units.GET("/:id/auth", middleware.AuthMiddleware(), handlers.GetUnitAuth)
+			units.PUT("/:id/auth", middleware.AuthMiddleware(), handlers.UpsertUnitAuth)
+			units.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersByUnit)
+			units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInUnitRanking)
+			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
+		}
 
-	invites := api.Group("/invites")
-	{
-		invites.POST("", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateInvite)
-	}
+		invites := api.Group("/invites")
+		{
+			invites.POST("", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateInvite)
+		}
 
-	users := api.Group("/users")
-	{
-		users.POST("/me/avatar", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadAvatar)
-		users.POST("/me/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadCover)
-		users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
-		users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
-		users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
-	}
+		users := api.Group("/users")
+		{
+			users.POST("/me/avatar", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadAvatar)
+			users.POST("/me/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadCover)
+			users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
+			users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
+			users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
+			// Cover position — server-side so it follows the account.
+			users.PUT("/me/cover-position", middleware.AuthMiddleware(), handlers.UpdateCoverPosition)
+		}
 
 		files := api.Group("/files")
 		{
 			files.GET("/:category/:hash", middleware.AuthMiddleware(), handlers.ServeFile)
 		}
 
-	// Push notification routes
+		// Push notification routes
 		notify := api.Group("/notifications")
 		{
 			notify.POST("/register", middleware.AuthMiddleware(), handlers.RegisterDevice)
@@ -125,27 +128,27 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 			cases.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllCases)
 			cases.POST("", middleware.AuthMiddleware(), handlers.CreateCase)
 			cases.GET("/analytics", middleware.AuthMiddleware(), handlers.GetCaseAnalytics)
-		cases.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), middleware.CanAccessCase, handlers.GetCaseByID)
-		cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.UpdateCaseStatus)
-		cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseTimeline)
-		cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
-		cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
-		cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
-		cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
-		cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)
-		cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.DispatchCase)
-		cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ArriveAtCase)
-		cases.POST("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseProgress)
-		cases.GET("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseProgress)
-		cases.POST("/:id/submit-review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitCaseForReview)
-		cases.GET("/:id/review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseReview)
-		cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.RequestCaseChanges)
-		cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ApproveCaseClosure)
+			cases.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), middleware.CanAccessCase, handlers.GetCaseByID)
+			cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.UpdateCaseStatus)
+			cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseTimeline)
+			cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
+			cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
+			cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
+			cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
+			cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)
+			cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.DispatchCase)
+			cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ArriveAtCase)
+			cases.POST("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseProgress)
+			cases.GET("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseProgress)
+			cases.POST("/:id/submit-review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitCaseForReview)
+			cases.GET("/:id/review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseReview)
+			cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.RequestCaseChanges)
+			cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ApproveCaseClosure)
 
-		cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitWeeklyCaseUpdate)
-		cases.GET("/:id/weekly-updates", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseWeeklyUpdates)
-		cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PutCounterStatement)
-		cases.GET("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCounterStatement)
+			cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitWeeklyCaseUpdate)
+			cases.GET("/:id/weekly-updates", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseWeeklyUpdates)
+			cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PutCounterStatement)
+			cases.GET("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCounterStatement)
 		}
 		// Election routes
 		elections := api.Group("/elections")
@@ -182,11 +185,11 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 		// Evidence routes
 		evidence := api.Group("/evidence")
 		{
-		evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
-		evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
+			evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
+			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
 			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
 			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
-		evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
+			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
 			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
 			evidence.PATCH("/:id/verify", middleware.AuthMiddleware(), handlers.VerifyEvidence)
 		}
@@ -215,7 +218,7 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 		suspects := api.Group("/suspects")
 		{
 			suspects.GET("/me/cases", middleware.AuthMiddleware(), handlers.GetMySuspectCases)
-		suspects.POST("", middleware.AuthMiddleware(), handlers.CreateSuspect)
+			suspects.POST("", middleware.AuthMiddleware(), handlers.CreateSuspect)
 			suspects.GET("", middleware.AuthMiddleware(), handlers.GetAllSuspects)
 			suspects.GET("/:id", middleware.AuthMiddleware(), handlers.GetSuspectByID)
 			suspects.PUT("/:id", middleware.AuthMiddleware(), handlers.UpdateSuspect)
@@ -328,7 +331,6 @@ units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.Idempotency
 			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
 		}
 
-		// Alert routes
 		// Alert routes
 		alerts := api.Group("/alerts")
 		{
