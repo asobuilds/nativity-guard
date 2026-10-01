@@ -4,12 +4,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
 import { RequireRole, homePathForRole } from '@/auth/RequireRole'
 import { AppShell } from '@/components/layout/AppShell'
-import { LoadingBanner } from '@/components/layout/LoadingBanner'
 import { FullPageSpinner } from '@/components/ui/States'
 import { ToastProvider } from '@/components/ui/Toast'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
-import { useRouteLoading } from '@/hooks/useRouteLoading'
 import { LandingPage } from '@/pages/LandingPage'
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
@@ -97,18 +95,12 @@ function LoginAlias() {
   return <Navigate to="/auth/login" replace state={location.state} />
 }
 
-function RouteLoadingBanner() {
-  const { loading, message } = useRouteLoading()
-  return <LoadingBanner show={loading} message={message} />
-}
-
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <OfflineBanner />
         <BrowserRouter>
-          <RouteLoadingBanner />
           <AuthProvider>
             <Suspense fallback={<FullPageSpinner />}>
               <Routes>
