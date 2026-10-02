@@ -587,8 +587,6 @@ export function ReportIncidentPage() {
                 )}
               </Field>
 
-              {/* Amber, not red: urgent triage is not the emergency path, and red
-                  is reserved for SOS alone. */}
               <label
                 htmlFor="report-urgent"
                 className={cn(
@@ -645,7 +643,6 @@ export function ReportIncidentPage() {
                 Links and photos are optional, and you can send the report without them.
               </p>
 
-              {/* Photo upload section */}
               <div className="rounded-lg border border-dashed border-border-hi bg-surface-hi p-3">
                 <label className="cursor-pointer">
                   <input
@@ -703,7 +700,6 @@ export function ReportIncidentPage() {
                 )}
               </div>
 
-              {/* Links section (existing) */}
               <div className="flex flex-col gap-4">
                 <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wide">Links</h3>
                 {draft.evidence.length === 0 ? (
@@ -916,6 +912,12 @@ function WhereStep({
       ? [draft.latitude, draft.longitude]
       : null
 
+  // The map's userLocation prop takes `{ latitude, longitude } | null`.
+  const mapUserLocation =
+    userLat != null && userLng != null
+      ? { latitude: userLat, longitude: userLng }
+      : null
+
   const inRange = nearby.data?.filter((unit) => unit.isInRange) ?? []
   const outOfRange = nearby.data?.filter((unit) => !unit.isInRange) ?? []
 
@@ -926,6 +928,10 @@ function WhereStep({
         height="38vh"
         allowLocate
         label="Pick the location of the incident"
+        // Priority order inside MapView: pickLocation (if set) → userLocation → Lagos.
+        // Passing userLocation here is what makes the map open on the user
+        // instead of the generic fallback.
+        userLocation={mapUserLocation}
         pickLocation={point}
         onPickLocation={onPick}
       />
@@ -976,9 +982,6 @@ function WhereStep({
         </Button>
       )}
 
-      {/* hideLocation: file the report against a coarse geohash instead of the
-          precise coordinates. Matches the `POST /cases` field added alongside the
-          location-sharing toggle. */}
       <label
         htmlFor="report-hide-location"
         className={cn(

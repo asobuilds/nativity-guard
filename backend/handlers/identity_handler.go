@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -18,12 +17,30 @@ import (
 	"security-solution/services"
 )
 
+// currentUserID returns the authenticated user's ID. Prefers the "user_id"
+// value if the middleware set it (older code path); falls back to the
+// "user" object that AuthMiddleware always sets.
+func currentUserID(c *gin.Context) (uuid.UUID, bool) {
+	if value, exists := c.Get("user_id"); exists {
+		switch v := value.(type) {
+		case uuid.UUID:
+			return v, true
+		case string:
+			if id, err := uuid.Parse(v); err == nil {
+				return id, true
+			}
+		}
+	}
+	if value, exists := c.Get("user"); exists {
+		if user, ok := value.(*models.User); ok && user != nil {
+			return user.ID, true
+		}
+	}
+	return uuid.Nil, false
+}
+
 // UploadIdentityDocument accepts a document image or PDF for identity
-// verification and stores it under the private `gov_ids/` prefix. The
-// returned path is what the submit endpoint takes as `documentUrl`.
-//
-// The upload validation middleware on the route enforces size + MIME +
-// magic-byte checks before this runs, so we only ever see vetted files.
+// verification and stores it under the private `gov_ids/` prefix.
 func UploadIdentityDocument(c *gin.Context) {
 	value, exists := c.Get("user")
 	if !exists {
@@ -58,9 +75,6 @@ func UploadIdentityDocument(c *gin.Context) {
 }
 
 // SubmitIdentityVerification creates or resubmits an identity verification.
-// The ID number is hashed (SHA-256) before it is stored — the raw value
-// never reaches the database. The documentUrl must be a path returned by
-// UploadIdentityDocument.
 func SubmitIdentityVerification(c *gin.Context) {
 	value, exists := c.Get("user")
 	if !exists {
@@ -102,9 +116,6 @@ func SubmitIdentityVerification(c *gin.Context) {
 		return
 	}
 
-	// Refuse any path that does not belong to the private gov_ids prefix —
-	// a malicious client must not be able to point the reviewer at some
-	// other user's file or at a public object.
 	if !strings.HasPrefix(input.DocumentURL, "gov_ids/") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid documentUrl"})
 		return
@@ -192,7 +203,6 @@ func SubmitIdentityVerification(c *gin.Context) {
 }
 
 // GetMyIdentityVerification returns the authenticated user's own state.
-// Never exposes the hash or the storage path.
 func GetMyIdentityVerification(c *gin.Context) {
 	value, exists := c.Get("user")
 	if !exists {
@@ -225,8 +235,7 @@ func GetMyIdentityVerification(c *gin.Context) {
 }
 
 // ListIdentityVerifications — super-admin view. Document paths are turned
-// into short-lived presigned URLs so the admin can view the file without
-// the object ever being publicly reachable.
+// into short-lived presigned URLs.
 func ListIdentityVerifications(c *gin.Context) {
 	if _, ok := callerIsSuperAdmin(c); !ok {
 		return
@@ -315,7 +324,7 @@ func ApproveIdentityVerification(c *gin.Context) {
 		nil,
 		map[string]string{"status": "verified", "userId": v.UserID.String()},
 		c.ClientIP(),
-		c.UserAgent(),
+		c.Request.UserAgent(),
 	)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -328,8 +337,7 @@ func ApproveIdentityVerification(c *gin.Context) {
 	})
 }
 
-// RejectIdentityVerification marks a submission as rejected with a reason
-// the user will see. Reason is required and length-bounded.
+// RejectIdentityVerification marks a submission as rejected with a reason.
 func RejectIdentityVerification(c *gin.Context) {
 	admin, ok := callerIsSuperAdmin(c)
 	if !ok {
@@ -383,7 +391,7 @@ func RejectIdentityVerification(c *gin.Context) {
 		nil,
 		map[string]string{"status": "rejected", "reason": input.Reason, "userId": v.UserID.String()},
 		c.ClientIP(),
-		c.UserAgent(),
+		c.Request.UserAgent(),
 	)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -395,6 +403,3 @@ func RejectIdentityVerification(c *gin.Context) {
 		},
 	})
 }
-
-// silence unused import warning in dev builds — remove if linter complains.
-var _ = context.Background

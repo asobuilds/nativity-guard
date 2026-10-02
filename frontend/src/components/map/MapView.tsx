@@ -41,7 +41,7 @@ export const STATUS_HEX: Record<string, string> = {
   closed: '#3fbf7f',
 }
 
-const DEFAULT_CENTER: LatLngTuple = [6.5244, 3.3792] // Lagos
+const DEFAULT_CENTER: LatLngTuple = [6.5244, 3.3792] // Lagos — last-resort fallback only
 const DEFAULT_ZOOM = 12
 
 export interface MapViewProps {
@@ -61,8 +61,8 @@ export interface MapViewProps {
   onPickLocation?: (lat: number, lng: number) => void
   /** Ask the browser for the user's position and recentre. */
   allowLocate?: boolean
-  /** The reporter's live position, when already known. Recentres the map on mount
-   *  and whenever the fix updates — used by `MapPage` to auto-anchor to the user. */
+  /** The reporter's live position, when already known. Recentres the map
+   *  automatically in both modes — priority over the generic fallback. */
   userLocation?: { latitude: number; longitude: number } | null
   className?: string
   label?: string
@@ -98,11 +98,21 @@ function PickHandler({ onPick }: { onPick: (lat: number, lng: number) => void })
   return null
 }
 
+/**
+ * Recenter the map when `target` changes.
+ *
+ * Dependencies are the primitive lat/lng, not the tuple itself. A tuple is
+ * a fresh array on every render, so keying on the reference would fire the
+ * effect on every render — fighting the user's pan and jittering the map.
+ */
 function Recenter({ target, zoom }: { target: LatLngTuple | null; zoom?: number }) {
   const map = useMap()
+  const lat = target?.[0]
+  const lng = target?.[1]
   useEffect(() => {
-    if (target) map.setView(target, zoom ?? Math.max(map.getZoom(), 15))
-  }, [target, zoom, map])
+    if (lat == null || lng == null) return
+    map.setView([lat, lng], zoom ?? Math.max(map.getZoom(), 15))
+  }, [lat, lng, zoom, map])
   return null
 }
 
@@ -243,8 +253,18 @@ export function MapView({
   /** The user's own position for display: the reported fix, or the locate button's. */
   const ownPosition: LatLngTuple | null = userLocationCenter ?? userCenter
 
+  /**
+   * Initial map position. Priority, highest first:
+   *   1. Explicit `center` prop
+   *   2. In pick mode, a saved pin (user already chose that point)
+   *   3. The user's live location
+   *   4. A placed pin (view mode)
+   *   5. First plotted case / unit
+   *   6. Lagos — last resort only
+   */
   const initialCenter: LatLngTuple =
     center ??
+    (mode === 'pick' ? (pickLocation as LatLngTuple | null) : null) ??
     userLocationCenter ??
     (pickLocation as LatLngTuple | null) ??
     casePoints[0] ??
@@ -407,6 +427,14 @@ export function MapView({
               />
             ) : null}
             <PickHandler onPick={(lat, lng) => onPickLocation?.(lat, lng)} />
+
+            {/* Auto-recenter to the user's live location ONLY while no pin
+                has been placed yet. Once they place a pin, panning is
+                theirs to control and we stop moving the map for them. */}
+            {!pickLocation && userLocationCenter ? (
+              <Recenter target={userLocationCenter} />
+            ) : null}
+
             <Recenter target={userCenter} />
           </>
         )}

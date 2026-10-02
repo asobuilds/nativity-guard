@@ -8,7 +8,9 @@ import { FullPageSpinner } from '@/components/ui/States'
 import { ToastProvider } from '@/components/ui/Toast'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
+import { usePreferences } from '@/hooks/usePreferences'
 import { LandingPage } from '@/pages/LandingPage'
+
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
@@ -36,7 +38,7 @@ const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m 
 const AlertsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertsPage })))
 const AlertDetailPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertDetailPage })))
 const NewsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.NewsPage })))
-const SubscriptionsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.SubscriptionsPage })))
+const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then(m => ({ default: m.SubscriptionsPage })))
 const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.CommunityPage })))
 const SuperOverviewPage = lazy(() => import('@/pages/super/SuperOverviewPage').then(m => ({ default: m.SuperOverviewPage })))
 const SuperUsersPage = lazy(() => import('@/pages/super/SuperUsersPage').then(m => ({ default: m.SuperUsersPage })))
@@ -48,6 +50,7 @@ const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPa
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
+const AboutPage = lazy(() => import('@/pages/AboutPage').then(m => ({ default: m.AboutPage })))
 const UnitPolicyPage = lazy(() => import('@/pages/admin/UnitPolicyPage').then(m => ({ default: m.UnitPolicyPage })))
 const GovernanceAuditPage = lazy(() => import('@/pages/admin/GovernanceAuditPage').then(m => ({ default: m.GovernanceAuditPage })))
 const InvitationsPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
@@ -55,13 +58,22 @@ const InviteLandingPage = lazy(() => import('@/pages/InvitationsPage').then(m =>
 const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ default: m.SessionsPage })))
 const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
 const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
+const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
+const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
+const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
+const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
+const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
 import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
 
-/** Signed-in area: session required, role-aware chrome, nested routes. */
+function PreferencesBootstrap() {
+  usePreferences()
+  return null
+}
+
 function ProtectedShell({ children }: { children?: ReactNode }) {
   return (
     <RequireRole roles={ALL_ROLES}>
@@ -102,11 +114,13 @@ export function App() {
         <OfflineBanner />
         <BrowserRouter>
           <AuthProvider>
+            <PreferencesBootstrap />
             <Suspense fallback={<FullPageSpinner />}>
               <Routes>
                 <Route path="/auth/login" element={<LoginPage />} />
                 <Route path="/auth/signup" element={<SignupPage />} />
                 <Route path="/terms" element={<TermsPage />} />
+                <Route path="/about" element={<AboutPage />} />
                 <Route path="/invite" element={<InviteLandingPage />} />
 
                 <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
@@ -120,7 +134,9 @@ export function App() {
                   <Route path="/onboarding" element={<OnboardingPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/verify-identity" element={<VerifyIdentityPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/invites" element={<InvitationsPage />} />
                   <Route path="/sessions" element={<SessionsPage />} />
                   <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
@@ -191,6 +207,32 @@ export function App() {
                   <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
                   <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit analytics" description="Under construction." milestone="M7" /></RequireRole>} />
                   <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit settings" description="Under construction." milestone="M7" /></RequireRole>} />
+
+                  <Route
+                    path="/admin/identity"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <IdentityVerificationQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/units-verification"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <UnitVerificationQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <FeedbackQueuePage />
+                      </RequireRole>
+                    }
+                  />
+
                   <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
                   <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
                   <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />

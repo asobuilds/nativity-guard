@@ -7,13 +7,24 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
+// AIService is the single entry point for every LLM call on the platform.
+//
+// Provider-agnostic: reads LLM_PROVIDER / LLM_API_KEY (via GROQ_API_KEY or
+// OPENROUTER_API_KEY) / LLM_MODEL from the environment. Both Groq and
+// OpenRouter speak the OpenAI chat-completions protocol, so only the base URL,
+// the auth env var, and the default model differ between them.
+//
+// To switch provider: change LLM_PROVIDER in the environment. No code changes.
 type AIService struct {
-	apiKey  string
-	baseURL string
-	client  *http.Client
+	apiKey   string
+	baseURL  string
+	model    string
+	provider string
+	client   *http.Client
 }
 
 type ChatMessage struct {
@@ -22,9 +33,10 @@ type ChatMessage struct {
 }
 
 type ChatRequest struct {
-	Model    string        `json:"model"`
-	Messages []ChatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
+	Model       string        `json:"model"`
+	Messages    []ChatMessage `json:"messages"`
+	Stream      bool          `json:"stream"`
+	Temperature float64       `json:"temperature,omitempty"`
 }
 
 type ChatResponse struct {
@@ -38,26 +50,90 @@ type ChatResponse struct {
 	} `json:"error"`
 }
 
+// NewAIService resolves the configured provider and returns a client.
+//
+// Resolution order:
+//  1. If LLM_PROVIDER is "groq" or "openrouter", use it. Falls back to
+//     OpenRouter if the primary key is missing.
+//  2. If LLM_PROVIDER is unset, prefer Groq (fast, generous free tier),
+//     then OpenRouter.
+//
+// This keeps the code working with whatever key happens to be configured,
+// rather than failing hard when one provider is set and the other is not.
 func NewAIService() *AIService {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
+	modelOverride := strings.TrimSpace(os.Getenv("LLM_MODEL"))
+
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	orKey := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
+
+	var (
+		apiKey  string
+		baseURL string
+		model   string
+		chosen  string
+	)
+
+	switch {
+	case provider == "groq" && groqKey != "":
+		chosen = "groq"
+		apiKey = groqKey
+		baseURL = "https://api.groq.com/openai/v1"
+		model = defaultModel("groq", modelOverride)
+	case provider == "openrouter" && orKey != "":
+		chosen = "openrouter"
+		apiKey = orKey
+		baseURL = "https://openrouter.ai/api/v1"
+		model = defaultModel("openrouter", modelOverride)
+	case groqKey != "":
+		chosen = "groq"
+		apiKey = groqKey
+		baseURL = "https://api.groq.com/openai/v1"
+		model = defaultModel("groq", modelOverride)
+	case orKey != "":
+		chosen = "openrouter"
+		apiKey = orKey
+		baseURL = "https://openrouter.ai/api/v1"
+		model = defaultModel("openrouter", modelOverride)
+	default:
+		chosen = "unconfigured"
+	}
+
 	return &AIService{
-		apiKey:  os.Getenv("OPENROUTER_API_KEY"),
-		baseURL: "https://openrouter.ai/api/v1",
+		apiKey:   apiKey,
+		baseURL:  baseURL,
+		model:    model,
+		provider: chosen,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
 	}
 }
 
-// Chat sends a chat message to OpenRouter
+func defaultModel(provider, override string) string {
+	if override != "" {
+		return override
+	}
+	switch provider {
+	case "groq":
+		return "llama-3.3-70b-versatile"
+	case "openrouter":
+		return "openrouter/auto"
+	}
+	return ""
+}
+
+// Chat sends a chat completion request to the configured provider.
 func (s *AIService) Chat(messages []ChatMessage) (string, error) {
 	if s.apiKey == "" {
-		return "", fmt.Errorf("OPENROUTER_API_KEY not set")
+		return "", fmt.Errorf("no LLM provider configured: set LLM_PROVIDER and GROQ_API_KEY or OPENROUTER_API_KEY")
 	}
 
 	request := ChatRequest{
-		Model:    "openrouter/auto",
-		Messages: messages,
-		Stream:   false,
+		Model:       s.model,
+		Messages:    messages,
+		Stream:      false,
+		Temperature: 0.4,
 	}
 
 	jsonData, err := json.Marshal(request)
@@ -72,8 +148,13 @@ func (s *AIService) Chat(messages []ChatMessage) (string, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
-	req.Header.Set("HTTP-Referer", "	https://nativityguard.app")
-	req.Header.Set("X-Title", "Nativity Guard")
+
+	// OpenRouter recommends (and its free tier requires) these attribution
+	// headers. Groq ignores them — so only send them for OpenRouter.
+	if s.provider == "openrouter" {
+		req.Header.Set("HTTP-Referer", "https://nativityguard.app")
+		req.Header.Set("X-Title", "Nativity Guard")
+	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -84,6 +165,20 @@ func (s *AIService) Chat(messages []ChatMessage) (string, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
+	}
+
+	// Surface non-2xx responses honestly: the JSON envelope varies between
+	// providers, so include the raw status when parsing fails.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var probe ChatResponse
+		if json.Unmarshal(body, &probe) == nil && probe.Error != nil {
+			return "", fmt.Errorf("llm %d: %s", resp.StatusCode, probe.Error.Message)
+		}
+		snippet := string(body)
+		if len(snippet) > 300 {
+			snippet = snippet[:300]
+		}
+		return "", fmt.Errorf("llm %d: %s", resp.StatusCode, snippet)
 	}
 
 	var chatResp ChatResponse
@@ -102,7 +197,7 @@ func (s *AIService) Chat(messages []ChatMessage) (string, error) {
 	return chatResp.Choices[0].Message.Content, nil
 }
 
-// Chatbot - AI-powered assistant for citizens
+// Chatbot — AI-powered assistant for citizens.
 func (s *AIService) Chatbot(question, userRole string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -126,7 +221,7 @@ If you don't know something, be honest and suggest they contact their local secu
 	return s.Chat(messages)
 }
 
-// AnalyzeImage - AI image analysis for crime scene photos
+// AnalyzeImage — AI image analysis for crime scene photos.
 func (s *AIService) AnalyzeImage(imageDescription string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -147,7 +242,7 @@ Analyze the image description and provide:
 	return s.Chat(messages)
 }
 
-// AnalyzeLocationRisk analyzes security risk for a specific location
+// AnalyzeLocationRisk analyzes security risk for a specific location.
 func (s *AIService) AnalyzeLocationRisk(latitude, longitude float64, locationName string, recentIncidents string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -173,7 +268,7 @@ Provide:
 	return s.Chat(messages)
 }
 
-// AnalyzeNewsSentiment analyzes news articles for security sentiment
+// AnalyzeNewsSentiment analyzes news articles for security sentiment.
 func (s *AIService) AnalyzeNewsSentiment(newsContent string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -199,7 +294,7 @@ Provide:
 	return s.Chat(messages)
 }
 
-// GenerateSecurityWarning generates a security warning based on incidents
+// GenerateSecurityWarning generates a security warning based on incidents.
 func (s *AIService) GenerateSecurityWarning(incidentsData string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -225,7 +320,7 @@ Format:
 	return s.Chat(messages)
 }
 
-// AnalyzeIncidentPatterns analyzes incident patterns by location
+// AnalyzeIncidentPatterns analyzes incident patterns by location.
 func (s *AIService) AnalyzeIncidentPatterns(location string, incidents []string) (string, error) {
 	incidentsText := ""
 	for i, inc := range incidents {
@@ -255,7 +350,7 @@ Provide:
 	return s.Chat(messages)
 }
 
-// GetSmartSafetyTips provides context-aware safety tips
+// GetSmartSafetyTips provides context-aware safety tips.
 func (s *AIService) GetSmartSafetyTips(location, userRole, timeOfDay, recentThreats string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -279,7 +374,7 @@ Give 5 specific, actionable tips.`, location, userRole, timeOfDay, recentThreats
 	return s.Chat(messages)
 }
 
-// PredictRiskHotspots predicts potential risk hotspots
+// PredictRiskHotspots predicts potential risk hotspots.
 func (s *AIService) PredictRiskHotspots(historicalData string) (string, error) {
 	messages := []ChatMessage{
 		{
@@ -304,7 +399,7 @@ Provide:
 	return s.Chat(messages)
 }
 
-// SummarizeCase provides a concise case summary
+// SummarizeCase provides a concise case summary.
 func (s *AIService) SummarizeCase(caseData string) (string, error) {
 	messages := []ChatMessage{
 		{

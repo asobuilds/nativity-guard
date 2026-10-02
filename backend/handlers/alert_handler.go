@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,13 +13,13 @@ import (
 	"security-solution/models"
 )
 
-// CreateCommunityAlert creates a new community alert
+// CreateCommunityAlert creates a new community alert.
 func CreateCommunityAlert(c *gin.Context) {
 	var input struct {
 		Title     string  `json:"title" binding:"required"`
 		Content   string  `json:"content" binding:"required"`
 		Type      string  `json:"type" binding:"required"`
-		Severity  string  `json:"severity" binding:"required"`
+		Severity  string  `json:"severity"`
 		Location  string  `json:"location" binding:"required"`
 		Latitude  float64 `json:"latitude" binding:"required"`
 		Longitude float64 `json:"longitude" binding:"required"`
@@ -37,20 +39,21 @@ func CreateCommunityAlert(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	// Only admins and officers can create alerts
 	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" && userObj.Role != "officer" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to create alerts"})
 		return
 	}
 
-	if input.Severity == "" {
+	if strings.TrimSpace(input.Severity) == "" {
 		input.Severity = "medium"
+	}
+	if input.Radius < 1 {
+		input.Radius = 10
 	}
 
 	var expiresAt *time.Time
 	if input.ExpiresAt != "" {
-		parsed, err := time.Parse(time.RFC3339, input.ExpiresAt)
-		if err == nil {
+		if parsed, err := time.Parse(time.RFC3339, input.ExpiresAt); err == nil {
 			expiresAt = &parsed
 		}
 	}
@@ -58,7 +61,7 @@ func CreateCommunityAlert(c *gin.Context) {
 	alert := models.CommunityAlert{
 		Title:     input.Title,
 		Content:   input.Content,
-		Type:      input.Type,
+		Type:      strings.ToLower(strings.TrimSpace(input.Type)),
 		Severity:  input.Severity,
 		Location:  input.Location,
 		Latitude:  input.Latitude,
@@ -74,7 +77,6 @@ func CreateCommunityAlert(c *gin.Context) {
 		return
 	}
 
-	// Notify subscribers (async)
 	go notifyAlertSubscribers(alert)
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -83,36 +85,27 @@ func CreateCommunityAlert(c *gin.Context) {
 	})
 }
 
-// GetCommunityAlerts gets all active alerts
+// GetCommunityAlerts gets all active alerts visible to the caller.
 func GetCommunityAlerts(c *gin.Context) {
 	var alerts []models.CommunityAlert
 	query := config.DB.Preload("Author").Where("status = ?", "active")
 
-	// Role-based filtering
 	user, exists := c.Get("user")
 	if exists {
 		userObj := user.(*models.User)
 		if userObj.Role == "citizen" {
-			// Citizens see only non-critical alerts or alerts in their area
-			// Guard against citizens with no unit — UnitID is a *uuid.UUID and
-// can be nil, which would panic on .String(). Fall back to a
-// location match against the user's city or skip the filter.
-                if userObj.UnitID != nil {
-                        // Guard against citizens with no unit — UnitID is a *uuid.UUID and
-// can be nil, which would panic on .String(). Fall back to a
-// location match against the user's city or skip the filter.
-                if userObj.UnitID != nil {
-                        query = query.Where("severity != ? OR location ILIKE ?", "critical", "%"+userObj.UnitID.String()+"%")
-                } else {
-                        query = query.Where("severity != ?", "critical")
-                }
-                } else {
-                        query = query.Where("severity != ?", "critical")
-                }
+			if userObj.UnitID != nil {
+				query = query.Where(
+					"severity != ? OR location ILIKE ?",
+					"critical",
+					"%"+userObj.UnitID.String()+"%",
+				)
+			} else {
+				query = query.Where("severity != ?", "critical")
+			}
 		}
 	}
 
-	// If expires_at is set, only show non-expired
 	query = query.Where("expires_at IS NULL OR expires_at > ?", time.Now())
 
 	if err := query.Order("severity DESC, created_at DESC").Find(&alerts).Error; err != nil {
@@ -120,12 +113,10 @@ func GetCommunityAlerts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"alerts": alerts,
-	})
+	c.JSON(http.StatusOK, gin.H{"alerts": alerts})
 }
 
-// GetAlertByID gets a specific alert
+// GetAlertByID gets a specific alert.
 func GetAlertByID(c *gin.Context) {
 	id := c.Param("id")
 	alertID, err := uuid.Parse(id)
@@ -140,12 +131,10 @@ func GetAlertByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"alert": alert,
-	})
+	c.JSON(http.StatusOK, gin.H{"alert": alert})
 }
 
-// ConfirmAlert confirms an alert (admin only)
+// ConfirmAlert confirms an alert (admin only).
 func ConfirmAlert(c *gin.Context) {
 	id := c.Param("id")
 	alertID, err := uuid.Parse(id)
@@ -183,79 +172,48 @@ func ConfirmAlert(c *gin.Context) {
 	})
 }
 
-// SubscribeToAlerts subscribes a user to alerts
-func SubscribeToAlerts(c *gin.Context) {
-	var input struct {
-		Type     string  `json:"type" binding:"required"`
-		Channel  string  `json:"channel"`
-		Location string  `json:"location"`
-		Radius   float64 `json:"radius"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	if input.Channel == "" {
-		input.Channel = "in_app"
-	}
-
-	subscription := models.AlertSubscription{
-		UserID:   userObj.ID,
-		UnitID:   userObj.UnitID,
-		Type:     input.Type,
-		Channel:  input.Channel,
-		Location: input.Location,
-		Radius:   input.Radius,
-		IsActive: true,
-	}
-
-	if err := config.DB.Create(&subscription).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to subscribe"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message":      "Subscribed successfully",
-		"subscription": subscription,
-	})
-}
-
-// GetAlertSubscriptions gets user's subscriptions
-func GetAlertSubscriptions(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	var subscriptions []models.AlertSubscription
-	if err := config.DB.Where("user_id = ?", userObj.ID).Find(&subscriptions).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch subscriptions"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"subscriptions": subscriptions,
-	})
-}
-
-// notifyAlertSubscribers sends notifications to subscribers (async)
+// notifyAlertSubscribers runs after an alert is created. Rules:
+//
+//   - The subscriber's category list must include the alert's type
+//     (or "all").
+//   - If the subscriber has a location (lat/lng != 0), the alert must
+//     be within the subscriber's radius.
+//   - If the subscriber has turned alert notifications off in their
+//     preferences, they are skipped.
 func notifyAlertSubscribers(alert models.CommunityAlert) {
-	var subscriptions []models.AlertSubscription
-	config.DB.Where("is_active = ? AND type IN (?)", true, []string{alert.Type, "all"}).Find(&subscriptions)
+	var subs []models.AlertSubscription
+	if err := config.DB.Where("is_active = ?", true).Find(&subs).Error; err != nil {
+		return
+	}
 
-	for _, sub := range subscriptions {
-		// Create in-app notification
+	alertType := strings.ToLower(strings.TrimSpace(alert.Type))
+
+	for _, sub := range subs {
+		if !subscriptionMatchesCategory(sub.Type, alertType) {
+			continue
+		}
+
+		hasLocation := sub.Latitude != 0 || sub.Longitude != 0
+		if hasLocation {
+			radius := sub.Radius
+			if radius <= 0 {
+				radius = 10
+			}
+			dist := haversineKm(sub.Latitude, sub.Longitude, alert.Latitude, alert.Longitude)
+			if dist > radius {
+				continue
+			}
+		}
+
+		// Check the subscriber's notification preferences. A missing
+		// preferences row is treated as "notifications on".
+		var prefs models.UserPreferences
+		if err := config.DB.Where("user_id = ?", sub.UserID).First(&prefs).Error; err == nil {
+			if !prefs.NotifyAlerts {
+				continue
+			}
+		}
+
 		notification := models.Notification{
 			UserID:  sub.UserID,
 			Title:   "🚨 " + alert.Title,
@@ -264,7 +222,35 @@ func notifyAlertSubscribers(alert models.CommunityAlert) {
 			Status:  "unread",
 		}
 		config.DB.Create(&notification)
-
-		// In production, this would also send email/SMS based on sub.Channel
 	}
+}
+
+func subscriptionMatchesCategory(subTypeCSV, alertType string) bool {
+	if strings.TrimSpace(subTypeCSV) == "" {
+		return false
+	}
+	for _, raw := range strings.Split(subTypeCSV, ",") {
+		cat := strings.ToLower(strings.TrimSpace(raw))
+		if cat == "all" || cat == alertType {
+			return true
+		}
+	}
+	return false
+}
+
+// haversineKm is the great-circle distance between two points in kilometres.
+func haversineKm(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusKm = 6371.0
+
+	lat1Rad := lat1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	dLat := (lat2 - lat1) * math.Pi / 180
+	dLon := (lon2 - lon1) * math.Pi / 180
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKm * c
 }

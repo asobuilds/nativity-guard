@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { PriorityChip, StatusChip } from '@/components/ui/Chips'
 import { Input } from '@/components/ui/Field'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
+import { CaseTracker } from '@/components/cases/CaseTracker'
 import { useCases } from '@/hooks/useCases'
 import { CASE_STATUS_ORDER, isAwaitingDispatch, statusMeta } from '@/lib/status'
 import { formatDate, relativeTime, truncate } from '@/lib/format'
@@ -238,6 +239,10 @@ function CaseRow({ caseItem }: { caseItem: Case }) {
 
           <p className="mt-1.5 truncate text-sm font-medium text-ink">{caseItem.title}</p>
           <p className="mt-0.5 text-xs text-ink-muted">{truncate(caseItem.description, 140)}</p>
+
+          <div className="mt-2">
+            <CaseTracker caseItem={caseItem} compact />
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
             <span className="flex items-center gap-1">

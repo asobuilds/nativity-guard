@@ -14,10 +14,12 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StatusChip } from '@/components/ui/Chips'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
+import { SosTracker } from '@/components/sos/SosTracker'
 import { useCases } from '@/hooks/useCases'
 import { useNearbyUnits } from '@/hooks/useUnits'
 import { useLocation } from '@/hooks/useLocation'
 import { useProfile } from '@/hooks/useProfile'
+import { useMySos } from '@/hooks/useSos'
 import { useAuth } from '@/auth/AuthContext'
 import { relativeTime, initials } from '@/lib/format'
 import { api, mediaURL } from '@/lib/apiClient'
@@ -44,6 +46,7 @@ export function CitizenHomePage() {
     10,
   )
   const profileQuery = useProfile()
+  const mySos = useMySos()
   const alertsQuery = useQuery({
     queryKey: ['dashboard-alerts'],
     queryFn: () => api.get<{ alerts: CommunityAlert[] }>('/alerts'),
@@ -78,6 +81,9 @@ export function CitizenHomePage() {
     .slice()
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 3)
+
+  // Active SOS = anything not resolved. Always shown if present.
+  const activeSos = (mySos.data ?? []).filter((a) => a.status !== 'resolved').slice(0, 3)
 
   const alerts = alertsQuery.data?.alerts ?? []
   const weekAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -151,6 +157,50 @@ export function CitizenHomePage() {
           ) : null}
         </div>
       </section>
+
+      {/* ACTIVE EMERGENCIES — only renders if there is one in progress. */}
+      {activeSos.length > 0 ? (
+        <section className="mb-4">
+          <Card className="border border-emergency/30">
+            <CardHeader
+              title="Active emergencies"
+              subtitle="Your SOS requests that are still being handled"
+            />
+            <CardBody className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3">
+                {activeSos.map((alert) => (
+                  <li key={alert.id}>
+                    <Link
+                      to={`/sos/${alert.id}`}
+                      className="block rounded-panel transition-colors hover:border-border-hi focus:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+                    >
+                      <div className="rounded-lg border border-border bg-surface-hi/40 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-mono text-xs font-medium text-ink tabular-nums">
+                            {alert.id.slice(0, 8)}…
+                          </p>
+                          <span className="text-[11px] text-ink-muted">
+                            {relativeTime(alert.createdAt)}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <SosTracker alert={alert} compact />
+                        </div>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/sos"
+                className="text-xs font-medium text-signal hover:underline"
+              >
+                Open emergency console →
+              </Link>
+            </CardBody>
+          </Card>
+        </section>
+      ) : null}
 
       <nav aria-label="Quick actions" className="mb-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">

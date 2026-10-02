@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Field'
 import { Skeleton, ErrorState } from '@/components/ui/States'
 import { MapView } from '@/components/map/MapView'
+import { SosTracker } from '@/components/sos/SosTracker'
 import { useAuth } from '@/auth/AuthContext'
 import { useAcceptSos, useAssignSos, useReleaseSos, useSosDetail } from '@/hooks/useSos'
 import { useUnits } from '@/hooks/useUnits'
@@ -99,9 +100,14 @@ export function SosDetailPage() {
 
         {isReporter ? (
           <div className="rounded-lg border border-ok/40 bg-ok/10 p-3 text-sm text-ink">
-            <CheckCircle2 className="inline size-4 text-ok" aria-hidden /> Your alert is visible to responders. Status updates appear below.
+            <CheckCircle2 className="inline size-4 text-ok" aria-hidden /> Your alert is visible to responders. Follow its progress below.
           </div>
         ) : null}
+      </Card>
+
+      <Card className="space-y-3 p-5">
+        <h2 className="text-sm font-semibold text-ink">Progress</h2>
+        <SosTracker alert={sos} />
       </Card>
 
       {hasCoords ? (
