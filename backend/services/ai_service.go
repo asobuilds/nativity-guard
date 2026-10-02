@@ -13,18 +13,21 @@ import (
 
 // AIService is the single entry point for every LLM call on the platform.
 //
-// Provider-agnostic: reads LLM_PROVIDER / LLM_API_KEY (via GROQ_API_KEY or
-// OPENROUTER_API_KEY) / LLM_MODEL from the environment. Both Groq and
-// OpenRouter speak the OpenAI chat-completions protocol, so only the base URL,
-// the auth env var, and the default model differ between them.
-//
-// To switch provider: change LLM_PROVIDER in the environment. No code changes.
+// Two providers are supported, both speaking the OpenAI chat-completions
+// protocol. The service tries the preferred provider first, and falls back
+// to the other on a 5xx, timeout, or network error — never on a 4xx, which
+// would mean the request itself is wrong and repeating it will not help.
 type AIService struct {
-	apiKey   string
-	baseURL  string
-	model    string
-	provider string
-	client   *http.Client
+	primary   providerConfig
+	secondary *providerConfig
+	client    *http.Client
+}
+
+type providerConfig struct {
+	name    string
+	apiKey  string
+	baseURL string
+	model   string
 }
 
 type ChatMessage struct {
@@ -50,62 +53,68 @@ type ChatResponse struct {
 	} `json:"error"`
 }
 
-// NewAIService resolves the configured provider and returns a client.
-//
-// Resolution order:
-//  1. If LLM_PROVIDER is "groq" or "openrouter", use it. Falls back to
-//     OpenRouter if the primary key is missing.
-//  2. If LLM_PROVIDER is unset, prefer Groq (fast, generous free tier),
-//     then OpenRouter.
-//
-// This keeps the code working with whatever key happens to be configured,
-// rather than failing hard when one provider is set and the other is not.
+// LastStatus records the outcome of the most recent Chat() call, for the
+// /ai/status endpoint.
+type LastStatus struct {
+	Provider  string
+	Model     string
+	LatencyMs int64
+	At        time.Time
+	Err       string
+}
+
+var lastStatus LastStatus
+
+// NewAIService resolves both provider configurations from the environment
+// and returns a client with a preferred provider and an optional fallback.
 func NewAIService() *AIService {
-	provider := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
-	modelOverride := strings.TrimSpace(os.Getenv("LLM_MODEL"))
+	groq := providerConfig{
+		name:    "groq",
+		apiKey:  strings.TrimSpace(os.Getenv("GROQ_API_KEY")),
+		baseURL: "https://api.groq.com/openai/v1",
+		model:   defaultModel("groq", strings.TrimSpace(os.Getenv("LLM_MODEL"))),
+	}
+	openrouter := providerConfig{
+		name:    "openrouter",
+		apiKey:  strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY")),
+		baseURL: "https://openrouter.ai/api/v1",
+		model:   defaultModel("openrouter", strings.TrimSpace(os.Getenv("LLM_MODEL_OPENROUTER"))),
+	}
 
-	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
-	orKey := strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY"))
+	preferred := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
 
-	var (
-		apiKey  string
-		baseURL string
-		model   string
-		chosen  string
-	)
+	var primary providerConfig
+	var secondary *providerConfig
+
+	hasKey := func(p providerConfig) bool { return p.apiKey != "" }
 
 	switch {
-	case provider == "groq" && groqKey != "":
-		chosen = "groq"
-		apiKey = groqKey
-		baseURL = "https://api.groq.com/openai/v1"
-		model = defaultModel("groq", modelOverride)
-	case provider == "openrouter" && orKey != "":
-		chosen = "openrouter"
-		apiKey = orKey
-		baseURL = "https://openrouter.ai/api/v1"
-		model = defaultModel("openrouter", modelOverride)
-	case groqKey != "":
-		chosen = "groq"
-		apiKey = groqKey
-		baseURL = "https://api.groq.com/openai/v1"
-		model = defaultModel("groq", modelOverride)
-	case orKey != "":
-		chosen = "openrouter"
-		apiKey = orKey
-		baseURL = "https://openrouter.ai/api/v1"
-		model = defaultModel("openrouter", modelOverride)
+	case preferred == "openrouter" && hasKey(openrouter):
+		primary = openrouter
+		if hasKey(groq) {
+			secondary = &groq
+		}
+	case preferred == "groq" && hasKey(groq):
+		primary = groq
+		if hasKey(openrouter) {
+			secondary = &openrouter
+		}
+	case hasKey(groq):
+		primary = groq
+		if hasKey(openrouter) {
+			secondary = &openrouter
+		}
+	case hasKey(openrouter):
+		primary = openrouter
 	default:
-		chosen = "unconfigured"
+		primary = providerConfig{name: "unconfigured"}
 	}
 
 	return &AIService{
-		apiKey:   apiKey,
-		baseURL:  baseURL,
-		model:    model,
-		provider: chosen,
+		primary:   primary,
+		secondary: secondary,
 		client: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: 45 * time.Second,
 		},
 	}
 }
@@ -116,21 +125,108 @@ func defaultModel(provider, override string) string {
 	}
 	switch provider {
 	case "groq":
-		return "llama-3.3-70b-versatile"
+		return "openai/gpt-oss-120b"
 	case "openrouter":
 		return "openrouter/auto"
 	}
 	return ""
 }
 
-// Chat sends a chat completion request to the configured provider.
+// ProviderName returns the currently preferred provider, for /ai/status.
+func (s *AIService) ProviderName() string {
+	if s.primary.name == "" {
+		return "unconfigured"
+	}
+	return s.primary.name
+}
+
+// Model returns the model the preferred provider is configured with.
+func (s *AIService) Model() string {
+	return s.primary.model
+}
+
+// HasFallback reports whether a secondary provider is configured.
+func (s *AIService) HasFallback() bool {
+	return s.secondary != nil && s.secondary.apiKey != ""
+}
+
+// Status returns the last recorded call status, for /ai/status.
+func Status() LastStatus { return lastStatus }
+
+// Chat sends a chat completion request. Tries the primary provider, then
+// the fallback on transient failures. Never retries on 4xx — a bad request
+// will stay bad.
 func (s *AIService) Chat(messages []ChatMessage) (string, error) {
-	if s.apiKey == "" {
-		return "", fmt.Errorf("no LLM provider configured: set LLM_PROVIDER and GROQ_API_KEY or OPENROUTER_API_KEY")
+	if s.primary.apiKey == "" {
+		return "", fmt.Errorf("no LLM provider configured: set GROQ_API_KEY or OPENROUTER_API_KEY")
 	}
 
+	out, err := s.call(s.primary, messages)
+	if err == nil {
+		return out, nil
+	}
+
+	// 4xx errors mean the request is wrong; retrying with the same payload
+	// against a different provider will not fix it.
+	if isClientError(err) {
+		return "", err
+	}
+
+	if s.secondary == nil || s.secondary.apiKey == "" {
+		return "", err
+	}
+
+	// Try the fallback. If the fallback also fails, return the fallback's
+	// error — that reflects the current live failure more accurately.
+	return s.call(*s.secondary, messages)
+}
+
+type httpStatusError struct {
+	status int
+	body   string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("llm %d: %s", e.status, e.body)
+}
+
+func isClientError(err error) bool {
+	hse, ok := err.(*httpStatusError)
+	if !ok {
+		return false
+	}
+	return hse.status >= 400 && hse.status < 500
+}
+
+func (s *AIService) call(p providerConfig, messages []ChatMessage) (string, error) {
+	startedAt := time.Now()
+
+	body, _, err := s.doRequest(p, messages)
+	elapsed := time.Since(startedAt).Milliseconds()
+
+	if err != nil {
+		lastStatus = LastStatus{
+			Provider:  p.name,
+			Model:     p.model,
+			LatencyMs: elapsed,
+			At:        time.Now(),
+			Err:       err.Error(),
+		}
+		return "", err
+	}
+
+	lastStatus = LastStatus{
+		Provider:  p.name,
+		Model:     p.model,
+		LatencyMs: elapsed,
+		At:        time.Now(),
+	}
+	return body, nil
+}
+
+func (s *AIService) doRequest(p providerConfig, messages []ChatMessage) (string, int, error) {
 	request := ChatRequest{
-		Model:       s.model,
+		Model:       p.model,
 		Messages:    messages,
 		Stream:      false,
 		Temperature: 0.4,
@@ -138,71 +234,61 @@ func (s *AIService) Chat(messages []ChatMessage) (string, error) {
 
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	req, err := http.NewRequest("POST", s.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", p.baseURL+"/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
-	// OpenRouter recommends (and its free tier requires) these attribution
-	// headers. Groq ignores them — so only send them for OpenRouter.
-	if s.provider == "openrouter" {
+	if p.name == "openrouter" {
 		req.Header.Set("HTTP-Referer", "https://nativityguard.app")
 		req.Header.Set("X-Title", "Nativity Guard")
 	}
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", resp.StatusCode, err
 	}
 
-	// Surface non-2xx responses honestly: the JSON envelope varies between
-	// providers, so include the raw status when parsing fails.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var probe ChatResponse
-		if json.Unmarshal(body, &probe) == nil && probe.Error != nil {
-			return "", fmt.Errorf("llm %d: %s", resp.StatusCode, probe.Error.Message)
-		}
-		snippet := string(body)
+		snippet := strings.TrimSpace(string(raw))
 		if len(snippet) > 300 {
 			snippet = snippet[:300]
 		}
-		return "", fmt.Errorf("llm %d: %s", resp.StatusCode, snippet)
+		var probe ChatResponse
+		if json.Unmarshal(raw, &probe) == nil && probe.Error != nil {
+			snippet = probe.Error.Message
+		}
+		return "", resp.StatusCode, &httpStatusError{status: resp.StatusCode, body: snippet}
 	}
 
-	var chatResp ChatResponse
-	if err := json.Unmarshal(body, &chatResp); err != nil {
-		return "", err
+	var parsed ChatResponse
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return "", resp.StatusCode, err
 	}
-
-	if chatResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", chatResp.Error.Message)
+	if parsed.Error != nil {
+		return "", resp.StatusCode, &httpStatusError{status: resp.StatusCode, body: parsed.Error.Message}
 	}
-
-	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("no response from AI")
+	if len(parsed.Choices) == 0 {
+		return "", resp.StatusCode, fmt.Errorf("empty response from provider")
 	}
-
-	return chatResp.Choices[0].Message.Content, nil
+	return parsed.Choices[0].Message.Content, resp.StatusCode, nil
 }
 
-// Chatbot — AI-powered assistant for citizens.
-func (s *AIService) Chatbot(question, userRole string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are Nativity Guard AI, a helpful security assistant for Nigerian communities.
+// Chatbot — general safety assistant. callerContext (optional) is prepended
+// to the system prompt so replies can be specific to the caller's area.
+func (s *AIService) Chatbot(question, userRole, callerContext string) (string, error) {
+	system := `You are Nativity Guard AI, a helpful security assistant for Nigerian communities.
 Your role is to:
 1. Provide safety tips and security advice
 2. Help users report incidents
@@ -210,50 +296,37 @@ Your role is to:
 4. Give general security information
 5. Be friendly and culturally aware
 
-If you don't know something, be honest and suggest they contact their local security unit.`,
-		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("User role: %s\nQuestion: %s", userRole, question),
-		},
+Answer in short, clear paragraphs. Never invent case numbers or statistics that are not in the context. If you don't know something, say so and suggest contacting their local security unit.`
+	if callerContext != "" {
+		system += "\n\nContext about the person asking:\n" + callerContext
 	}
 
+	messages := []ChatMessage{
+		{Role: "system", Content: system},
+		{Role: "user", Content: fmt.Sprintf("User role: %s\nQuestion: %s", userRole, question)},
+	}
 	return s.Chat(messages)
 }
 
-// AnalyzeImage — AI image analysis for crime scene photos.
+// AnalyzeImage — forensic image description review.
 func (s *AIService) AnalyzeImage(imageDescription string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a forensic image analyst for Nativity Guard.
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a forensic image analyst for Nativity Guard.
 Analyze the image description and provide:
 1. Key observations
 2. Potential evidence identification
 3. Safety implications
-4. Recommended actions`,
-		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("Image description: %s", imageDescription),
-		},
-	}
-
-	return s.Chat(messages)
+4. Recommended actions`},
+		{Role: "user", Content: "Image description: " + imageDescription},
+	})
 }
 
 // AnalyzeLocationRisk analyzes security risk for a specific location.
-func (s *AIService) AnalyzeLocationRisk(latitude, longitude float64, locationName string, recentIncidents string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a security intelligence analyst for Nativity Guard in Nigeria.
-Analyze location security risks and provide actionable insights.
-Consider: local context, recent incidents, and practical safety measures.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Analyze security risk for this location:
+func (s *AIService) AnalyzeLocationRisk(latitude, longitude float64, locationName, recentIncidents string) (string, error) {
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a security intelligence analyst for Nativity Guard in Nigeria.
+Analyze location security risks and provide actionable insights. Base the analysis only on the incidents provided; do not invent figures.`},
+		{Role: "user", Content: fmt.Sprintf(`Analyze security risk for this location:
 Location: %s (Lat: %f, Lng: %f)
 Recent Incidents: %s
 
@@ -261,158 +334,95 @@ Provide:
 1. Risk Level (Low/Medium/High/Extreme)
 2. Key Risk Factors
 3. Safety Recommendations
-4. Emergency Contacts (if known)`, locationName, latitude, longitude, recentIncidents),
-		},
-	}
-
-	return s.Chat(messages)
+4. Emergency Contacts (if known)`, locationName, latitude, longitude, recentIncidents)},
+	})
 }
 
 // AnalyzeNewsSentiment analyzes news articles for security sentiment.
 func (s *AIService) AnalyzeNewsSentiment(newsContent string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a security news analyst for Nativity Guard.
-Analyze news content for security implications and sentiment.
-Focus on: threat levels, affected areas, and community impact.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Analyze this news for security implications:
-%s
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a security news analyst for Nativity Guard.
+Analyze news content for security implications. Focus on: threat level, affected areas, community impact. Be concise.`},
+		{Role: "user", Content: "Analyze this news for security implications:\n" + newsContent + `
 
 Provide:
-1. Sentiment Score (Positive/Neutral/Negative)
+1. Sentiment (Positive/Neutral/Negative)
 2. Threat Level
 3. Affected Locations
-4. Key Risks Identified
-5. Recommended Actions`, newsContent),
-		},
-	}
-
-	return s.Chat(messages)
+4. Key Risks Identified`},
+	})
 }
 
 // GenerateSecurityWarning generates a security warning based on incidents.
 func (s *AIService) GenerateSecurityWarning(incidentsData string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a security warning system for Nativity Guard.
-Generate clear, actionable security warnings for communities.
-Be specific, practical, and culturally appropriate for Nigeria.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Based on these recent incidents, generate a security warning:
-%s
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a security warning system for Nativity Guard.
+Generate clear, actionable security warnings for communities. Be specific, practical, and culturally appropriate for Nigeria.`},
+		{Role: "user", Content: "Based on these recent incidents, generate a security warning:\n" + incidentsData + `
 
 Format:
 [WARNING TYPE]
 [Location/Area]
 [Description]
-[Recommended Actions]
-[Contact Information]`, incidentsData),
-		},
-	}
-
-	return s.Chat(messages)
+[Recommended Actions]`},
+	})
 }
 
 // AnalyzeIncidentPatterns analyzes incident patterns by location.
 func (s *AIService) AnalyzeIncidentPatterns(location string, incidents []string) (string, error) {
-	incidentsText := ""
+	text := ""
 	for i, inc := range incidents {
-		incidentsText += fmt.Sprintf("%d. %s\n", i+1, inc)
+		text += fmt.Sprintf("%d. %s\n", i+1, inc)
 	}
-
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a security pattern analyst for Nativity Guard.
-Identify crime patterns, hotspots, and emerging threats.
-Provide data-driven insights for proactive security measures.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Analyze incident patterns in %s:
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a security pattern analyst for Nativity Guard.
+Identify patterns, hotspots, and emerging threats. Base every claim on the incidents provided.`},
+		{Role: "user", Content: fmt.Sprintf(`Analyze incident patterns in %s:
 %s
 
 Provide:
 1. Pattern Summary
 2. Hotspots Identified
 3. Time Patterns
-4. Recommendations`, location, incidentsText),
-		},
-	}
-
-	return s.Chat(messages)
+4. Recommendations`, location, text)},
+	})
 }
 
 // GetSmartSafetyTips provides context-aware safety tips.
 func (s *AIService) GetSmartSafetyTips(location, userRole, timeOfDay, recentThreats string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a safety advisor for Nativity Guard.
-Provide personalized, context-aware safety tips.
-Consider: location, user role, time of day, and current threats.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Provide safety tips for:
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a safety advisor for Nativity Guard.
+Provide personalized, context-aware safety tips. Be practical and specific.`},
+		{Role: "user", Content: fmt.Sprintf(`Provide safety tips for:
 Location: %s
 Role: %s
 Time: %s
 Recent Threats: %s
 
-Give 5 specific, actionable tips.`, location, userRole, timeOfDay, recentThreats),
-		},
-	}
-
-	return s.Chat(messages)
+Give 5 specific, actionable tips.`, location, userRole, timeOfDay, recentThreats)},
+	})
 }
 
 // PredictRiskHotspots predicts potential risk hotspots.
 func (s *AIService) PredictRiskHotspots(historicalData string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a predictive security analyst for Nativity Guard.
-Analyze historical data to predict potential risk hotspots.
-Be specific about locations, timing, and types of risks.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Based on this historical incident data, predict risk hotspots:
-%s
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a predictive security analyst for Nativity Guard.
+Analyze historical data to predict risk hotspots. Be explicit about uncertainty — do not overstate confidence from limited data.`},
+		{Role: "user", Content: "Based on this historical incident data, predict risk hotspots:\n" + historicalData + `
 
 Provide:
 1. High-Risk Areas
 2. Time Periods
 3. Types of Incidents
-4. Preventive Measures`, historicalData),
-		},
-	}
-
-	return s.Chat(messages)
+4. Preventive Measures`},
+	})
 }
 
 // SummarizeCase provides a concise case summary.
 func (s *AIService) SummarizeCase(caseData string) (string, error) {
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a security case summarizer. Create concise, informative summaries.
-Focus on key facts, status, and critical action items.`,
-		},
-		{
-			Role: "user",
-			Content: fmt.Sprintf(`Summarize this case concisely:
-%s`, caseData),
-		},
-	}
-
-	return s.Chat(messages)
+	return s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are a security case summarizer. Create concise, informative summaries.
+Focus on key facts, status, and critical action items.`},
+		{Role: "user", Content: "Summarize this case concisely:\n" + caseData},
+	})
 }

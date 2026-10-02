@@ -12,12 +12,65 @@ import (
 	"security-solution/services"
 )
 
-// AIChatbot - AI-powered assistant for citizens
+// callerContext builds a short factual paragraph about the caller that goes
+// into the assistant's system prompt so replies can reference their area
+// without inventing anything. Deliberately excludes email and phone.
+func callerContext(user *models.User) string {
+	if user == nil {
+		return ""
+	}
+	lines := []string{
+		"- Name: " + user.FirstName + " " + user.LastName,
+		"- Role: " + user.Role,
+	}
+
+	if user.UnitID != nil {
+		var unit models.SecurityUnit
+		if err := config.DB.First(&unit, "id = ?", user.UnitID).Error; err == nil {
+			area := unit.LGA
+			if area == "" {
+				area = unit.State
+			}
+			lines = append(lines, "- Unit: "+unit.Name+" ("+area+")")
+		}
+	}
+
+	var recent []models.Case
+	recentCutoff := time.Now().AddDate(0, 0, -30)
+	q := config.DB.Model(&models.Case{}).Where("created_at > ?", recentCutoff)
+	if user.Role == "officer" || user.Role == "unit_admin" {
+		if user.UnitID != nil {
+			q = q.Where("unit_id = ?", user.UnitID)
+		}
+	}
+	_ = q.Order("created_at desc").Limit(5).Find(&recent).Error
+	if len(recent) > 0 {
+		lines = append(lines, "- Recent local reports:")
+		for _, c := range recent {
+			lines = append(lines, fmt.Sprintf("    · %s (%s)", c.Title, c.Status))
+		}
+	}
+
+	var unread int64
+	config.DB.Model(&models.Notification{}).
+		Where("user_id = ? AND status = ?", user.ID, "unread").
+		Count(&unread)
+	if unread > 0 {
+		lines = append(lines, fmt.Sprintf("- Unread notifications: %d", unread))
+	}
+
+	out := ""
+	for _, l := range lines {
+		out += l + "\n"
+	}
+	return out
+}
+
+// AIChatbot — AI-powered assistant for citizens.
 func AIChatbot(c *gin.Context) {
 	var input struct {
 		Question string `json:"question" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -31,7 +84,7 @@ func AIChatbot(c *gin.Context) {
 	userObj := user.(*models.User)
 
 	aiService := services.NewAIService()
-	response, err := aiService.Chatbot(input.Question, userObj.Role)
+	response, err := aiService.Chatbot(input.Question, userObj.Role, callerContext(userObj))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI chatbot failed: " + err.Error()})
 		return
@@ -43,12 +96,44 @@ func AIChatbot(c *gin.Context) {
 	})
 }
 
-// AIAnalyzeImage - AI image analysis for crime scene photos
+// AIStatus reports which provider and model are live, the last call's
+// latency, and whether a fallback is configured. Super-admin only.
+func AIStatus(c *gin.Context) {
+	admin, ok := callerIsSuperAdmin(c)
+	if !ok {
+		return
+	}
+
+	svc := services.NewAIService()
+	last := services.Status()
+
+	payload := gin.H{
+		"provider":    svc.ProviderName(),
+		"model":       svc.Model(),
+		"hasFallback": svc.HasFallback(),
+		"requestedBy": admin.Email,
+	}
+
+	if !last.At.IsZero() {
+		payload["lastCall"] = gin.H{
+			"provider":  last.Provider,
+			"model":     last.Model,
+			"latencyMs": last.LatencyMs,
+			"at":        last.At,
+			"error":     last.Err,
+		}
+	} else {
+		payload["lastCall"] = nil
+	}
+
+	c.JSON(http.StatusOK, payload)
+}
+
+// AIAnalyzeImage — AI image analysis for crime scene photos.
 func AIAnalyzeImage(c *gin.Context) {
 	var input struct {
 		Description string `json:"description" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -73,12 +158,10 @@ func AIAnalyzeImage(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"analysis": analysis,
-	})
+	c.JSON(http.StatusOK, gin.H{"analysis": analysis})
 }
 
-// AIAnalyzeLocation analyzes security risk for a location
+// AIAnalyzeLocation analyzes security risk for a location.
 func AIAnalyzeLocation(c *gin.Context) {
 	var input struct {
 		Latitude  float64 `json:"latitude" binding:"required"`
@@ -86,7 +169,6 @@ func AIAnalyzeLocation(c *gin.Context) {
 		Location  string  `json:"location"`
 		Radius    float64 `json:"radius"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -101,13 +183,11 @@ func AIAnalyzeLocation(c *gin.Context) {
 
 	var incidents []models.Case
 	query := config.DB.Model(&models.Case{}).Where("status != ?", "closed")
-
 	if userObj.Role == "officer" || userObj.Role == "unit_admin" {
 		if userObj.UnitID != nil {
 			query = query.Where("unit_id = ?", userObj.UnitID)
 		}
 	}
-
 	if err := query.Order("created_at desc").Limit(20).Find(&incidents).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch incidents"})
 		return
@@ -137,13 +217,12 @@ func AIAnalyzeLocation(c *gin.Context) {
 	})
 }
 
-// AIGetMapInsights provides insights for map markers
+// AIGetMapInsights provides insights for map markers.
 func AIGetMapInsights(c *gin.Context) {
 	var input struct {
 		Latitude  float64 `json:"latitude"`
 		Longitude float64 `json:"longitude"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -158,13 +237,11 @@ func AIGetMapInsights(c *gin.Context) {
 
 	var cases []models.Case
 	query := config.DB.Model(&models.Case{}).Where("status != ?", "closed")
-
 	if userObj.Role == "officer" || userObj.Role == "unit_admin" {
 		if userObj.UnitID != nil {
 			query = query.Where("unit_id = ?", userObj.UnitID)
 		}
 	}
-
 	if err := query.Order("created_at desc").Limit(30).Find(&cases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cases"})
 		return
@@ -190,13 +267,12 @@ func AIGetMapInsights(c *gin.Context) {
 	})
 }
 
-// AIGenerateSecurityWarning generates security warnings
+// AIGenerateSecurityWarning generates security warnings.
 func AIGenerateSecurityWarning(c *gin.Context) {
 	var input struct {
 		Location    string   `json:"location"`
 		IncidentIDs []string `json:"incidentIds"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -261,13 +337,12 @@ func AIGenerateSecurityWarning(c *gin.Context) {
 	})
 }
 
-// AIAnalyzeNews analyzes news for security implications
+// AIAnalyzeNews analyzes news for security implications.
 func AIAnalyzeNews(c *gin.Context) {
 	var input struct {
 		Content string `json:"content" binding:"required"`
 		Source  string `json:"source"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -287,14 +362,13 @@ func AIAnalyzeNews(c *gin.Context) {
 	})
 }
 
-// AIGetSmartTips provides context-aware safety tips
+// AIGetSmartTips provides context-aware safety tips.
 func AIGetSmartTips(c *gin.Context) {
 	var input struct {
 		Location      string `json:"location"`
 		TimeOfDay     string `json:"timeOfDay"`
 		RecentThreats string `json:"recentThreats"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -309,13 +383,14 @@ func AIGetSmartTips(c *gin.Context) {
 
 	if input.TimeOfDay == "" {
 		hour := time.Now().Hour()
-		if hour < 6 {
+		switch {
+		case hour < 6:
 			input.TimeOfDay = "Night (Late)"
-		} else if hour < 12 {
+		case hour < 12:
 			input.TimeOfDay = "Morning"
-		} else if hour < 18 {
+		case hour < 18:
 			input.TimeOfDay = "Afternoon"
-		} else {
+		default:
 			input.TimeOfDay = "Evening"
 		}
 	}
@@ -352,7 +427,7 @@ func AIGetSmartTips(c *gin.Context) {
 	})
 }
 
-// AIPredictHotspots predicts risk hotspots
+// AIPredictHotspots predicts risk hotspots.
 func AIPredictHotspots(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -371,16 +446,12 @@ func AIPredictHotspots(c *gin.Context) {
 	if userObj.UnitID != nil {
 		query = query.Where("unit_id = ?", userObj.UnitID)
 	}
-
 	if err := query.Find(&cases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cases"})
 		return
 	}
-
 	if len(cases) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Not enough data for prediction",
-		})
+		c.JSON(http.StatusOK, gin.H{"message": "Not enough data for prediction"})
 		return
 	}
 
