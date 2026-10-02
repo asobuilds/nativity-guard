@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BarChart3,
@@ -294,7 +295,16 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
         <main className="min-w-0 flex-1 pb-20 md:pb-0">
           <ErrorBoundary title="This page failed to render">
-            {children ?? <Outlet />}
+            {/* `children` when a caller renders the shell directly (`/` does, since
+                it has to decide between the landing page and the console before
+                the router picks a child); `<Outlet/>` for every nested route. */}
+            <Suspense fallback={
+              <div role="status" aria-live="polite" className="flex min-h-48 items-center justify-center gap-3 text-ink-muted">
+                <Spinner /><span>Opening page…</span>
+              </div>
+            }>
+              {children ?? <Outlet />}
+            </Suspense>
           </ErrorBoundary>
         </main>
 

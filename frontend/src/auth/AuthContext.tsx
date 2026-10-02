@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, tokenStore, UNAUTHORIZED_EVENT } from '@/lib/apiClient'
+import { queryClient } from '@/lib/queryClient'
 import { normaliseRole } from '@/lib/role'
 import type { LoginResponse, ProfileResponse, Role, User } from '@/types/api'
 
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
 
   const logout = useCallback(() => {
+    queryClient.clear()
     tokenStore.clear()
     setUser(null)
     setStatus('anonymous')
@@ -78,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Anonymous: sign-in must not send a stale token, and a rejected login must
     // not clear an existing session (see api.postAnonymous).
     const result = await api.postAnonymous<LoginResponse>('/auth/login', { email, password })
+    // Cached records belong to the previous authenticated identity.
+    queryClient.clear()
     tokenStore.set(result.token)
     // The refresh token is what keeps this session alive past the access token's
     // 24h. Not storing it is why every session used to die at its first expiry,
