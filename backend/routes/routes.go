@@ -1,4 +1,4 @@
-package routes
+﻿package routes
 
 import (
 	"github.com/gin-gonic/gin"
@@ -31,7 +31,7 @@ func SetupRoutes(router *gin.Engine) {
 		api.GET("/public/units/:id/auth", handlers.GetPublicUnitAuth)
 		api.POST("/invites/validate", middleware.RateLimitAuth(), handlers.ValidateInvite)
 
-		// Live external data — weather, news, directions, POIs.
+		// Live external data â€” weather, news, directions, POIs.
 		api.GET("/weather/current", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetWeatherNow)
 		api.GET("/news/live", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLiveNews)
 		api.POST("/directions", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.PostDirections)
@@ -102,7 +102,7 @@ func SetupRoutes(router *gin.Engine) {
 			units.GET("/:id/auth", middleware.AuthMiddleware(), handlers.GetUnitAuth)
 			units.PUT("/:id/auth", middleware.AuthMiddleware(), handlers.UpsertUnitAuth)
 			units.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersByUnit)
-			units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInRanking)
+			units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInUnitRanking)
 			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
 		}
 

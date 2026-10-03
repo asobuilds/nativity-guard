@@ -12,8 +12,10 @@ import (
 	"security-solution/services"
 )
 
-// parseCoordinate reads a query param as a float64, returning ok=false on failure.
-func parseCoordinate(raw string) (float64, bool) {
+// queryFloatRequired reads a query param as float64, returning ok=false on
+// failure. Named distinctly from the existing `parseCoordinate` in
+// geo_handler.go, which has a different signature and purpose.
+func queryFloatRequired(raw string) (float64, bool) {
 	v, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil {
 		return 0, false
@@ -21,7 +23,7 @@ func parseCoordinate(raw string) (float64, bool) {
 	return v, true
 }
 
-func parseFloatDefault(raw string, fallback float64) float64 {
+func queryFloat(raw string, fallback float64) float64 {
 	if strings.TrimSpace(raw) == "" {
 		return fallback
 	}
@@ -32,7 +34,7 @@ func parseFloatDefault(raw string, fallback float64) float64 {
 	return v
 }
 
-func parseIntDefault(raw string, fallback int) int {
+func queryInt(raw string, fallback int) int {
 	if strings.TrimSpace(raw) == "" {
 		return fallback
 	}
@@ -47,8 +49,8 @@ func parseIntDefault(raw string, fallback int) int {
 
 // GetWeatherNow — GET /weather/current?lat=&lng=&label=&approximate=
 func GetWeatherNow(c *gin.Context) {
-	lat, ok1 := parseCoordinate(c.Query("lat"))
-	lng, ok2 := parseCoordinate(c.Query("lng"))
+	lat, ok1 := queryFloatRequired(c.Query("lat"))
+	lng, ok2 := queryFloatRequired(c.Query("lng"))
 	if !ok1 || !ok2 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "lat and lng are required as numbers"})
 		return
@@ -107,7 +109,7 @@ func GetLiveNews(c *gin.Context) {
 		categories = []string{"general"}
 	}
 
-	limit := parseIntDefault(c.Query("limit"), 10)
+	limit := queryInt(c.Query("limit"), 10)
 
 	items, err := services.NewNewsService().GetForCategories(categories, limit)
 	if err != nil {
@@ -153,8 +155,8 @@ func PostDirections(c *gin.Context) {
 
 // GetMapPOIs — GET /map/pois?lat=&lng=&radius=&categories=hospital,police
 func GetMapPOIs(c *gin.Context) {
-	lat, ok1 := parseCoordinate(c.Query("lat"))
-	lng, ok2 := parseCoordinate(c.Query("lng"))
+	lat, ok1 := queryFloatRequired(c.Query("lat"))
+	lng, ok2 := queryFloatRequired(c.Query("lng"))
 	if !ok1 || !ok2 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "lat and lng are required as numbers"})
 		return
@@ -164,7 +166,7 @@ func GetMapPOIs(c *gin.Context) {
 		return
 	}
 
-	radius := parseIntDefault(c.Query("radius"), 3000)
+	radius := queryInt(c.Query("radius"), 3000)
 
 	var categories []string
 	if raw := strings.TrimSpace(c.Query("categories")); raw != "" {
