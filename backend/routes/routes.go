@@ -107,6 +107,7 @@ func SetupRoutes(router *gin.Engine) {
 			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
 			units.GET("/:id/inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitInbox)
 			units.GET("/:id/compliance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitCompliance)
+			units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
 			units.GET("/:id/access", middleware.AuthMiddleware(), handlers.GetUnitAccess)
 			units.GET("/:id/roster", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitRoster)
 		}
@@ -447,6 +448,7 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
+
 
 
 

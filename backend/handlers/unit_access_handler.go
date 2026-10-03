@@ -36,7 +36,6 @@ func GetUnitAccess(c *gin.Context) {
         First(&membership).Error
 
     if err != nil {
-        // Not a member — that is a normal, expected answer.
         c.JSON(http.StatusOK, gin.H{
             "isMember":     false,
             "role":         nil,
@@ -75,14 +74,14 @@ type rosterMember struct {
     TermStartAt      *time.Time `json:"termStartAt,omitempty"`
     TermEndAt        *time.Time `json:"termEndAt,omitempty"`
     ConsecutiveTerms int        `json:"consecutiveTerms"`
+    VerifiedAt       *time.Time `json:"verifiedAt,omitempty"`
     CreatedAt        time.Time  `json:"createdAt"`
 }
 
 // GetUnitRoster — GET /units/:id/roster
 //
 // Members of a unit, ordered head admin → admin → officer. Requires the
-// caller to be an active member of the same unit — a citizen who is not in
-// the unit cannot see who is.
+// caller to be an active member of the same unit.
 func GetUnitRoster(c *gin.Context) {
     callerID, ok := currentUserID(c)
     if !ok {
@@ -96,7 +95,6 @@ func GetUnitRoster(c *gin.Context) {
         return
     }
 
-    // The caller must be an active member of this unit.
     var caller models.UnitMembership
     if err := config.DB.
         Where("user_id = ? AND unit_id = ? AND status = ?", callerID, unitID, "active").
@@ -113,7 +111,6 @@ func GetUnitRoster(c *gin.Context) {
         return
     }
 
-    // Collect user IDs for a single bulk fetch.
     userIDs := make([]uuid.UUID, 0, len(memberships))
     for _, m := range memberships {
         userIDs = append(userIDs, m.UserID)
@@ -148,6 +145,7 @@ func GetUnitRoster(c *gin.Context) {
             TermStartAt:      m.TermStartAt,
             TermEndAt:        m.TermEndAt,
             ConsecutiveTerms: m.ConsecutiveTerms,
+            VerifiedAt:       m.VerifiedAt,
             CreatedAt:        m.CreatedAt,
         })
         if m.Status == "active" {
