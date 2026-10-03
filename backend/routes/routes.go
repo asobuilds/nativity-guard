@@ -17,6 +17,7 @@ func SetupRoutes(router *gin.Engine) {
 		api.GET("/public/cases", middleware.RateLimitGeneral(), handlers.GetPublicCases)
 		api.GET("/public/units", middleware.RateLimitGeneral(), handlers.GetPublicUnits)
 		api.GET("/public/units/:id/bank-accounts", handlers.GetPublicBankAccounts)
+		api.GET("/public/units/:id/summary", middleware.RateLimitGeneral(), handlers.GetUnitPublicSummary)
 		api.GET("/public/units/:id/ledger", middleware.RateLimitGeneral(), handlers.GetPublicUnitLedger)
 		api.GET("/public/units/:id/financial-years", handlers.GetPublicFinancialYears)
 		api.GET("/public/units/:id/financial-summary", handlers.GetCurrentYearSummary)
@@ -442,3 +443,4 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
+
