@@ -15,11 +15,14 @@ import { Button } from '@/components/ui/Button'
 import { StatusChip } from '@/components/ui/Chips'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { SosTracker } from '@/components/sos/SosTracker'
+import { WeatherChip } from '@/components/weather/WeatherChip'
+import { LiveNewsFeed } from '@/components/news/LiveNewsFeed'
 import { useCases } from '@/hooks/useCases'
 import { useNearbyUnits } from '@/hooks/useUnits'
 import { useLocation } from '@/hooks/useLocation'
 import { useProfile } from '@/hooks/useProfile'
 import { useMySos } from '@/hooks/useSos'
+import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { useAuth } from '@/auth/AuthContext'
 import { relativeTime, initials } from '@/lib/format'
 import { api, mediaURL } from '@/lib/apiClient'
@@ -56,6 +59,13 @@ export function CitizenHomePage() {
     queryFn: () => api.get<{ posts: CommunityPost[] }>('/community/posts'),
   })
 
+  // Reverse-geocoded place label for the weather chip. Only fetched when we
+  // have coordinates — the backend skips the lookup otherwise.
+  const { data: geo } = useReverseGeocode(location.latitude, location.longitude)
+  const weatherLabel =
+    formatAddress(geo) || (location.latitude != null ? 'Your area' : 'Your area')
+  const weatherApproximate = location.latitude == null || location.longitude == null
+
   const firstName = user?.firstName ?? ''
   const hasLocation =
     typeof location.latitude === 'number' && typeof location.longitude === 'number'
@@ -82,7 +92,6 @@ export function CitizenHomePage() {
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 3)
 
-  // Active SOS = anything not resolved. Always shown if present.
   const activeSos = (mySos.data ?? []).filter((a) => a.status !== 'resolved').slice(0, 3)
 
   const alerts = alertsQuery.data?.alerts ?? []
@@ -136,6 +145,16 @@ export function CitizenHomePage() {
           </h1>
           <p className="mt-2 text-base text-ink-muted">{heroSubtitle}</p>
 
+          {/* Weather chip — hidden if there is no weather data to show. */}
+          <div className="mt-3 flex justify-center">
+            <WeatherChip
+              latitude={location.latitude}
+              longitude={location.longitude}
+              label={weatherLabel}
+              approximate={weatherApproximate}
+            />
+          </div>
+
           <div className="mt-5 flex justify-center">
             <Link
               to="/sos"
@@ -158,7 +177,6 @@ export function CitizenHomePage() {
         </div>
       </section>
 
-      {/* ACTIVE EMERGENCIES — only renders if there is one in progress. */}
       {activeSos.length > 0 ? (
         <section className="mb-4">
           <Card className="border border-emergency/30">
@@ -191,10 +209,7 @@ export function CitizenHomePage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/sos"
-                className="text-xs font-medium text-signal hover:underline"
-              >
+              <Link to="/sos" className="text-xs font-medium text-signal hover:underline">
                 Open emergency console →
               </Link>
             </CardBody>
@@ -338,6 +353,11 @@ export function CitizenHomePage() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Live news — filtered by subscription */}
+      <section className="mt-4">
+        <LiveNewsFeed limit={3} />
+      </section>
 
       {postsQuery.isError || posts.length === 0 ? null : (
         <section className="mt-4">
