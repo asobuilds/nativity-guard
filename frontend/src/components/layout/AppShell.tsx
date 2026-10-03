@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, type ReactNode } from 'react'
+﻿import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -62,6 +62,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/community', label: 'Community', icon: <Users className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
+    { to: '/admin/unit', label: 'Unit dashboard', icon: <LayoutDashboard className="size-4" /> },
     { to: '/admin/officers', label: 'Units', icon: <Users className="size-4" /> },
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/admin/finance', label: 'Finance demo', icon: <FileText className="size-4" /> },
@@ -300,7 +301,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
                 the router picks a child); `<Outlet/>` for every nested route. */}
             <Suspense fallback={
               <div role="status" aria-live="polite" className="flex min-h-48 items-center justify-center gap-3 text-ink-muted">
-                <Spinner /><span>Opening page…</span>
+                <Spinner /><span>Opening pageâ€¦</span>
               </div>
             }>
               {children ?? <Outlet />}

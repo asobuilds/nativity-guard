@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+﻿import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
@@ -47,6 +47,7 @@ const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage')
 const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
 const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
 const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
+const UnitDashboardPage = lazy(() => import('@/pages/admin/UnitDashboardPage').then(m => ({ default: m.UnitDashboardPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
@@ -84,7 +85,7 @@ function ProtectedShell({ children }: { children?: ReactNode }) {
 
 function RootRoute() {
   const { status } = useAuth()
-  if (status === 'loading') return <FullPageSpinner label="Restoring session…" />
+  if (status === 'loading') return <FullPageSpinner label="Restoring sessionâ€¦" />
   if (status === 'anonymous') return <LandingPage />
   return (
     <ProtectedShell>
@@ -199,6 +200,7 @@ export function App() {
                   />
                   <Route path="/admin/transfers" element={<RequireRole roles={ADMIN_ROLES}><TransfersPage /></RequireRole>} />
                   <Route path="/admin/unit-policy" element={<RequireRole roles={ADMIN_ROLES}><UnitPolicyPage /></RequireRole>} />
+                  <Route path="/admin/unit" element={<RequireRole roles={ADMIN_ROLES}><UnitDashboardPage /></RequireRole>} />
                   <Route path="/admin/governance-audit" element={<RequireRole roles={ADMIN_ROLES}><GovernanceAuditPage /></RequireRole>} />
 
                   <Route path="/admin/officers" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
