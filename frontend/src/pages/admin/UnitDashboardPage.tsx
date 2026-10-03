@@ -7,6 +7,7 @@ import { Skeleton, ErrorState } from '@/components/ui/States'
 import { UnitTabs } from '@/components/unit/UnitTabs'
 import { UnitInboxPanel } from '@/components/unit/UnitInboxPanel'
 import { ComplianceMatrix } from '@/components/unit/ComplianceMatrix'
+import { GovernancePanel } from '@/components/unit/GovernancePanel'
 import { api } from '@/lib/apiClient'
 import { useUnitInbox } from '@/hooks/useUnitInbox'
 import { useUnitCompliance } from '@/hooks/useUnitCompliance'
@@ -21,7 +22,7 @@ interface Membership {
   unit?: SecurityUnit
 }
 
-type TabId = 'inbox' | 'compliance'
+type TabId = 'inbox' | 'compliance' | 'governance'
 
 export function UnitDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>('inbox')
@@ -91,6 +92,7 @@ export function UnitDashboardPage() {
   const tabs = [
     { id: 'inbox', label: 'Inbox', badge: (inbox.data?.pendingCaseCount ?? 0) + (inbox.data?.sosAlertCount ?? 0) + (inbox.data?.applicationCount ?? 0) },
     { id: 'compliance', label: 'Weekly compliance' },
+    { id: 'governance', label: 'Governance' },
   ]
 
   return (
@@ -154,6 +156,10 @@ export function UnitDashboardPage() {
         </Card>
       ) : null}
 
+      {activeTab === 'governance' ? (
+        <GovernancePanel unitId={unitId} isAdmin={true} />
+      ) : null}
+
       <Card className="border-signal/20 bg-signal/5 p-4">
         <div className="flex items-start gap-3">
           <Shield className="mt-0.5 size-4 shrink-0 text-signal" aria-hidden />
@@ -166,3 +172,4 @@ export function UnitDashboardPage() {
     </div>
   )
 }
+

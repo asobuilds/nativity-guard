@@ -19,6 +19,7 @@ import { UnitHero } from '@/components/unit/UnitHero'
 import { UnitStatsGrid } from '@/components/unit/UnitStatsGrid'
 import { UnitTabs, type UnitTabDef } from '@/components/unit/UnitTabs'
 import { UnitMemberRoster } from '@/components/unit/UnitMemberRoster'
+import { GovernancePanel } from '@/components/unit/GovernancePanel'
 import { api } from '@/lib/apiClient'
 import { useLocation } from '@/hooks/useLocation'
 import { useMapPOIs, type POICategory } from '@/hooks/useMapPOIs'
@@ -391,9 +392,12 @@ export function UnitDetailPage() {
       ) : null}
 
       {isMember && activeTab === 'governance' ? (
-        <ComingSoonPanel
-          title="Governance"
-          description="Current admins, term limits, elections and revocations. Arrives in Wave U4."
+        <GovernancePanel
+          unitId={unit.id}
+          isAdmin={
+            accessQuery.data?.isHeadAdmin === true ||
+            accessQuery.data?.role === 'unit_admin'
+          }
         />
       ) : null}
 
@@ -415,3 +419,4 @@ function ComingSoonPanel({ title, description }: { title: string; description: s
     </Card>
   )
 }
+

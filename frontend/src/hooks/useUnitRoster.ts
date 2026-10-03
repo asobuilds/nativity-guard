@@ -17,6 +17,7 @@ export interface RosterMember {
   termStartAt?: string
   termEndAt?: string
   consecutiveTerms: number
+  verifiedAt?: string
   createdAt: string
 }
 
