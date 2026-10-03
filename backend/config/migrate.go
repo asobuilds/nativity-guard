@@ -1,4 +1,4 @@
-package config
+﻿package config
 
 import (
 	"log"
@@ -17,6 +17,7 @@ func AutoMigrateAll() error {
 		&models.IdentityVerification{},
 
 		&models.Feedback{},
+		&models.LGAMessage{},
 
 		&models.Case{},
 		&models.CaseAccountabilityEvent{},

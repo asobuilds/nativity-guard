@@ -59,6 +59,7 @@ const InviteLandingPage = lazy(() => import('@/pages/InvitationsPage').then(m =>
 const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ default: m.SessionsPage })))
 const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
 const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
+const LGAChannelPage = lazy(() => import('@/pages/LGAChannelPage').then(m => ({ default: m.LGAChannelPage })))
 const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
 const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
@@ -148,6 +149,7 @@ export function App() {
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><CommunityPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
                   <Route path="/assistant" element={<AiAssistantPage />} />
+                  <Route path="/lga" element={<LGAChannelPage />} />
                   <Route path="/sos" element={<SosPage />} />
                   <Route path="/sos/:id" element={<SosDetailPage />} />
                   <Route
@@ -303,3 +305,4 @@ export function App() {
     </QueryClientProvider>
   )
 }
+

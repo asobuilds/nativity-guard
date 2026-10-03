@@ -51,6 +51,7 @@ const NAV: Record<Role, NavItem[]> = {
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
+    { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/officer/comms', label: 'Comms', icon: <Users className="size-4" />, soon: true },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
@@ -84,6 +85,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
     { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
+    { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
     { to: '/notifications', label: 'Notifications', icon: <Megaphone className="size-4" /> },
 
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
@@ -330,3 +332,4 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
     </div>
   )
 }
+

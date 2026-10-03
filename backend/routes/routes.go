@@ -35,6 +35,8 @@ func SetupRoutes(router *gin.Engine) {
 		// Live external data â€” weather, news, directions, POIs.
 		api.GET("/weather/current", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetWeatherNow)
 		api.GET("/news/live", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLiveNews)
+		api.GET("/lga/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLGAChannel)
+		api.POST("/lga/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.PostLGAChannel)
 		api.POST("/directions", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.PostDirections)
 		api.GET("/map/pois", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetMapPOIs)
 
@@ -455,6 +457,7 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
+
 
 
 
