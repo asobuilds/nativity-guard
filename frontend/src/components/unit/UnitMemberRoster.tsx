@@ -3,10 +3,18 @@ import { cn } from '@/lib/cn'
 import { formatDate, initials, relativeTime } from '@/lib/format'
 import { mediaURL } from '@/lib/apiClient'
 import type { RosterMember, UnitRoster } from '@/hooks/useUnitRoster'
+import { MembershipActionMenu } from './MembershipActionMenu'
 
 interface UnitMemberRosterProps {
   roster: UnitRoster | undefined
   isLoading: boolean
+  isAdmin: boolean
+  currentUserId: string | undefined
+  onApprove: (membershipId: string) => void
+  onReject: (membershipId: string, reason: string) => void
+  onPromote: (membershipId: string) => void
+  onRevoke: (membershipId: string, reason: string) => void
+  busy: boolean
 }
 
 const ROLE_META: Record<string, { label: string; color: string; ring: string }> = {
@@ -37,7 +45,17 @@ function sortByHierarchy(members: RosterMember[]): RosterMember[] {
   })
 }
 
-export function UnitMemberRoster({ roster, isLoading }: UnitMemberRosterProps) {
+export function UnitMemberRoster({
+  roster,
+  isLoading,
+  isAdmin,
+  currentUserId,
+  onApprove,
+  onReject,
+  onPromote,
+  onRevoke,
+  busy,
+}: UnitMemberRosterProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -68,7 +86,17 @@ export function UnitMemberRoster({ roster, isLoading }: UnitMemberRosterProps) {
 
       <ul className="divide-y divide-border rounded-lg border border-border bg-surface/60">
         {sorted.map((m) => (
-          <RosterRow key={m.membershipId} member={m} />
+          <RosterRow
+            key={m.membershipId}
+            member={m}
+            isAdmin={isAdmin}
+            currentUserId={currentUserId}
+            onApprove={onApprove}
+            onReject={onReject}
+            onPromote={onPromote}
+            onRevoke={onRevoke}
+            busy={busy}
+          />
         ))}
       </ul>
     </div>
@@ -84,7 +112,25 @@ function Stat({ label, value }: { label: string; value: number }) {
   )
 }
 
-function RosterRow({ member }: { member: RosterMember }) {
+function RosterRow({
+  member,
+  isAdmin,
+  currentUserId,
+  onApprove,
+  onReject,
+  onPromote,
+  onRevoke,
+  busy,
+}: {
+  member: RosterMember
+  isAdmin: boolean
+  currentUserId: string | undefined
+  onApprove: (membershipId: string) => void
+  onReject: (membershipId: string, reason: string) => void
+  onPromote: (membershipId: string) => void
+  onRevoke: (membershipId: string, reason: string) => void
+  busy: boolean
+}) {
   const meta = roleStyle(member)
   const avatar = mediaURL(member.avatarPath) ?? null
   const fullName = [member.firstName, member.lastName].filter(Boolean).join(' ')
@@ -134,6 +180,11 @@ function RosterRow({ member }: { member: RosterMember }) {
               Pending
             </span>
           ) : null}
+          {member.status === 'revoked' ? (
+            <span className="rounded-full bg-emergency/15 px-2 py-0.5 text-[10px] font-medium text-emergency">
+              Revoked
+            </span>
+          ) : null}
         </div>
         <p className="mt-0.5 truncate text-xs text-ink-muted">{member.email}</p>
         {member.termEndAt ? (
@@ -147,6 +198,18 @@ function RosterRow({ member }: { member: RosterMember }) {
           </p>
         )}
       </div>
+
+      {isAdmin ? (
+        <MembershipActionMenu
+          member={member}
+          currentUserId={currentUserId}
+          busy={busy}
+          onApprove={() => onApprove(member.membershipId)}
+          onReject={(reason) => onReject(member.membershipId, reason)}
+          onPromote={() => onPromote(member.membershipId)}
+          onRevoke={(reason) => onRevoke(member.membershipId, reason)}
+        />
+      ) : null}
     </li>
   )
 }

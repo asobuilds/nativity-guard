@@ -1,5 +1,5 @@
 ﻿import { Link } from 'react-router-dom'
-import { FileText, ShieldAlert, UserPlus } from 'lucide-react'
+import { Check, FileText, ShieldAlert, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { initials, relativeTime } from '@/lib/format'
 import { mediaURL } from '@/lib/apiClient'
@@ -9,9 +9,18 @@ import type { UnitInbox } from '@/hooks/useUnitInbox'
 interface UnitInboxPanelProps {
   inbox: UnitInbox | undefined
   isLoading: boolean
+  onApproveApplication?: (membershipId: string) => void
+  onRejectApplication?: (membershipId: string) => void
+  actionBusy?: boolean
 }
 
-export function UnitInboxPanel({ inbox, isLoading }: UnitInboxPanelProps) {
+export function UnitInboxPanel({
+  inbox,
+  isLoading,
+  onApproveApplication,
+  onRejectApplication,
+  actionBusy,
+}: UnitInboxPanelProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -109,7 +118,7 @@ export function UnitInboxPanel({ inbox, isLoading }: UnitInboxPanelProps) {
               const avatar = mediaURL(a.avatarPath) ?? null
               const fullName = [a.firstName, a.lastName].filter(Boolean).join(' ')
               return (
-                <li key={a.membershipId} className="flex items-center gap-3 p-3">
+                <li key={a.membershipId} className="flex flex-wrap items-center gap-3 p-3">
                   {avatar ? (
                     <img
                       src={avatar}
@@ -129,6 +138,30 @@ export function UnitInboxPanel({ inbox, isLoading }: UnitInboxPanelProps) {
                       {a.email} · applied {relativeTime(a.createdAt)}
                     </p>
                   </div>
+                  {onApproveApplication && onRejectApplication ? (
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        disabled={actionBusy}
+                        onClick={() => onApproveApplication(a.membershipId)}
+                        aria-label="Approve application"
+                        className="inline-flex items-center gap-1 rounded-lg bg-signal px-2.5 py-1.5 text-[11px] font-medium text-signal-ink transition-colors hover:bg-signal/90 disabled:opacity-50"
+                      >
+                        <Check className="size-3" aria-hidden />
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionBusy}
+                        onClick={() => onRejectApplication(a.membershipId)}
+                        aria-label="Reject application"
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-hi disabled:opacity-50"
+                      >
+                        <X className="size-3" aria-hidden />
+                        Reject
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               )
             })}

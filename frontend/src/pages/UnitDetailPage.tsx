@@ -14,19 +14,22 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Skeleton, ErrorState } from '@/components/ui/States'
+import { useToast } from '@/components/ui/Toast'
 import { MapView } from '@/components/map/MapView'
 import { UnitHero } from '@/components/unit/UnitHero'
 import { UnitStatsGrid } from '@/components/unit/UnitStatsGrid'
 import { UnitTabs, type UnitTabDef } from '@/components/unit/UnitTabs'
 import { UnitMemberRoster } from '@/components/unit/UnitMemberRoster'
 import { GovernancePanel } from '@/components/unit/GovernancePanel'
-import { api } from '@/lib/apiClient'
+import { InviteManager } from '@/components/unit/InviteManager'
+import { api, ApiError } from '@/lib/apiClient'
 import { useLocation } from '@/hooks/useLocation'
 import { useMapPOIs, type POICategory } from '@/hooks/useMapPOIs'
 import { useDirections } from '@/hooks/useDirections'
 import { useUnitPublicSummary } from '@/hooks/useUnitPublicSummary'
 import { useUnitAccess } from '@/hooks/useUnitAccess'
 import { useUnitRoster } from '@/hooks/useUnitRoster'
+import { useMembershipActions } from '@/hooks/useMembershipActions'
 import { formatDate } from '@/lib/format'
 import type { SecurityUnit } from '@/types/api'
 
@@ -44,6 +47,7 @@ type TabId =
 export function UnitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { latitude: userLat, longitude: userLng } = useLocation()
+  const { notify } = useToast()
   const [directionsActive, setDirectionsActive] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
 
@@ -63,8 +67,11 @@ export function UnitDetailPage() {
 
   const unit = query.data
   const isMember = accessQuery.data?.isMember === true
+  const isAdmin =
+    accessQuery.data?.isHeadAdmin === true || accessQuery.data?.role === 'unit_admin'
 
   const rosterQuery = useUnitRoster(id, isMember)
+  const membership = useMembershipActions(id)
 
   const hasCoords =
     !!unit &&
@@ -85,6 +92,11 @@ export function UnitDetailPage() {
   const directionsTo =
     hasCoords && directionsActive ? { lat: unit!.latitude, lng: unit!.longitude } : null
   const directionsRoute = useDirections(directionsFrom, directionsTo)
+
+  function reportError(cause: unknown, fallback: string) {
+    if (cause instanceof ApiError) notify(cause.message, 'error')
+    else notify(fallback, 'error')
+  }
 
   if (query.isLoading) {
     return (
@@ -118,6 +130,12 @@ export function UnitDetailPage() {
   const displayName = unit.brandName || unit.name
   const location = [unit.city, unit.lga, unit.state, unit.ward].filter(Boolean).join(', ')
   const rosterCounts = rosterQuery.data?.counts
+
+  const membershipBusy =
+    membership.approve.isPending ||
+    membership.reject.isPending ||
+    membership.revoke.isPending ||
+    membership.promote.isPending
 
   const tabs: UnitTabDef[] = isMember
     ? [
@@ -365,7 +383,49 @@ export function UnitDetailPage() {
             Everyone serving in this unit. Head admin, admins and officers.
           </p>
           <div className="mt-4">
-            <UnitMemberRoster roster={rosterQuery.data} isLoading={rosterQuery.isLoading} />
+            <UnitMemberRoster
+              roster={rosterQuery.data}
+              isLoading={rosterQuery.isLoading}
+              isAdmin={isAdmin}
+              currentUserId={accessQuery.data?.membershipId ? undefined : undefined}
+              onApprove={(membershipId) =>
+                membership.approve.mutate(
+                  { unitId: unit.id, membershipId },
+                  {
+                    onSuccess: () => notify('Member approved', 'success'),
+                    onError: (cause) => reportError(cause, 'Could not approve'),
+                  },
+                )
+              }
+              onReject={(membershipId, reason) =>
+                membership.reject.mutate(
+                  { unitId: unit.id, membershipId, reason },
+                  {
+                    onSuccess: () => notify('Application rejected', 'success'),
+                    onError: (cause) => reportError(cause, 'Could not reject'),
+                  },
+                )
+              }
+              onPromote={(membershipId) =>
+                membership.promote.mutate(
+                  { unitId: unit.id, membershipId },
+                  {
+                    onSuccess: () => notify('Member promoted', 'success'),
+                    onError: (cause) => reportError(cause, 'Could not promote'),
+                  },
+                )
+              }
+              onRevoke={(membershipId, reason) =>
+                membership.revoke.mutate(
+                  { unitId: unit.id, membershipId, reason },
+                  {
+                    onSuccess: () => notify('Member revoked', 'success'),
+                    onError: (cause) => reportError(cause, 'Could not revoke'),
+                  },
+                )
+              }
+              busy={membershipBusy}
+            />
           </div>
         </Card>
       ) : null}
@@ -373,38 +433,45 @@ export function UnitDetailPage() {
       {isMember && activeTab === 'cases' ? (
         <ComingSoonPanel
           title="Cases"
-          description="Every case this unit is working, in one queue. Arrives in Wave U3."
+          description="Every case this unit is working, in one queue. Arrives in a later wave."
         />
       ) : null}
 
       {isMember && activeTab === 'sos' ? (
         <ComingSoonPanel
           title="SOS"
-          description="Alerts routed to this unit, live. Arrives in Wave U3."
+          description="Alerts routed to this unit, live. Arrives in a later wave."
         />
       ) : null}
 
       {isMember && activeTab === 'invites' ? (
-        <ComingSoonPanel
-          title="Invites"
-          description="Generate, share and revoke invite links. Admins only. Arrives in Wave U5."
-        />
+        <Card className="p-5">
+          <h2 className="text-base font-semibold text-ink">Invites</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            {isAdmin
+              ? 'Generate signup links that let a new member apply to this unit.'
+              : 'Only unit admins can create invites.'}
+          </p>
+          <div className="mt-4">
+            {isAdmin ? (
+              <InviteManager unitId={unit.id} />
+            ) : (
+              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-ink-muted">
+                You do not have permission to manage invites.
+              </p>
+            )}
+          </div>
+        </Card>
       ) : null}
 
       {isMember && activeTab === 'governance' ? (
-        <GovernancePanel
-          unitId={unit.id}
-          isAdmin={
-            accessQuery.data?.isHeadAdmin === true ||
-            accessQuery.data?.role === 'unit_admin'
-          }
-        />
+        <GovernancePanel unitId={unit.id} isAdmin={isAdmin} />
       ) : null}
 
       {isMember && activeTab === 'compliance' ? (
         <ComingSoonPanel
           title="Weekly compliance"
-          description="Whether every officer filed their weekly update on each assigned case. Arrives in Wave U3."
+          description="Available to unit admins in the Unit dashboard."
         />
       ) : null}
     </div>
@@ -419,4 +486,3 @@ function ComingSoonPanel({ title, description }: { title: string; description: s
     </Card>
   )
 }
-
