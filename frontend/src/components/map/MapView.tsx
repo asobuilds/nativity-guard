@@ -17,19 +17,24 @@ import { activityGroups, groupCases } from '@/lib/mapGroups'
 import { priorityMeta, statusMeta } from '@/lib/status'
 import type { Case, SecurityUnit } from '@/types/api'
 import { Button } from '@/components/ui/Button'
+import { POILayer } from './POILayer'
+import { RouteLayer } from './RouteLayer'
+import type { POI, POICategory } from '@/hooks/useMapPOIs'
+import type { Route } from '@/hooks/useDirections'
 
 /**
  * The one map in the product.
  *
- * Two modes:
+ * Three modes:
  *  - `view` — plot cases and unit coverage, click a case to select it.
  *  - `pick` — let the user drop/move a pin to choose coordinates.
+ *  - `route` — render a polyline between two points.
  *
- * Tile failures degrade to a list of everything that would have been plotted
- * (with coordinates), never to a blank grey box.
+ * The default height is deliberately generous (72vh): a security platform's
+ * map is a primary surface, not a thumbnail. Callers that embed it in a
+ * compact card pass a smaller `height`.
  */
 
-/** Leaflet needs literal colours — the Tailwind tokens are not available inside SVG. */
 export const STATUS_HEX: Record<string, string> = {
   pending: '#8b95a7',
   assigned: '#4f8cff',
@@ -45,30 +50,28 @@ const DEFAULT_CENTER: LatLngTuple = [6.5244, 3.3792] // Lagos — last-resort fa
 const DEFAULT_ZOOM = 12
 
 export interface MapViewProps {
-  mode?: 'view' | 'pick'
+  mode?: 'view' | 'pick' | 'route'
   cases?: Case[]
   units?: SecurityUnit[]
   center?: LatLngTuple
   zoom?: number
-  /** Any CSS length. Defaults to a responsive 60vh. */
+  /** Any CSS length. Defaults to a generous 72vh. */
   height?: string | number
   showUnitCoverage?: boolean
   showHotspots?: boolean
   selectedCaseId?: string | null
   onSelectCase?: (caseItem: Case) => void
-  /** Current pick location in `pick` mode. */
   pickLocation?: LatLngTuple | null
   onPickLocation?: (lat: number, lng: number) => void
-  /** Ask the browser for the user's position and recentre. */
   allowLocate?: boolean
-  /** The reporter's live position, when already known. Recentres the map
-   *  automatically in both modes — priority over the generic fallback. */
   userLocation?: { latitude: number; longitude: number } | null
+  pois?: POI[]
+  hiddenPOICategories?: Set<POICategory>
+  route?: Route | null
   className?: string
   label?: string
 }
 
-/** Keep the viewport fitted to whatever is plotted, without fighting user panning. */
 function FitToContent({ points, enabled }: { points: LatLngTuple[]; enabled: boolean }) {
   const map = useMap()
   const key = points.map((p) => p.join(',')).join('|')
@@ -81,14 +84,12 @@ function FitToContent({ points, enabled }: { points: LatLngTuple[]; enabled: boo
     }
     const bounds = points as LatLngBoundsExpression
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
-    // `key` is the content identity; `points` is a fresh array each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, map])
 
   return null
 }
 
-/** Click-to-pick behaviour, isolated so it only mounts in `pick` mode. */
 function PickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(event) {
@@ -98,13 +99,6 @@ function PickHandler({ onPick }: { onPick: (lat: number, lng: number) => void })
   return null
 }
 
-/**
- * Recenter the map when `target` changes.
- *
- * Dependencies are the primitive lat/lng, not the tuple itself. A tuple is
- * a fresh array on every render, so keying on the reference would fire the
- * effect on every render — fighting the user's pan and jittering the map.
- */
 function Recenter({ target, zoom }: { target: LatLngTuple | null; zoom?: number }) {
   const map = useMap()
   const lat = target?.[0]
@@ -118,9 +112,9 @@ function Recenter({ target, zoom }: { target: LatLngTuple | null; zoom?: number 
 
 const pickIcon = divIcon({
   className: '',
-  html: '<div style="width:22px;height:22px;border-radius:9999px;background:#3fbf7f;border:3px solid #0b0e14;box-shadow:0 0 0 2px #3fbf7f"></div>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
+  html: '<div style="width:26px;height:26px;border-radius:9999px;background:#3fbf7f;border:3px solid #0b0e14;box-shadow:0 0 0 3px #3fbf7f"></div>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
 })
 
 function CaseMarkers({
@@ -138,9 +132,8 @@ function CaseMarkers({
   const [zoom, setZoom] = useState(map.getZoom())
   const project = (lat: number, lng: number) => map.project([lat, lng], zoom)
   const groups = groupCases(cases, project, 52)
-  const concentrations = showHotspots && zoom <= 12
-    ? activityGroups(groupCases(cases, project, 110))
-    : []
+  const concentrations =
+    showHotspots && zoom <= 12 ? activityGroups(groupCases(cases, project, 110)) : []
 
   return (
     <>
@@ -151,7 +144,10 @@ function CaseMarkers({
           radius={Math.max(350, 1800 - zoom * 90)}
           pathOptions={{ color: '#f4cb78', weight: 1, fillColor: '#f4cb78', fillOpacity: 0.16 }}
         >
-          <Popup>{group.cases.length} reports in this area. This shows activity, not a prediction of danger.</Popup>
+          <Popup>
+            {group.cases.length} reports in this area. This shows activity, not a prediction of
+            danger.
+          </Popup>
         </Circle>
       ))}
       {groups.map((group) => {
@@ -160,9 +156,11 @@ function CaseMarkers({
             <CircleMarker
               key={`cluster-${group.cases.map((item) => item.id).sort().join('-')}`}
               center={[group.latitude, group.longitude]}
-              radius={Math.min(24, 10 + Math.log2(group.cases.length) * 4)}
+              radius={Math.min(26, 12 + Math.log2(group.cases.length) * 4)}
               pathOptions={{ color: '#f8f5e9', weight: 2, fillColor: '#254137', fillOpacity: 1 }}
-              eventHandlers={{ click: () => map.flyTo([group.latitude, group.longitude], Math.min(17, zoom + 2)) }}
+              eventHandlers={{
+                click: () => map.flyTo([group.latitude, group.longitude], Math.min(17, zoom + 2)),
+              }}
             >
               <Popup>{group.cases.length} reports nearby. Select the marker to zoom in.</Popup>
             </CircleMarker>
@@ -175,10 +173,10 @@ function CaseMarkers({
             <CircleMarker
               key={caseItem.id}
               center={[caseItem.latitude, caseItem.longitude]}
-              radius={selected ? 10 : 7}
+              radius={selected ? 11 : 8}
               pathOptions={{
                 color: selected ? '#ffffff' : '#091613',
-                weight: selected ? 3 : 1.5,
+                weight: selected ? 3 : 2,
                 fillColor: hex,
                 fillOpacity: 1,
               }}
@@ -190,7 +188,11 @@ function CaseMarkers({
                   subtitle={`${statusMeta(caseItem.status).label} · ${caseItem.trackingId}`}
                   rows={[
                     ['Priority', priorityMeta(caseItem.priorityLevel).label],
-                    ['Location', caseItem.location || formatCoord(caseItem.latitude, caseItem.longitude)],
+                    [
+                      'Location',
+                      caseItem.location ||
+                        formatCoord(caseItem.latitude, caseItem.longitude),
+                    ],
                   ]}
                 />
               </Popup>
@@ -208,7 +210,7 @@ export function MapView({
   units = [],
   center,
   zoom = DEFAULT_ZOOM,
-  height = '60vh',
+  height = '72vh',
   showUnitCoverage = true,
   showHotspots = false,
   selectedCaseId,
@@ -217,6 +219,9 @@ export function MapView({
   onPickLocation,
   allowLocate = false,
   userLocation = null,
+  pois = [],
+  hiddenPOICategories,
+  route = null,
   className,
   label = 'Map of cases and security units',
 }: MapViewProps) {
@@ -241,27 +246,14 @@ export function MapView({
     [units],
   )
 
-  const allPoints = useMemo(
-    () => [...casePoints, ...unitPoints],
-    [casePoints, unitPoints],
-  )
+  const allPoints = useMemo(() => [...casePoints, ...unitPoints], [casePoints, unitPoints])
 
   const userLocationCenter: LatLngTuple | null = userLocation
     ? [userLocation.latitude, userLocation.longitude]
     : null
 
-  /** The user's own position for display: the reported fix, or the locate button's. */
   const ownPosition: LatLngTuple | null = userLocationCenter ?? userCenter
 
-  /**
-   * Initial map position. Priority, highest first:
-   *   1. Explicit `center` prop
-   *   2. In pick mode, a saved pin (user already chose that point)
-   *   3. The user's live location
-   *   4. A placed pin (view mode)
-   *   5. First plotted case / unit
-   *   6. Lagos — last resort only
-   */
   const initialCenter: LatLngTuple =
     center ??
     (mode === 'pick' ? (pickLocation as LatLngTuple | null) : null) ??
@@ -293,7 +285,8 @@ export function MapView({
     )
   }
 
-  const plotted = mode === 'pick' ? [] : allPoints
+  const plotted = mode === 'pick' || mode === 'route' ? [] : allPoints
+  const isRoute = mode === 'route' && route != null
 
   if (tileFailed) {
     return (
@@ -311,7 +304,10 @@ export function MapView({
     <div
       role="region"
       aria-label={label}
-      className={cn('relative overflow-hidden rounded-panel border border-border bg-surface', className)}
+      className={cn(
+        'relative overflow-hidden rounded-panel border border-border bg-surface shadow-panel',
+        className,
+      )}
     >
       <MapContainer
         center={initialCenter}
@@ -326,13 +322,11 @@ export function MapView({
           eventHandlers={{ tileerror: () => setTileFailed(true) }}
         />
 
-        {/* User's own position — always visible when available */}
         {ownPosition ? (
           <>
-            {/* Outer pulse ring */}
             <CircleMarker
               center={ownPosition}
-              radius={18}
+              radius={22}
               pathOptions={{
                 color: '#3b82f6',
                 weight: 1,
@@ -341,19 +335,22 @@ export function MapView({
                 fillOpacity: 0.15,
               }}
             />
-            {/* Inner solid dot */}
             <CircleMarker
               center={ownPosition}
-              radius={7}
+              radius={8}
               pathOptions={{
                 color: '#ffffff',
-                weight: 2,
+                weight: 2.5,
                 fillColor: '#3b82f6',
                 fillOpacity: 1,
               }}
             />
           </>
         ) : null}
+
+        {pois.length > 0 ? <POILayer items={pois} hidden={hiddenPOICategories} /> : null}
+
+        {isRoute ? <RouteLayer route={route!} /> : null}
 
         {mode === 'view' ? (
           <>
@@ -381,7 +378,11 @@ export function MapView({
                           title={unit.name}
                           subtitle={`${unit.type || 'Unit'} · ${unit.operationalRadius} km coverage`}
                           rows={[
-                            ['Location', [unit.city, unit.lga, unit.state].filter(Boolean).join(', ') || '—'],
+                            [
+                              'Location',
+                              [unit.city, unit.lga, unit.state].filter(Boolean).join(', ') ||
+                                '—',
+                            ],
                             ['Contact', unit.contactPhone || '—'],
                           ]}
                         />
@@ -396,22 +397,36 @@ export function MapView({
                 <CircleMarker
                   key={`unit-${unit.id}`}
                   center={[unit.latitude, unit.longitude]}
-                  radius={5}
-                  pathOptions={{ color: '#0b0e14', weight: 1.5, fillColor: '#4f8cff', fillOpacity: 1 }}
+                  radius={6}
+                  pathOptions={{
+                    color: '#0b0e14',
+                    weight: 2,
+                    fillColor: '#4f8cff',
+                    fillOpacity: 1,
+                  }}
                 >
                   <Popup>
                     <PopupBody
                       title={unit.name}
                       subtitle={`${unit.type || 'Unit'}${unit.isVerified ? ' · Verified' : ''}`}
-                      rows={[['Coordinates', formatCoord(unit.latitude, unit.longitude)]]}
+                      rows={[
+                        ['Coordinates', formatCoord(unit.latitude, unit.longitude)],
+                      ]}
                     />
                   </Popup>
                 </CircleMarker>
               ))}
 
-            <CaseMarkers cases={cases} selectedCaseId={selectedCaseId} onSelectCase={onSelectCase} showHotspots={showHotspots} />
+            <CaseMarkers
+              cases={cases}
+              selectedCaseId={selectedCaseId}
+              onSelectCase={onSelectCase}
+              showHotspots={showHotspots}
+            />
           </>
-        ) : (
+        ) : null}
+
+        {mode === 'pick' ? (
           <>
             {pickLocation ? (
               <Marker
@@ -427,31 +442,28 @@ export function MapView({
               />
             ) : null}
             <PickHandler onPick={(lat, lng) => onPickLocation?.(lat, lng)} />
-
-            {/* Auto-recenter to the user's live location ONLY while no pin
-                has been placed yet. Once they place a pin, panning is
-                theirs to control and we stop moving the map for them. */}
-            {!pickLocation && userLocationCenter ? (
-              <Recenter target={userLocationCenter} />
-            ) : null}
-
+            {!pickLocation && userLocationCenter ? <Recenter target={userLocationCenter} /> : null}
             <Recenter target={userCenter} />
           </>
-        )}
+        ) : null}
       </MapContainer>
 
-      {/* Controls + legend */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
-        <div className="pointer-events-auto flex flex-wrap gap-1.5 rounded-lg border border-border bg-base/85 px-2 py-1.5 backdrop-blur">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+        <div className="pointer-events-auto flex flex-wrap gap-2 rounded-lg border border-border bg-base/90 px-3 py-2 backdrop-blur">
           {mode === 'pick' ? (
-            <span className="flex items-center gap-1 text-[11px] text-ink-muted">
-              <MapPin className="size-3.5 text-signal" aria-hidden />
+            <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <MapPin className="size-4 text-signal" aria-hidden />
               Tap the map to place the pin, or drag it to adjust.
+            </span>
+          ) : mode === 'route' ? (
+            <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <MapPin className="size-4 text-signal" aria-hidden />
+              Route highlighted below.
             </span>
           ) : (
             Object.entries(STATUS_HEX).map(([status, hex]) => (
-              <span key={status} className="flex items-center gap-1 text-[11px] text-ink-muted">
-                <span className="size-2 rounded-full" style={{ background: hex }} aria-hidden />
+              <span key={status} className="flex items-center gap-1.5 text-xs text-ink-muted">
+                <span className="size-2.5 rounded-full" style={{ background: hex }} aria-hidden />
                 {statusMeta(status).label}
               </span>
             ))
@@ -473,7 +485,7 @@ export function MapView({
       </div>
 
       {locateError ? (
-        <p className="absolute inset-x-2 bottom-2 rounded-lg border border-warn/30 bg-warn/10 px-2 py-1 text-[11px] text-warn">
+        <p className="absolute inset-x-2 bottom-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
           {locateError}
         </p>
       ) : null}
@@ -491,7 +503,7 @@ function PopupBody({
   rows: [string, string][]
 }) {
   return (
-    <div className="min-w-44">
+    <div className="min-w-48">
       <p className="text-sm font-semibold text-ink">{title}</p>
       <p className="text-[11px] text-ink-muted">{subtitle}</p>
       <dl className="mt-2 space-y-0.5">
@@ -506,7 +518,6 @@ function PopupBody({
   )
 }
 
-/** Degraded view used when map tiles cannot load. */
 function MapFallback({
   cases,
   units,
@@ -562,7 +573,9 @@ function MapFallback({
                   <span className="block truncate text-xs font-medium text-ink">{row.title}</span>
                   <span className="block text-[11px] text-ink-muted">{row.meta}</span>
                 </span>
-                <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">{row.coords}</span>
+                <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                  {row.coords}
+                </span>
               </button>
             </li>
           ))}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Layers, MapPin, Search } from 'lucide-react'
+import { Layers, MapPin, Navigation, Search, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -9,22 +9,20 @@ import { PriorityChip, StatusChip } from '@/components/ui/Chips'
 import { Input } from '@/components/ui/Field'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { MapView } from '@/components/map/MapView'
+import { POIControlPanel } from '@/components/map/POIControlPanel'
 import { useCases } from '@/hooks/useCases'
 import { useUnits } from '@/hooks/useUnits'
 import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
+import { useMapPOIs, type POICategory } from '@/hooks/useMapPOIs'
+import { useDirections } from '@/hooks/useDirections'
 import { useAuth } from '@/auth/AuthContext'
 import { CASE_STATUS_ORDER, statusMeta } from '@/lib/status'
 import { relativeTime } from '@/lib/format'
 import type { Case } from '@/types/api'
 
-/**
- * Operations map — the product's shared spatial view.
- *
- * The same `MapView` used inside a case renders here at full size, with both
- * cases and unit coverage on one surface so dispatchers can see who is near
- * what.
- */
+const MAP_HEIGHT = '78vh'
+
 export function MapPage() {
   const { role } = useAuth()
   const casesQuery = useCases()
@@ -44,9 +42,20 @@ export function MapPage() {
   const [showCoverage, setShowCoverage] = useState(true)
   const [showHotspots, setShowHotspots] = useState(false)
 
-  // When browser-level permission was previously denied, the hook will not
-  // auto-request. As a last resort, try an IP-based fix once so the map still
-  // centres on roughly the right place.
+  const [poiCategories, setPoiCategories] = useState<Set<POICategory>>(
+    () => new Set<POICategory>(['hospital', 'police', 'bank']),
+  )
+  const [hiddenPOICategories, setHiddenPOICategories] = useState<Set<POICategory>>(new Set())
+  const [poiPanelOpen, setPoiPanelOpen] = useState(true)
+
+  const [directionsTo, setDirectionsTo] = useState<{
+    lat: number
+    lng: number
+    label: string
+  } | null>(null)
+
+  const pois = useMapPOIs(resolvedLat, resolvedLng, 3000, [...poiCategories])
+
   useEffect(() => {
     if (permission === 'denied' && !ipAttemptedRef.current) {
       ipAttemptedRef.current = true
@@ -57,12 +66,8 @@ export function MapPage() {
   }, [permission])
 
   const userLocationForMap =
-    latitude != null && longitude != null
-      ? { latitude, longitude }
-      : ipLocation
+    latitude != null && longitude != null ? { latitude, longitude } : ipLocation
 
-  // Only the prompt path auto-arms: wait until the map has painted, then let
-  // the browser ask. A granted/denied state is resolved without one.
   useEffect(() => {
     if (permission === 'prompt') {
       const id = setTimeout(() => request(), 500)
@@ -87,6 +92,12 @@ export function MapPage() {
   const caseDetailPath = (caseItem: Case) =>
     role === 'officer' ? `/officer/cases/${caseItem.id}` : undefined
 
+  const directionsFrom =
+    resolvedLat != null && resolvedLng != null ? { lat: resolvedLat, lng: resolvedLng } : null
+
+  const directionsRoute = useDirections(directionsFrom, directionsTo)
+  const isDirectionsActive = directionsTo != null
+
   function toggleStatus(status: string) {
     setHidden((prev) => {
       const next = new Set(prev)
@@ -96,17 +107,53 @@ export function MapPage() {
     })
   }
 
+  function togglePOICategory(category: POICategory) {
+    const isOn = poiCategories.has(category)
+    if (isOn) {
+      const next = new Set(poiCategories)
+      next.delete(category)
+      setPoiCategories(next)
+      setHiddenPOICategories((prev) => new Set(prev).add(category))
+    } else {
+      const next = new Set(poiCategories)
+      next.add(category)
+      setPoiCategories(next)
+      setHiddenPOICategories((prev) => {
+        const nn = new Set(prev)
+        nn.delete(category)
+        return nn
+      })
+    }
+  }
+
+  function clearAllPOIs() {
+    setPoiCategories(new Set())
+    setHiddenPOICategories(new Set())
+  }
+
+  function startDirections(lat: number, lng: number, label: string) {
+    setDirectionsTo({ lat, lng, label })
+  }
+
+  function stopDirections() {
+    setDirectionsTo(null)
+  }
+
   const loading = casesQuery.isLoading || unitsQuery.isLoading
   const errored = casesQuery.isError && unitsQuery.isError
 
+  const mapMode: 'view' | 'route' = isDirectionsActive ? 'route' : 'view'
+  const routeForMap = directionsRoute.data ?? null
+
   return (
-    <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Operations map</h1>
+          <h1 className="text-2xl font-semibold text-ink">Operations map</h1>
           <p className="mt-1 text-sm text-ink-muted">
             {visibleCases.length} case{visibleCases.length === 1 ? '' : 's'} ·{' '}
             {unitsQuery.data?.length ?? 0} units
+            {pois.data ? ` · ${pois.data.count} places` : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -119,10 +166,21 @@ export function MapPage() {
           >
             Locate me
           </Button>
-          <Button size="sm" variant={showCoverage ? 'primary' : 'secondary'} icon={<Layers className="size-4" aria-hidden />} aria-pressed={showCoverage} onClick={() => setShowCoverage((v) => !v)}>
+          <Button
+            size="sm"
+            variant={showCoverage ? 'primary' : 'secondary'}
+            icon={<Layers className="size-4" aria-hidden />}
+            aria-pressed={showCoverage}
+            onClick={() => setShowCoverage((v) => !v)}
+          >
             Unit coverage
           </Button>
-          <Button size="sm" variant={showHotspots ? 'primary' : 'secondary'} aria-pressed={showHotspots} onClick={() => setShowHotspots((v) => !v)}>
+          <Button
+            size="sm"
+            variant={showHotspots ? 'primary' : 'secondary'}
+            aria-pressed={showHotspots}
+            onClick={() => setShowHotspots((v) => !v)}
+          >
             Activity areas
           </Button>
         </div>
@@ -153,7 +211,7 @@ export function MapPage() {
         <p className="mt-3 text-xs text-ink-muted">After enabling, refresh the page or tap "Locate me" to re-check.</p>
       </Modal>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-56 flex-1">
@@ -182,14 +240,14 @@ export function MapPage() {
                     aria-pressed={active}
                     onClick={() => toggleStatus(status)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 transition-opacity',
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs ring-1 transition-opacity',
                       meta.bg,
                       meta.text,
                       meta.ring,
                       !active && 'opacity-40',
                     )}
                   >
-                    <span className={cn('size-1.5 rounded-full', meta.dot)} aria-hidden />
+                    <span className={cn('size-2 rounded-full', meta.dot)} aria-hidden />
                     {meta.label}
                   </button>
                 )
@@ -209,62 +267,162 @@ export function MapPage() {
               />
             </Card>
           ) : loading ? (
-            <Skeleton className="h-[60vh] w-full rounded-panel" />
+            <div style={{ height: MAP_HEIGHT }} className="w-full">
+              <Skeleton className="h-full w-full rounded-panel" />
+            </div>
           ) : (
             <>
-              <MapView
-                mode="view"
-                cases={visibleCases}
-                units={unitsQuery.data ?? []}
-                showUnitCoverage={showCoverage}
-                showHotspots={showHotspots}
-                userLocation={userLocationForMap}
-                allowLocate
-                height="60vh"
-                selectedCaseId={selected}
-                onSelectCase={(caseItem) => setSelected(caseItem.id)}
-              />
-              {(resolvedLat != null && resolvedLng != null && (permission !== 'denied' || ipLocation != null)) && (
+              <div className="relative">
+                <MapView
+                  mode={mapMode}
+                  route={routeForMap}
+                  cases={isDirectionsActive ? [] : visibleCases}
+                  units={isDirectionsActive ? [] : unitsQuery.data ?? []}
+                  pois={isDirectionsActive ? [] : pois.data?.items ?? []}
+                  hiddenPOICategories={hiddenPOICategories}
+                  showUnitCoverage={showCoverage && !isDirectionsActive}
+                  showHotspots={showHotspots && !isDirectionsActive}
+                  userLocation={userLocationForMap}
+                  allowLocate
+                  height={MAP_HEIGHT}
+                  selectedCaseId={selected}
+                  onSelectCase={(caseItem) => setSelected(caseItem.id)}
+                />
+
+                {!isDirectionsActive ? (
+                  <div className="absolute bottom-3 left-3 z-20">
+                    <POIControlPanel
+                      active={poiCategories}
+                      onToggle={togglePOICategory}
+                      onClear={clearAllPOIs}
+                      count={pois.data?.count ?? 0}
+                      open={poiPanelOpen}
+                      onToggleOpen={() => setPoiPanelOpen((v) => !v)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              {isDirectionsActive ? (
+                <Card className="border-signal/40">
+                  <div className="flex flex-col gap-3 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-base font-semibold text-ink">
+                          <Navigation className="size-5 text-signal" aria-hidden />
+                          Directions
+                        </p>
+                        <p className="mt-0.5 text-sm text-ink-muted">
+                          To: {directionsTo.label}
+                        </p>
+                        {directionsRoute.data ? (
+                          <p className="mt-1 text-sm font-medium text-signal">
+                            {directionsRoute.data.summary}
+                          </p>
+                        ) : directionsRoute.isLoading ? (
+                          <p className="mt-1 text-sm text-ink-faint">Calculating route…</p>
+                        ) : directionsRoute.isError ? (
+                          <p className="mt-1 text-sm text-warn">
+                            Could not calculate the route. Try again.
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<X className="size-4" aria-hidden />}
+                        onClick={stopDirections}
+                      >
+                        Close
+                      </Button>
+                    </div>
+
+                    {directionsRoute.data && directionsRoute.data.steps.length > 0 ? (
+                      <ol className="flex flex-col gap-2 rounded-lg border border-border bg-surface-hi/30 p-3">
+                        {directionsRoute.data.steps.slice(0, 10).map((step, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="tabular-nums text-ink-faint">{i + 1}.</span>
+                            <span className="flex-1 text-ink-muted">
+                              {step.instruction}
+                              <span className="ml-1 text-ink-faint">
+                                ({Math.round(step.distanceMeters)} m)
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                        {directionsRoute.data.steps.length > 10 ? (
+                          <li className="text-xs text-ink-faint">
+                            …and {directionsRoute.data.steps.length - 10} more steps
+                          </li>
+                        ) : null}
+                      </ol>
+                    ) : null}
+                  </div>
+                </Card>
+              ) : resolvedLat != null &&
+                resolvedLng != null &&
+                (permission !== 'denied' || ipLocation != null) ? (
                 <p className="mt-2 text-sm text-ink-muted" aria-live="polite">
                   {geoLoading ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden />
+                      <span
+                        className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"
+                        aria-hidden
+                      />
                       Locating address…
                     </span>
                   ) : (
                     <span>Near {formatAddress(geo)}</span>
                   )}
                 </p>
-              )}
+              ) : null}
             </>
           )}
         </div>
 
-        {/* Side panel: selection, then the list */}
         <div className="flex flex-col gap-3">
           {selectedCase ? (
             <Card className="border-signal/40">
-              <div className="flex flex-col gap-2 p-4">
+              <div className="flex flex-col gap-2 p-5">
                 <div className="flex items-center justify-between gap-2">
                   <StatusChip status={selectedCase.status} />
                   <PriorityChip level={selectedCase.priorityLevel} />
                 </div>
-                <p className="text-sm font-medium text-ink">{selectedCase.title}</p>
-                <p className="flex items-center gap-1.5 text-xs text-ink-muted">
-                  <MapPin className="size-3.5" aria-hidden />
+                <p className="text-base font-semibold text-ink">{selectedCase.title}</p>
+                <p className="flex items-center gap-1.5 text-sm text-ink-muted">
+                  <MapPin className="size-4" aria-hidden />
                   {selectedCase.location || 'Location recorded'}
                 </p>
-                <p className="text-[11px] text-ink-faint">
+                <p className="text-xs text-ink-faint">
                   {selectedCase.trackingId} · reported {relativeTime(selectedCase.createdAt)}
                 </p>
+
+                {directionsFrom ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<Navigation className="size-4" aria-hidden />}
+                    onClick={() =>
+                      startDirections(
+                        selectedCase.latitude,
+                        selectedCase.longitude,
+                        selectedCase.title,
+                      )
+                    }
+                  >
+                    Get directions
+                  </Button>
+                ) : null}
+
                 {caseDetailPath(selectedCase) ? (
                   <Link
                     to={caseDetailPath(selectedCase)!}
-                    className="mt-1 text-xs text-signal underline-offset-2 hover:underline"
+                    className="text-sm text-signal underline-offset-2 hover:underline"
                   >
                     Open case workspace
                   </Link>
                 ) : null}
+
                 <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
                   Clear selection
                 </Button>
@@ -282,27 +440,30 @@ export function MapPage() {
                 description="No cases match the current filters."
               />
             ) : (
-              <ul className="max-h-[45vh] divide-y divide-border overflow-y-auto">
+              <ul className="max-h-[55vh] divide-y divide-border overflow-y-auto">
                 {visibleCases.map((caseItem) => (
                   <li key={caseItem.id}>
                     <button
                       type="button"
                       onClick={() => setSelected(caseItem.id)}
                       className={cn(
-                        'flex w-full flex-col gap-1 px-4 py-2.5 text-left transition-colors hover:bg-surface-hi',
+                        'flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-surface-hi',
                         selected === caseItem.id && 'bg-signal/5',
                       )}
                     >
                       <span className="flex items-center gap-2">
                         <span
-                          className={cn('size-2 shrink-0 rounded-full', statusMeta(caseItem.status).dot)}
+                          className={cn(
+                            'size-2.5 shrink-0 rounded-full',
+                            statusMeta(caseItem.status).dot,
+                          )}
                           aria-hidden
                         />
-                        <span className="truncate text-xs font-medium text-ink">
+                        <span className="truncate text-sm font-medium text-ink">
                           {caseItem.title}
                         </span>
                       </span>
-                      <span className="text-[11px] text-ink-faint">
+                      <span className="text-xs text-ink-faint">
                         {statusMeta(caseItem.status).label} · {relativeTime(caseItem.createdAt)}
                       </span>
                     </button>
