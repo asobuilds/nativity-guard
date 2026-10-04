@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { api, ApiError } from '@/lib/apiClient'
+import { unitKeys } from '@/hooks/useUnits'
 
 interface UnitRow {
   id: string
@@ -54,6 +55,8 @@ export function UnitVerificationQueuePage() {
     onSuccess: () => {
       notify('Unit verified', 'success')
       void queryClient.invalidateQueries({ queryKey: ['unit-verifications'] })
+      void queryClient.invalidateQueries({ queryKey: unitKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['admin-unit-record'] })
     },
     onError: (err) => {
       notify(err instanceof ApiError ? err.message : 'Could not verify', 'error')
@@ -68,6 +71,8 @@ export function UnitVerificationQueuePage() {
       setRejectingId(null)
       setReason('')
       void queryClient.invalidateQueries({ queryKey: ['unit-verifications'] })
+      void queryClient.invalidateQueries({ queryKey: unitKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['admin-unit-record'] })
     },
     onError: (err) => {
       notify(err instanceof ApiError ? err.message : 'Could not reject', 'error')
@@ -79,6 +84,8 @@ export function UnitVerificationQueuePage() {
     onSuccess: () => {
       notify('Marked under review', 'success')
       void queryClient.invalidateQueries({ queryKey: ['unit-verifications'] })
+      void queryClient.invalidateQueries({ queryKey: unitKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ['admin-unit-record'] })
     },
     onError: (err) => {
       notify(err instanceof ApiError ? err.message : 'Could not update', 'error')

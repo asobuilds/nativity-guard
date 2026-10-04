@@ -447,6 +447,7 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.POST("/units/:id/verify", handlers.ApproveUnit)
 			superAdmin.POST("/units/:id/reject", handlers.RejectUnit)
 			superAdmin.POST("/units/:id/under-review", handlers.MarkUnitUnderReview)
+			superAdmin.GET("/units/:id/record", handlers.GetSuperAdminUnitRecord)
 
 			superAdmin.GET("/feedback", handlers.ListAllFeedback)
 			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
@@ -457,6 +458,7 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
+
 
 
 
