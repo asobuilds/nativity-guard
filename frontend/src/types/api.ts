@@ -267,7 +267,7 @@ export interface SecurityUnit {
   adminCount?: number
   status: string
   isVerified: boolean
-  verificationStatus?: string
+  verificationStatus: string
 
   // Section B — commander details (from the registration form)
   commanderName?: string

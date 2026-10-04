@@ -5,6 +5,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BarChart3,
   Bot,
+  Building2,
   FileText,
   FolderKanban,
   LayoutDashboard,
@@ -27,6 +28,7 @@ import { Logo } from '@/components/brand/Logo'
 import { NotificationBell } from './NotificationBell'
 import { AppBackground } from './AppBackground'
 import type { Role } from '@/types/api'
+
 
 interface NavItem {
   to: string
