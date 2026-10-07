@@ -32,7 +32,6 @@ const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m =>
 const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
 const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
 const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
-const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })))
 const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })))
 const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
@@ -269,30 +268,8 @@ export function App() {
                       </RequireRole>
                     }
                   />
-                  <Route
-                    path="/admin/*"
-                    element={
-                      <RequireRole roles={['unit_admin', 'super_admin']}>
-                        <ComingSoonPage
-                          title="Unit administration"
-                          description="Officer management, unit analytics and settings for unit administrators are designed but not yet implemented."
-                          milestone="M5"
-                        />
-                      </RequireRole>
-                    }
-                  />
-                  <Route
-                    path="/super/*"
-                    element={
-                      <RequireRole roles={['super_admin']}>
-                        <ComingSoonPage
-                          title="Platform governance"
-                          description="Cross-unit oversight, user administration and the audit trail are designed but not yet implemented."
-                          milestone="M7"
-                        />
-                      </RequireRole>
-                    }
-                  />
+                  <Route path="/admin/*" element={<RequireRole roles={['unit_admin', 'super_admin']}><NotFoundPage /></RequireRole>} />
+                  <Route path="/super/*" element={<RequireRole roles={['super_admin']}><NotFoundPage /></RequireRole>} />
 
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
