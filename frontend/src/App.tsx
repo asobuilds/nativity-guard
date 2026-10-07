@@ -109,7 +109,8 @@ function LoginAlias() {
   return <Navigate to="/auth/login" replace state={location.state} />
 }
 
-export function App() {
+export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
@@ -262,11 +263,7 @@ export function App() {
                     path="/super/units/:id"
                     element={
                       <RequireRole roles={['super_admin']}>
-                        <ComingSoonPage
-                          title="Unit record"
-                          description="The single-unit record is designed but not yet implemented."
-                          milestone="M7"
-                        />
+                        <SuperUnitRecordPage />
                       </RequireRole>
                     }
                   />
