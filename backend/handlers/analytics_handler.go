@@ -13,6 +13,24 @@ import (
 func GetUnitAnalytics(c *gin.Context) {
 	unitID := c.Param("id")
 
+	userValue, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	user, ok := userValue.(*models.User)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	if user.Role != "super_admin" {
+		if user.Role != "unit_admin" || user.UnitID == nil || user.UnitID.String() != unitID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have access to analytics for this unit"})
+			return
+		}
+	}
+
 	var totalCases int64
 	var resolvedCases int64
 	var pendingCases int64
