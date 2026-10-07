@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Download, Database, FileText, Shield } from 'lucide-react'
+import { Download, Database, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Skeleton, ErrorState } from '@/components/ui/States'
@@ -36,8 +36,8 @@ export function SuperSettingsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-4 sm:p-6">
       <header>
-        <h1 className="text-xl font-semibold text-ink">Platform settings</h1>
-        <p className="mt-1 text-sm text-ink-muted">System configuration, health, and data exports.</p>
+        <h1 className="text-xl font-semibold text-ink">Platform operations</h1>
+        <p className="mt-1 text-sm text-ink-muted">Live system health, platform totals, and administrative data exports.</p>
       </header>
 
       <Card className="p-5">
@@ -97,19 +97,6 @@ export function SuperSettingsPage() {
           Export platform snapshot
         </Button>
         <p className="mt-2 text-xs text-ink-faint">Downloads a JSON snapshot of current stats and health.</p>
-      </Card>
-
-      <Card className="p-5">
-        <div className="flex items-center gap-2">
-          <FileText className="size-4 text-signal" aria-hidden />
-          <h2 className="text-sm font-semibold text-ink">Retention policy</h2>
-        </div>
-        <ul className="mt-4 space-y-2 text-sm text-ink-muted">
-          <li><strong className="text-ink">Evidence:</strong> retained 5 years, then archived to cold storage.</li>
-          <li><strong className="text-ink">Video evidence:</strong> retained 2 years hot, then archived.</li>
-          <li><strong className="text-ink">Avatars & covers:</strong> retained while account exists + 30 days after deletion.</li>
-          <li><strong className="text-ink">News & community media:</strong> retained indefinitely unless flagged.</li>
-        </ul>
       </Card>
 
       <Card className="p-5">
