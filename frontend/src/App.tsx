@@ -110,7 +110,7 @@ function LoginAlias() {
 }
 
 export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
-function App() {
+export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
