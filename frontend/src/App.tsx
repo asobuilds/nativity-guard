@@ -33,6 +33,8 @@ const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').t
 const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
 const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
 const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage').then(m => ({ default: m.ComingSoonPage })))
+const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })))
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 const AlertsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertsPage })))
@@ -210,8 +212,8 @@ export function App() {
                   <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                   <Route path="/admin/overview" element={<RequireRole roles={ADMIN_ROLES}><AdminOverviewPage /></RequireRole>} />
                   <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
-                  <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit analytics" description="Under construction." milestone="M7" /></RequireRole>} />
-                  <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><ComingSoonPage title="Unit settings" description="Under construction." milestone="M7" /></RequireRole>} />
+                  <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><AdminAnalyticsPage /></RequireRole>} />
+                  <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><AdminSettingsPage /></RequireRole>} />
 
                   <Route
                     path="/admin/identity"
