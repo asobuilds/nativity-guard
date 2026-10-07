@@ -110,7 +110,8 @@ function LoginAlias() {
 }
 
 export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
-export function App() {
+export const LiveCommunityPage = lazy(() => import('@/pages/LiveCommunityPage').then(m => ({ default: m.LiveCommunityPage })))
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
@@ -146,8 +147,8 @@ export function App() {
                   <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
                   <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
                   <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
-                  <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><CommunityPage /></RequireRole>} />
-                  <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><CommunityPage /></RequireRole>} />
+                  <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
                   <Route path="/assistant" element={<AiAssistantPage />} />
                   <Route path="/lga" element={<LGAChannelPage />} />
