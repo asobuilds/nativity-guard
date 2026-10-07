@@ -39,7 +39,7 @@ interface NavItem {
 
 const NAV: Record<Role, NavItem[]> = {
   citizen: [
-    { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
+    { to: '/super/overview', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
     { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
@@ -93,7 +93,6 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
-    { to: '/super/overview', label: 'Governance', icon: <ShieldAlert className="size-4" /> },
     { to: '/super/units', label: 'Units', icon: <Shield className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/super/users', label: 'Users', icon: <Users className="size-4" /> },
