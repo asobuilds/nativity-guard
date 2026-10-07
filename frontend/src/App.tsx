@@ -39,7 +39,6 @@ const AlertsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ defau
 const AlertDetailPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertDetailPage })))
 const NewsPage = lazy(() => import('@/pages/NewsPage').then(m => ({ default: m.NewsPage })))
 const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then(m => ({ default: m.SubscriptionsPage })))
-const CommunityPage = lazy(() => import('@/pages/CommunityPage').then(m => ({ default: m.CommunityPage })))
 const SuperOverviewPage = lazy(() => import('@/pages/super/SuperOverviewPage').then(m => ({ default: m.SuperOverviewPage })))
 const SuperUsersPage = lazy(() => import('@/pages/super/SuperUsersPage').then(m => ({ default: m.SuperUsersPage })))
 const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m => ({ default: m.SuperAuditPage })))
@@ -111,7 +110,7 @@ function LoginAlias() {
 
 export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
 export const LiveCommunityPage = lazy(() => import('@/pages/LiveCommunityPage').then(m => ({ default: m.LiveCommunityPage })))
-function App() {
+export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
