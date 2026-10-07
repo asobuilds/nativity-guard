@@ -75,7 +75,11 @@ func CreateForumPost(c *gin.Context) {
 	var unitID *uuid.UUID
 	if input.UnitID != "" {
 		parsed, err := uuid.Parse(input.UnitID)
-		if err == nil {
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+			return
+		}
+		{
 			unitID = &parsed
 			// Verify user belongs to this unit
 			if userObj.UnitID == nil || *userObj.UnitID != *unitID {
@@ -288,7 +292,11 @@ func CreateCommunityAnnouncement(c *gin.Context) {
 	var unitID *uuid.UUID
 	if input.UnitID != "" {
 		parsed, err := uuid.Parse(input.UnitID)
-		if err == nil {
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+			return
+		}
+		{
 			unitID = &parsed
 			if userObj.Role == "unit_admin" {
 				if userObj.UnitID == nil || *userObj.UnitID != *unitID {
@@ -307,9 +315,11 @@ func CreateCommunityAnnouncement(c *gin.Context) {
 	var expiresAt *time.Time
 	if input.ExpiresAt != "" {
 		parsed, err := time.Parse(time.RFC3339, input.ExpiresAt)
-		if err == nil {
-			expiresAt = &parsed
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid expiry date"})
+			return
 		}
+		expiresAt = &parsed
 	}
 
 	if input.Type == "" {
@@ -413,7 +423,11 @@ func CreateCommunityEvent(c *gin.Context) {
 	var unitID *uuid.UUID
 	if input.UnitID != "" {
 		parsed, err := uuid.Parse(input.UnitID)
-		if err == nil {
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+			return
+		}
+		{
 			unitID = &parsed
 			if userObj.Role == "unit_admin" {
 				if userObj.UnitID == nil || *userObj.UnitID != *unitID {
@@ -437,9 +451,16 @@ func CreateCommunityEvent(c *gin.Context) {
 	var endDate *time.Time
 	if input.EndDate != "" {
 		parsed, err := time.Parse(time.RFC3339, input.EndDate)
-		if err == nil {
-			endDate = &parsed
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date"})
+			return
 		}
+		endDate = &parsed
+	}
+
+	if endDate != nil && !endDate.After(eventDate) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Event end date must be after start date"})
+		return
 	}
 
 	if input.Type == "" {
