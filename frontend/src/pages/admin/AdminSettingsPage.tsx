@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Field, Input, Textarea } from '@/components/ui/Field'
-import { ErrorState, Skeleton } from '@/components/ui/States'
+import { ErrorState } from '@/components/ui/States'
 import { api } from '@/lib/apiClient'
 
 type Setting = { key: string; value: string; description?: string; isPublic: boolean }
