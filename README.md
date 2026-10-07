@@ -1,6 +1,6 @@
 ﻿# Nativity Guard
 
-> Community safety and governance infrastructure for Nigerian neighborhoods.
+> Community safety and governance infrastructure for communities.
 
 Nativity Guard connects citizens, security units, officers, and administrators through one auditable workflow: **report ? assign ? dispatch ? investigate ? review ? close**. It is designed to promote accountability, prevent vigilantism, and keep sensitive case intelligence restricted to authorized personnel.
 
@@ -8,9 +8,20 @@ Nativity Guard connects citizens, security units, officers, and administrators t
 
 ## Status
 
-Backend: **production-ready for governance features**, actively hardening.
-Frontend: actively developed in a parallel track.
-Deployed on: Render (backend) + Supabase (Postgres).
+Backend: **live on Render**, with authorization and concurrency hardening continuing.
+Frontend: **live on Render** with role-aware citizen, officer, unit-admin, and super-admin experiences.
+Database: Supabase PostgreSQL.
+Production domain: `nativityguard.com`.
+
+Recently completed production work includes:
+- Super-admin command-center/navigation restructuring and live unit records
+- Live Community reads and writes, with validated unit/date inputs
+- Live unit analytics and unit settings screens
+- Super-admin user mutation safeguards
+- Unknown admin/super-admin routes now fail truthfully instead of showing fake milestone placeholders
+- Unit analytics authorization: super admins may inspect any unit; unit admins may inspect only their own unit
+
+Current hardening queue: global settings authorization, last-super-admin protection, Community RSVP concurrency/capacity safety, Community moderation, finance route review, then a final role-by-role route audit.
 
 ---
 
@@ -36,7 +47,7 @@ Deployed on: Render (backend) + Supabase (Postgres).
 
 Backend: Go 1.24 · Gin · GORM · PostgreSQL · JWT · bcrypt
 Frontend: React 19 · TypeScript · Vite · Tailwind · React Query · Leaflet
-Infra: Docker Compose · Render · Supabase
+Infra: Docker Compose · Render (backend + frontend) · Supabase PostgreSQL
 
 ---
 
@@ -80,6 +91,14 @@ Per-unit policy document declaring thresholds, quorum, seat bands, and term rule
 - **Public-safe DTOs** — reporter identity, officer identity, evidence internals never leak
 - **Invite scoping** — platform invites (anyone) vs unit invites (admin/head only, post-verification)
 - **Suspect self-view** — active cases on profile, resolved cases in history
+
+---
+
+## Production administration
+
+The live administration surfaces are organized around real backend capabilities rather than placeholder navigation. Super admins have platform oversight, user/role management, identity and unit verification, feedback/support, audit, analytics, operations, Community management, and unit records. Unit admins have live case review, transfers, roster/unit operations, Community, analytics, settings, governance, map, appeals, and feedback surfaces.
+
+Community mutations are enabled in production through `VITE_COMMUNITY_WRITES_ENABLED=true`. Authorization remains enforced server-side; the frontend flag is not a security boundary.
 
 ---
 
