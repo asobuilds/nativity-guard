@@ -20,6 +20,12 @@ type SOSResponder struct {
 	AcceptedAt time.Time `gorm:"not null" json:"acceptedAt"`
 	CreatedAt  time.Time `json:"createdAt"`
 
+	// AcceptedBy is an audit actor, not the person travelling to the SOS.
+	// Tracking is opt-in, scoped to an explicitly assigned officer account.
+	AssignedUserID    *uuid.UUID `gorm:"type:uuid;index" json:"-"`
+	TrackingSessionID *uuid.UUID `gorm:"type:uuid" json:"-"`
+	LocationID        *uuid.UUID `gorm:"type:uuid" json:"-"`
+
 	SOS  SOSAlert     `gorm:"foreignKey:SOSID" json:"-"`
 	Unit SecurityUnit `gorm:"foreignKey:UnitID" json:"unit,omitempty"`
 }

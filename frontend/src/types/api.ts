@@ -114,7 +114,7 @@ export interface SosAlert {
   id: string
   userId: string
 
-  status: 'pending' | 'dispatched' | 'resolved' | 'escalated'
+  status: 'pending' | 'dispatched' | 'resolved' | 'escalated' | 'cancelled'
   latitude: number
   longitude: number
   priority: 'high' | 'critical'

@@ -137,3 +137,8 @@ Never commit `.env`. Rotate secrets if ever leaked.
 ## License
 
 Private — all rights reserved.
+
+
+## Live SOS responder tracking
+
+The SOS detail screen supports explicit officer assignment and foreground location sharing. See [the responder-tracking guide](docs/teammates/live-responder-locations.md) for permissions, additive migration, API contracts and verification steps.

@@ -1,28 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, postQueued } from '@/lib/apiClient'
 import type { SendSosInput, SosAlert } from '@/types/api'
+import { normaliseSosDetail, type SosDetailResponse, type SosResponder } from '@/lib/sosTracking'
 
 const sosKey = ['sos', 'mine'] as const
 
-export interface SosResponder {
-  id: string
-  sosId: string
-  unitId: string
-  role: 'primary' | 'support'
-  acceptedBy: string
-  acceptedAt: string
-  unit?: { id: string; name: string; type?: string }
-}
-
-export interface SosDetail extends SosAlert {
-  severity?: 'normal' | 'critical'
-  dispatchState?: 'open' | 'locked' | 'multi_responder' | 'resolved'
-  acceptedByUnitId?: string
-  acceptedAt?: string
-  jurisdictionState?: string
-  jurisdictionLga?: string
-  responders?: SosResponder[]
-}
+export type { SosResponder, SosDetail } from '@/lib/sosTracking'
 
 export function useMySos(enabled = true) {
   return useQuery({
@@ -37,8 +20,8 @@ export function useMySos(enabled = true) {
 export function useSosDetail(id: string | undefined) {
   return useQuery({
     queryKey: ['sos', 'detail', id],
-    queryFn: () => api.get<{ sos: SosDetail; responders?: SosResponder[] }>('/sos/' + id),
-    select: (d) => ({ ...d.sos, responders: d.responders ?? d.sos.responders ?? [] }),
+    queryFn: () => api.get<SosDetailResponse>('/sos/' + id),
+    select: normaliseSosDetail,
     enabled: Boolean(id),
     refetchInterval: 10_000,
   })

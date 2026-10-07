@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, MapPin, ShieldAlert, Users } from 'lucide-react'
 import { Badge, PriorityChip } from '@/components/ui/Chips'
@@ -7,11 +7,12 @@ import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Field'
 import { Skeleton, ErrorState } from '@/components/ui/States'
-import { MapView } from '@/components/map/MapView'
+import { SosLiveTracking } from '@/components/sos/SosLiveTracking'
 import { SosTracker } from '@/components/sos/SosTracker'
 import { useAuth } from '@/auth/AuthContext'
 import { useAcceptSos, useAssignSos, useReleaseSos, useSosDetail } from '@/hooks/useSos'
 import { useUnits } from '@/hooks/useUnits'
+import { isSosActive } from '@/lib/sosTracking'
 import { formatDateTime, relativeTime } from '@/lib/format'
 
 function dispatchLabel(state: string | undefined): string {
@@ -46,11 +47,6 @@ export function SosDetailPage() {
   const isCritical = sos?.severity === 'critical'
   const hasCapacity = isCritical ? responders.length < 3 : responders.length === 0
   const canAccept = isUnitAdmin && !iAmResponding && hasCapacity && sos?.dispatchState !== 'resolved'
-
-  const hasCoords = useMemo(
-    () => Boolean(sos && sos.latitude !== 0 && sos.longitude !== 0),
-    [sos],
-  )
 
   if (detail.isLoading) {
     return <div className="mx-auto max-w-4xl p-4 sm:p-6"><Skeleton className="h-64 w-full" /></div>
@@ -110,20 +106,7 @@ export function SosDetailPage() {
         <SosTracker alert={sos} />
       </Card>
 
-      {hasCoords ? (
-        <Card className="overflow-hidden">
-          <MapView
-            mode="view"
-            cases={[]}
-            units={[]}
-            showUnitCoverage={false}
-            showHotspots={false}
-            height="36vh"
-            allowLocate={false}
-            userLocation={{ latitude: sos.latitude, longitude: sos.longitude }}
-          />
-        </Card>
-      ) : null}
+      <SosLiveTracking sos={sos} />
 
       <Card className="space-y-4 p-5">
         <div className="flex items-center gap-2">
@@ -159,7 +142,7 @@ export function SosDetailPage() {
             </Button>
           ) : null}
 
-          {isUnitAdmin && iAmResponding ? (
+          {isUnitAdmin && iAmResponding && isSosActive(sos) ? (
             <Button variant="ghost" loading={release.isPending} onClick={() => id && release.mutate(id)}>
               Release
             </Button>
