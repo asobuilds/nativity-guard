@@ -148,3 +148,34 @@ export function useUpdateUserRole() {
     onSuccess: () => qc.invalidateQueries({ queryKey: superAdminKeys.users }),
   })
 }
+
+export interface SuperAdminUnitRecord {
+  unit: {
+    id: string
+    name: string
+    type: string
+    state: string
+    lga: string
+    ward: string
+    registrationNumber?: string
+    isVerified: boolean
+    verificationStatus: string
+  }
+  counts: { active: number; pending: number; admins: number; officers: number; headAdmin: number }
+  members: Array<{ membershipId: string; userId: string; firstName: string; lastName: string; email: string; role: string; status: string; isHeadAdmin: boolean }>
+  seats: Array<Record<string, unknown>>
+  openElections: Array<Record<string, unknown>>
+  recentElections: Array<Record<string, unknown>>
+  revocations: Array<Record<string, unknown>>
+  cases: { open: number; total: number }
+  auditLog: AuditLogEntry[]
+}
+
+export function useSuperAdminUnitRecord(unitId: string | undefined) {
+  return useQuery({
+    queryKey: ['super', 'units', unitId, 'record'],
+    queryFn: () => api.get<SuperAdminUnitRecord>('/admin/units/' + unitId + '/record'),
+    enabled: Boolean(unitId),
+    staleTime: 30_000,
+  })
+}
