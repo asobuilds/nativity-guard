@@ -141,11 +141,11 @@ export function App() {
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/invites" element={<InvitationsPage />} />
                   <Route path="/sessions" element={<SessionsPage />} />
-                  <Route path="/alerts" element={<RequireRole roles={['citizen']}><AlertsPage /></RequireRole>} />
-                  <Route path="/alerts/:id" element={<RequireRole roles={['citizen']}><AlertDetailPage /></RequireRole>} />
+                  <Route path="/alerts" element={<RequireRole roles={['citizen', 'super_admin']}><AlertsPage /></RequireRole>} />
+                  <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
                   <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
                   <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
-                  <Route path="/community" element={<RequireRole roles={['citizen']}><CommunityPage /></RequireRole>} />
+                  <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><CommunityPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><CommunityPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
                   <Route path="/assistant" element={<AiAssistantPage />} />
