@@ -362,6 +362,12 @@ func SetupRoutes(router *gin.Engine) {
 			alerts.POST("/:id/confirm", middleware.AuthMiddleware(), handlers.ConfirmAlert)
 		}
 
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/units/:id", middleware.AuthMiddleware(), handlers.GetUnitAnalytics)
+			analytics.GET("/user-activity", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetUserActivity)
+		}
+
 		settings := api.Group("/settings")
 		{
 			settings.GET("/public", handlers.GetPublicSettings)
