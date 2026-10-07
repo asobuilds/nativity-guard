@@ -207,22 +207,41 @@ func UpdateUserRole(c *gin.Context) {
 		return
 	}
 
+	allowedRoles := map[string]bool{"citizen": true, "officer": true, "unit_admin": true, "super_admin": true}
+	if !allowedRoles[input.Role] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role"})
+		return
+	}
+	actorValue, exists := c.Get("user")
+	actor, ok := actorValue.(*models.User)
+	if !exists || !ok || actor == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	if actor.ID == userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You cannot change your own role"})
+		return
+	}
+
 	var user models.User
 	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-
+	oldRole := user.Role
 	user.Role = input.Role
-	config.DB.Save(&user)
+	if err := config.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role"})
+		return
+	}
 
-	// Log the change with correct AuditLog fields
+	// Log the actor and preserve the actual previous role.
 	auditLog := models.AuditLog{
-		UserID:     user.ID,
+		UserID:     actor.ID,
 		Action:     "role_change",
 		EntityType: "user",
 		EntityID:   user.ID.String(),
-		OldValue:   user.Role,
+		OldValue:   oldRole,
 		NewValue:   input.Role,
 		IPAddress:  c.ClientIP(),
 		UserAgent:  c.GetHeader("User-Agent"),
@@ -243,6 +262,13 @@ func SuspendUser(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
+	}
+
+	if actorValue, exists := c.Get("user"); exists {
+		if actor, ok := actorValue.(*models.User); ok && actor != nil && actor.ID == userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You cannot suspend your own account"})
+			return
+		}
 	}
 
 	var user models.User
