@@ -56,6 +56,16 @@ func UpdateLocationSharing(c *gin.Context) {
 		return
 	}
 
+    // Turning sharing off invalidates SOS sessions too. Turning it back on
+    // must never revive an old session or publish a previous location.
+    if !u.LocationSharingEnabled {
+        if err := config.DB.Model(&models.SOSResponder{}).Where("assigned_user_id = ?", u.ID).
+            Updates(map[string]interface{}{"tracking_session_id": nil, "location_id": nil}).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Sharing is disabled, but SOS session cleanup failed"})
+            return
+        }
+    }
+
 	// Audit: compliance trail for every toggle.
 	auditSvc := services.NewAuditService()
 	_ = auditSvc.LogAction(

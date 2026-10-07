@@ -142,121 +142,17 @@ func SendSOSAlert(c *gin.Context) {
 
 // GetSOSAlerts gets all SOS alerts (filtered by role)
 func GetSOSAlerts(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	var alerts []models.SOSAlert
-	query := config.DB.Preload("User").Preload("Unit").Order("created_at desc")
-
-	// Role-based filtering
-	if userObj.Role == "citizen" {
-		query = query.Where("user_id = ?", userObj.ID)
-	} else if userObj.Role == "officer" && userObj.UnitID != nil {
-		query = query.Where("unit_id = ?", userObj.UnitID)
-	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
-		query = query.Where("unit_id = ?", userObj.UnitID)
-	}
-
-	if err := query.Find(&alerts).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch SOS alerts"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"alerts": alerts,
-	})
+	GetVisibleSOSAlerts(c)
 }
 
 // GetSOSAlertByID gets a specific SOS alert
 func GetSOSAlertByID(c *gin.Context) {
-	id := c.Param("id")
-	alertID, err := uuid.Parse(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid alert ID"})
-		return
-	}
-
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	var alert models.SOSAlert
-	if err := config.DB.Preload("User").Preload("Unit").First(&alert, "id = ?", alertID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "SOS alert not found"})
-		return
-	}
-
-	// Check permissions
-	if userObj.Role == "citizen" && alert.UserID != userObj.ID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this alert"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"alert": alert,
-	})
+	GetSOSDetailWithResponders(c)
 }
 
 // UpdateSOSAlertStatus updates an SOS alert status
 func UpdateSOSAlertStatus(c *gin.Context) {
-	id := c.Param("id")
-	alertID, err := uuid.Parse(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid alert ID"})
-		return
-	}
-
-	var input struct {
-		Status string `json:"status" binding:"required"`
-		Notes  string `json:"notes"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	// Only officers and admins can update status
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" && userObj.Role != "officer" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update SOS status"})
-		return
-	}
-
-	var alert models.SOSAlert
-	if err := config.DB.First(&alert, "id = ?", alertID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "SOS alert not found"})
-		return
-	}
-
-	alert.Status = input.Status
-	if err := config.DB.Save(&alert).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update alert status"})
-		return
-	}
-
-	// If resolved, notify user
-	if input.Status == "resolved" {
-		go notifyUser(alert.UserID, "SOS Resolved", "Your SOS alert has been resolved. Stay safe! 🙏")
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "SOS status updated successfully",
-		"alert":   alert,
-	})
+	UpdateSOSStatusScoped(c)
 }
 
 // GetUserSOSAlerts gets SOS alerts for a specific user

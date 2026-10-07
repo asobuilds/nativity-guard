@@ -46,10 +46,19 @@ func AcceptSOS(c *gin.Context) {
         return
     }
     unitID := *userObj.UnitID
+    if userObj.Status != "active" || !sosCanManage(config.DB, userObj, unitID) {
+        c.JSON(http.StatusForbidden, gin.H{"error": "An active administrator of this unit is required"})
+        return
+    }
 
     var sos models.SOSAlert
     if err := config.DB.First(&sos, "id = ?", sosID).Error; err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": "SOS not found"})
+        return
+    }
+    var visible models.SOSAlert
+    if err := sosReadScope(config.DB, userObj).First(&visible, "sos_alerts.id = ?", sosID).Error; err != nil {
+        c.JSON(http.StatusForbidden, gin.H{"error": "This SOS is not assigned or dispatched to your unit"})
         return
     }
     if sos.Status == "resolved" || sos.Status == "cancelled" {
@@ -152,6 +161,20 @@ func ReleaseSOS(c *gin.Context) {
         return
     }
     unitID := *userObj.UnitID
+    if userObj.Status != "active" || !sosCanManage(config.DB, userObj, unitID) {
+        c.JSON(http.StatusForbidden, gin.H{"error": "An active administrator of this unit is required"})
+        return
+    }
+
+    var alert models.SOSAlert
+    if err := config.DB.First(&alert, "id = ?", sosID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "SOS not found"})
+        return
+    }
+    if !sosActive(alert) {
+        c.JSON(http.StatusConflict, gin.H{"error": "This SOS is closed"})
+        return
+    }
 
     var responder models.SOSResponder
     if err := config.DB.Where("sos_id = ? AND unit_id = ?", sosID, unitID).First(&responder).Error; err != nil {

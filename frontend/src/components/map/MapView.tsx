@@ -49,7 +49,17 @@ export const STATUS_HEX: Record<string, string> = {
 const DEFAULT_CENTER: LatLngTuple = [6.5244, 3.3792] // Lagos — last-resort fallback only
 const DEFAULT_ZOOM = 12
 
+export interface MapMarker {
+  id: string
+  latitude: number
+  longitude: number
+  label: string
+  detail?: string
+  color?: string
+}
+
 export interface MapViewProps {
+  markers?: MapMarker[]
   mode?: 'view' | 'pick' | 'route'
   cases?: Case[]
   units?: SecurityUnit[]
@@ -205,6 +215,7 @@ function CaseMarkers({
 }
 
 export function MapView({
+  markers = [],
   mode = 'view',
   cases = [],
   units = [],
@@ -246,7 +257,10 @@ export function MapView({
     [units],
   )
 
-  const allPoints = useMemo(() => [...casePoints, ...unitPoints], [casePoints, unitPoints])
+  const markerPoints = useMemo<LatLngTuple[]>(() => markers
+    .filter((m) => Number.isFinite(m.latitude) && Math.abs(m.latitude) <= 90 && Number.isFinite(m.longitude) && Math.abs(m.longitude) <= 180)
+    .map((m) => [m.latitude, m.longitude]), [markers])
+  const allPoints = useMemo(() => [...casePoints, ...unitPoints, ...markerPoints], [casePoints, unitPoints, markerPoints])
 
   const userLocationCenter: LatLngTuple | null = userLocation
     ? [userLocation.latitude, userLocation.longitude]
@@ -261,6 +275,7 @@ export function MapView({
     (pickLocation as LatLngTuple | null) ??
     casePoints[0] ??
     unitPoints[0] ??
+    markerPoints[0] ??
     DEFAULT_CENTER
 
   function locate() {
@@ -291,6 +306,7 @@ export function MapView({
   if (tileFailed) {
     return (
       <MapFallback
+        markers={markers}
         cases={cases}
         units={units}
         height={height}
@@ -321,6 +337,13 @@ export function MapView({
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           eventHandlers={{ tileerror: () => setTileFailed(true) }}
         />
+
+        {markers.filter((m) => Number.isFinite(m.latitude) && Math.abs(m.latitude) <= 90 && Number.isFinite(m.longitude) && Math.abs(m.longitude) <= 180).map((m) => (
+          <CircleMarker key={m.id} center={[m.latitude, m.longitude]} radius={9}
+            pathOptions={{ color: '#fff', weight: 2, fillColor: m.color ?? '#22c55e', fillOpacity: 1 }}>
+            <Popup><strong>{m.label}</strong>{m.detail ? <p>{m.detail}</p> : null}</Popup>
+          </CircleMarker>
+        ))}
 
         {ownPosition ? (
           <>
@@ -519,12 +542,14 @@ function PopupBody({
 }
 
 function MapFallback({
+  markers,
   cases,
   units,
   height,
   className,
   onSelectCase,
 }: {
+  markers: MapMarker[]
   cases: Case[]
   units: SecurityUnit[]
   height: string | number
@@ -532,6 +557,7 @@ function MapFallback({
   onSelectCase?: (caseItem: Case) => void
 }) {
   const rows = [
+    ...markers.map((m) => ({ id: m.id, title: m.label, meta: m.detail ?? '', coords: formatCoord(m.latitude, m.longitude), caseItem: null })),
     ...cases.map((c) => ({
       id: c.id,
       title: c.title,
