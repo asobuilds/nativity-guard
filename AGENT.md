@@ -202,3 +202,7 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 - Never let README.md or AGENT.md drift from reality
 
 --- END AGENT.md ---
+
+### Navigation regression guard (October 2026)
+
+Preserve the existing carved-mask public background and all five user-selectable themes unless explicitly requested otherwise. In `frontend/src/components/layout/AppShell.tsx`, keep the mobile drawer, its close (X) button, backdrop, menu trigger, bottom navigation, and desktop docked sidebar aligned to the same `lg` breakpoint. Test close by X, backdrop, Escape and navigation, including medium-width tablet layouts and long super-admin menus. Do not describe UI as browser-verified solely because frontend CI passes. PR #63 is the regression repair; validate deployment status before claiming it is live.
