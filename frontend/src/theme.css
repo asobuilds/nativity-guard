@@ -276,3 +276,57 @@ html[data-theme='ocean'] textarea,
 html[data-theme='ocean'] select {
   color-scheme: dark;
 }
+
+/* Public landing and onboarding: theme-aware carved artwork treatment.
+   The image asset is supplied separately; until then the theme gradients
+   provide a complete and accessible visual fallback. */
+html {
+  --public-art-opacity: 0.25;
+  --public-art-blend: luminosity;
+  --public-overlay-strength: 0.84;
+}
+html[data-theme='midnight'] { --public-art-opacity: 0.36; --public-overlay-strength: 0.77; }
+html[data-theme='daylight'] { --public-art-opacity: 0.11; --public-overlay-strength: 0.92; }
+html[data-theme='ocean'] { --public-art-opacity: 0.34; --public-overlay-strength: 0.77; }
+html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength: 0.85; }
+
+.ng-public-scene {
+  position: relative;
+  isolation: isolate;
+  background: var(--color-base);
+}
+.ng-public-scene::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('/images/nativity-carved-masks.webp');
+  background-position: center top;
+  background-size: min(100%, 1200px) auto;
+  background-repeat: repeat-y;
+  opacity: var(--public-art-opacity);
+  mix-blend-mode: var(--public-art-blend);
+}
+.ng-public-scene::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--color-base), transparent 28%, var(--color-base));
+  opacity: var(--public-overlay-strength);
+}
+.ng-public-glass,
+.ng-onboarding-glass > .ng-card {
+  background: linear-gradient(135deg, var(--panel-tint-1), var(--panel-tint-2));
+  border-color: var(--panel-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+@media (max-width: 640px) {
+  .ng-public-scene::before { background-size: auto 800px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ng-public-glass { background: var(--color-surface); }
+}
