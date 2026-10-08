@@ -373,14 +373,14 @@ func SetupRoutes(router *gin.Engine) {
 			settings.GET("/public", handlers.GetPublicSettings)
 			settings.GET("/preferences", middleware.AuthMiddleware(), handlers.GetMyPreferences)
 			settings.PUT("/preferences", middleware.AuthMiddleware(), handlers.UpdateMyPreferences)
-			settings.GET("/templates/:name", middleware.AuthMiddleware(), handlers.GetEmailTemplate)
-			settings.PUT("/templates/:name", middleware.AuthMiddleware(), handlers.UpdateEmailTemplate)
+			settings.GET("/templates/:name", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.GetEmailTemplate)
+			settings.PUT("/templates/:name", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.UpdateEmailTemplate)
 			settings.POST("/exports", middleware.AuthMiddleware(), handlers.CreateDataExport)
 			settings.GET("/exports", middleware.AuthMiddleware(), handlers.GetDataExports)
 			settings.GET("/onboarding", middleware.AuthMiddleware(), handlers.GetUserOnboarding)
 			settings.PUT("/onboarding", middleware.AuthMiddleware(), handlers.UpdateUserOnboarding)
-			settings.GET("/:key", middleware.AuthMiddleware(), handlers.GetSystemSetting)
-			settings.PUT("/:key", middleware.AuthMiddleware(), handlers.UpdateSystemSetting)
+			settings.GET("/:key", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.GetSystemSetting)
+			settings.PUT("/:key", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.UpdateSystemSetting)
 		}
 
 		mobile := api.Group("/mobile")
