@@ -33,8 +33,8 @@ import { CASE_STATUS_META, FIELD_LIFECYCLE, REVIEW_PHASE } from '@/lib/status'
  */
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-base">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+    <div className="ng-public-scene min-h-screen bg-base">
+      <header className="glass-bar relative z-10 mx-auto flex max-w-5xl items-center justify-between rounded-b-panel px-6 py-5 backdrop-blur-xl">
         <div className="flex items-center gap-2">
           <Shield className="size-6 text-signal" aria-hidden />
           <span className="text-sm font-bold tracking-wide text-ink">NATIVITY GUARD</span>
@@ -47,7 +47,7 @@ export function LandingPage() {
         </Link>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6">
+      <main className="relative z-10 mx-auto max-w-5xl px-6">
         {/* ------------------------------------------------------------ hero */}
         <section className="dawn-hero my-4 rounded-panel border border-border-hi px-6 py-14 sm:px-10 sm:py-20">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] text-ink-muted ring-1 ring-border-hi">
@@ -100,7 +100,7 @@ export function LandingPage() {
             {FIELD_LIFECYCLE.map((status, index) => {
               const meta = CASE_STATUS_META[status]
               return (
-                <li key={status} className="rounded-panel border border-border bg-surface p-4">
+                <li key={status} className="ng-public-glass rounded-panel border border-border bg-surface p-4">
                   <span className="flex items-center gap-2">
                     <span className="grid size-5 place-items-center rounded-full bg-surface-hi text-[11px] text-ink-muted tabular">
                       {index + 1}
@@ -113,7 +113,7 @@ export function LandingPage() {
             })}
           </ol>
 
-          <div className="mt-4 rounded-panel border border-border-hi bg-surface p-5">
+          <div className="mt-4 ng-public-glass rounded-panel border border-border-hi bg-surface p-5">
             <p className="flex items-center gap-2 text-sm font-medium text-ink">
               <UserCheck className="size-4 text-signal" aria-hidden />
               Then it has to be approved
@@ -168,7 +168,7 @@ export function LandingPage() {
                 body: 'See which units operate near you and what area each one is responsible for.',
               },
             ].map((item) => (
-              <div key={item.title} className="rounded-panel border border-border bg-surface p-5">
+              <div key={item.title} className="ng-public-glass rounded-panel border border-border bg-surface p-5">
                 <span className="grid size-9 place-items-center rounded-lg bg-surface-hi text-signal">
                   {item.icon}
                 </span>
@@ -204,7 +204,7 @@ export function LandingPage() {
                 body: 'A unit administrator sees the cases their unit handles. Only platform oversight sees across units — not by default, and not quietly.',
               },
             ].map((item) => (
-              <li key={item.title} className="rounded-panel border border-border bg-surface p-5">
+              <li key={item.title} className="ng-public-glass rounded-panel border border-border bg-surface p-5">
                 <CheckCircle2 className="size-4 text-ok" aria-hidden />
                 <p className="mt-3 text-sm font-medium text-ink">{item.title}</p>
                 <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">{item.body}</p>
@@ -215,7 +215,7 @@ export function LandingPage() {
 
         {/* ------------------------------------------------------------- close */}
         <section className="border-t border-border py-14">
-          <div className="rounded-panel border border-border-hi bg-surface p-8 text-center">
+          <div className="ng-public-glass rounded-panel border border-border-hi bg-surface p-8 text-center">
             <h2 className="text-xl font-semibold text-ink">
               Report something. Watch it get answered.
             </h2>
