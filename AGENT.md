@@ -180,6 +180,19 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 ---
 
+## Current production state
+
+- Backend and frontend are deployed on Render; PostgreSQL is hosted on Supabase.
+- Production domain: `nativityguard.com`.
+- Community reads and writes are live. Treat `VITE_COMMUNITY_WRITES_ENABLED` as a UI/build flag only; backend authorization and validation are mandatory.
+- Super-admin navigation must expose only real, usable capabilities. Do not reintroduce fake/Coming Soon fallbacks for implemented admin routes.
+- Unit analytics authorization is scoped: super admins may inspect any unit; unit admins may inspect only their own unit.
+- Super-admin user mutations already block self-role-change/self-suspension and validate role values.
+- Next security work: global settings authorization, last-super-admin protection, RSVP concurrency/capacity safety, real Community moderation, finance-route review, and final role-by-role authorization audit.
+- Every production-facing control must be wired to a real backend action or removed/clearly unavailable. Never present mock/demo behavior as live.
+
+---
+
 ## Current phase rules
 
 - One Kilo task per file (or two independent files max)
