@@ -197,7 +197,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
       <AppBackground />
       {mobileNavOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
           onClick={closeMobileNav}
           aria-hidden="true"
         />
@@ -207,7 +207,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-200',
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:static md:z-auto md:w-60 md:translate-x-0',
+          'lg:static lg:z-auto lg:w-60 lg:translate-x-0',
         )}
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
@@ -218,7 +218,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           </div>
           <button
             type="button"
-            className="ml-auto rounded-md p-1.5 text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink md:hidden"
+            className="ml-auto rounded-md p-1.5 text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink lg:hidden"
             aria-label="Close navigation"
             onClick={closeMobileNav}
           >
@@ -258,7 +258,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-base/90 px-4 py-3 backdrop-blur">
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
               className="rounded-md p-2 text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink"
@@ -271,7 +271,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
             <Logo size={28} variant="icon" theme="dark" />
             <span className="text-sm font-bold tracking-wide text-ink">NGS</span>
           </div>
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <Logo size={28} variant="icon" theme="dark" />
             <span className="text-sm font-bold tracking-wide text-ink hidden lg:inline">
               NATIVITY GUARD SYSTEM
@@ -279,16 +279,16 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <NavLink to="/profile" aria-label="Profile" className="grid size-9 place-items-center rounded-lg border border-border-hi bg-surface-hi text-ink-muted md:hidden">
+            <NavLink to="/profile" aria-label="Profile" className="grid size-9 place-items-center rounded-lg border border-border-hi bg-surface-hi text-ink-muted lg:hidden">
               <UserCircle className="size-4" aria-hidden />
             </NavLink>
-            <NavLink to="/settings" aria-label="Your settings" className="grid size-9 place-items-center rounded-lg border border-border-hi bg-surface-hi text-ink-muted md:hidden">
+            <NavLink to="/settings" aria-label="Your settings" className="grid size-9 place-items-center rounded-lg border border-border-hi bg-surface-hi text-ink-muted lg:hidden">
               <Settings className="size-4" aria-hidden />
             </NavLink>
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 pb-20 md:pb-0">
+        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
           <ErrorBoundary title="This page failed to render">
             {/* `children` when a caller renders the shell directly (`/` does, since
                 it has to decide between the landing page and the console before
@@ -307,7 +307,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           <NavLink
             to="/sos"
             aria-label="Open emergency SOS"
-            className="fixed bottom-16 right-4 z-30 flex min-h-12 items-center gap-2 rounded-full border-2 border-white bg-emergency px-4 font-semibold text-white shadow-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:bottom-5"
+            className="fixed bottom-16 right-4 z-30 flex min-h-12 items-center gap-2 rounded-full border-2 border-white bg-emergency px-4 font-semibold text-white shadow-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:bottom-5"
           >
             <ShieldAlert className="size-5" aria-hidden /> SOS
           </NavLink>
@@ -315,7 +315,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
         <nav
           aria-label="Primary"
-          className="mobile-nav-scroll fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 py-1.5 backdrop-blur md:hidden"
+          className="mobile-nav-scroll fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 py-1.5 backdrop-blur lg:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <NavItems items={items} variant="bottom" />
