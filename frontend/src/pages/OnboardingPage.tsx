@@ -58,13 +58,13 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-base">
-      <header className="mx-auto flex max-w-2xl items-center gap-2 px-6 py-6">
+    <div className="ng-public-scene min-h-screen bg-base">
+      <header className="glass-bar relative z-10 mx-auto flex max-w-2xl items-center gap-2 rounded-b-panel px-6 py-6 backdrop-blur-xl">
         <Shield className="size-6 text-signal" aria-hidden />
         <span className="text-sm font-bold tracking-wide text-ink">NATIVITY GUARD</span>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 pb-12">
+      <main className="ng-onboarding-glass relative z-10 mx-auto max-w-2xl px-6 pb-12">
         <ol className="mb-8 flex flex-wrap items-center gap-2">
           {['Welcome', 'Picture', 'Done'].map((label, i) => {
             const active =
