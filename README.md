@@ -161,3 +161,7 @@ Private — all rights reserved.
 ## Live SOS responder tracking
 
 The SOS detail screen supports explicit officer assignment and foreground location sharing. See [the responder-tracking guide](docs/teammates/live-responder-locations.md) for permissions, additive migration, API contracts and verification steps.
+
+### Responsive navigation and public artwork (October 2026)
+
+Authenticated navigation uses a dismissible slide-out drawer below the `lg` breakpoint; the close (X) control, menu button, backdrop, and bottom navigation share that breakpoint. At `lg` and wider, the sidebar remains docked. The carved-mask artwork on public landing/onboarding pages and all five selectable themes are retained. PR #63 addresses the responsive navigation regression; browser-based device/role acceptance testing is still required and CI success alone does not establish visual correctness.
