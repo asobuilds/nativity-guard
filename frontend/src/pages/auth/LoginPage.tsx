@@ -71,12 +71,12 @@ export function LoginPage() {
   return (
     <div className="grid min-h-screen bg-base lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="hidden flex-col justify-between bg-surface p-10 lg:flex">
-        <div className="flex items-center gap-2">
+      <div className="ng-public-scene relative hidden flex-col justify-between overflow-hidden border-r border-border p-10 lg:flex">
+        <div className="relative z-10 flex items-center gap-2">
           <Shield className="size-7 text-signal" aria-hidden />
           <span className="text-base font-bold tracking-wide text-ink">NATIVITY GUARD</span>
         </div>
-        <div>
+        <div className="relative z-10">
           <h1 className="max-w-md text-3xl font-semibold leading-tight text-ink">
             Every report answered. Every case accounted for.
           </h1>
@@ -85,7 +85,7 @@ export function LoginPage() {
             record — from the first SOS to the final report.
           </p>
         </div>
-        <p className="text-xs text-ink-faint">
+        <p className="relative z-10 text-xs text-ink-faint">
           Authorised personnel only. Activity on this system is recorded.
         </p>
       </div>
