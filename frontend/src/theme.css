@@ -1,3 +1,4 @@
+
 /* =====================================================================
    Nativity Guard — themes and text sizes
    =====================================================================
@@ -301,7 +302,7 @@ html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  background-image: url('/images/nativity-carved-masks%20(2).webp');
+  background-image: url("/images/nativity-carved-masks%20%282%29.webp");
   background-position: center top;
   background-size: min(100%, 1200px) auto;
   background-repeat: repeat-y;

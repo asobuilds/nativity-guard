@@ -1,3 +1,4 @@
+
 import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -10,11 +11,13 @@ import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
 import { usePreferences } from '@/hooks/usePreferences'
 import { LandingPage } from '@/pages/LandingPage'
+import type { Role } from '@/types/api'
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const RequestSignInLinkPage = lazy(() => import('@/pages/auth/RequestSignInLinkPage').then(m => ({ default: m.RequestSignInLinkPage })))
 const SignInLinkPage = lazy(() => import('@/pages/auth/SignInLinkPage').then(m => ({ default: m.SignInLinkPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const CitizenHomePage = lazy(() => import('@/pages/citizen/CitizenHomePage').then(m => ({ default: m.CitizenHomePage })))
@@ -66,7 +69,6 @@ const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityV
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
 const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
-import type { Role } from '@/types/api'
 
 const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
@@ -112,6 +114,7 @@ function LoginAlias() {
 
 export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
 export const LiveCommunityPage = lazy(() => import('@/pages/LiveCommunityPage').then(m => ({ default: m.LiveCommunityPage })))
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -129,6 +132,7 @@ export function App() {
                 <Route path="/invite" element={<InviteLandingPage />} />
 
                 <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/auth/request-sign-in-link" element={<RequestSignInLinkPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/auth/sign-in-link" element={<SignInLinkPage />} />
 

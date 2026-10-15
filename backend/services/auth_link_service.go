@@ -31,7 +31,6 @@ func hashAuthLinkToken(raw string) string {
 }
 
 // CreateSignInLink creates a short-lived, single-use sign-in token.
-// An empty token with no error means the account was not found.
 func (s *AuthLinkService) CreateSignInLink(email string) (string, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" {
@@ -39,16 +38,11 @@ func (s *AuthLinkService) CreateSignInLink(email string) (string, error) {
 	}
 
 	var user models.User
-	if err := config.DB.Where("LOWER(email) = ?", email).
-		First(&user).Error; err != nil {
-		if err.Error() == "record not found" {
-			return "", nil
-		}
-
-		// GORM normally returns gorm.ErrRecordNotFound.
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil
-		}
+	err := config.DB.Where("LOWER(email) = ?", email).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
 		return "", err
 	}
 
@@ -73,8 +67,7 @@ func (s *AuthLinkService) CreateSignInLink(email string) (string, error) {
 	return rawToken, nil
 }
 
-// RedeemSignInLink validates and consumes a sign-in token.
-// A token can be redeemed only once and expires after 15 minutes.
+// RedeemSignInLink validates and consumes a sign-in token exactly once.
 func (s *AuthLinkService) RedeemSignInLink(rawToken string) (*models.User, error) {
 	rawToken = strings.TrimSpace(rawToken)
 	if rawToken == "" {
@@ -89,19 +82,18 @@ func (s *AuthLinkService) RedeemSignInLink(rawToken string) (*models.User, error
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
 		var record models.AuthLinkToken
 
-		if err := tx.
+		err := tx.
 			Where(
 				"token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?",
 				tokenHash,
 				authLinkPurposeSignIn,
 				now,
 			).
-			First(&record).Error; err != nil {
+			First(&record).Error
+		if err != nil {
 			return errors.New("invalid or expired sign-in link")
 		}
 
-		// Conditional update prevents two simultaneous requests from
-		// successfully redeeming the same link.
 		result := tx.Model(&models.AuthLinkToken{}).
 			Where(
 				"id = ? AND used_at IS NULL AND expires_at > ?",
@@ -117,7 +109,6 @@ func (s *AuthLinkService) RedeemSignInLink(rawToken string) (*models.User, error
 			return errors.New("invalid or expired sign-in link")
 		}
 
-		// GORM's normal query scope excludes soft-deleted users.
 		if err := tx.First(&user, "id = ?", record.UserID).Error; err != nil {
 			return errors.New("account not found")
 		}

@@ -5,8 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
@@ -17,15 +15,15 @@ import (
 	"security-solution/models"
 )
 
+const defaultResetTokenTTL = 15 * time.Minute
+
 type PasswordResetService struct{}
 
 func NewPasswordResetService() *PasswordResetService {
 	return &PasswordResetService{}
 }
 
-// ResetNotifier abstracts out-of-band delivery so the service does not
-// depend on any specific transport. The handlers package assigns a
-// concrete implementation at startup; if nil, delivery is skipped.
+// ResetNotifier is retained for compatibility with existing startup code.
 type ResetNotifier interface {
 	NotifyEmail(toEmail, toName, code string)
 	NotifySMS(toPhone, code string)
@@ -33,82 +31,74 @@ type ResetNotifier interface {
 
 var resetNotifier ResetNotifier
 
-// SetResetNotifier installs the out-of-band delivery implementation.
-// Call once at startup (e.g. from main or an init in the handlers pkg).
 func SetResetNotifier(n ResetNotifier) {
 	resetNotifier = n
 }
 
-const defaultResetTokenTTL = 1 * time.Hour
-
-// sha256Hex returns the SHA-256 hex digest of raw. Only the hash is stored
-// in the database; the raw token is transmitted to the user once and never
-// persisted.
+// sha256Hex returns the SHA-256 hash of a string as hexadecimal.
 func sha256Hex(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
 
-// generateResetCode generates a cryptographically secure six-digit code
-// in the range 100000–999999.
-func generateResetCode() (string, error) {
-	const minCode = 100000
-	const codeRange = 900000
+// removeNonDigits preserves compatibility with existing tests and utilities.
+// It does not enable phone-number-based password resets.
+func removeNonDigits(value string) string {
+	var result strings.Builder
 
-	n, err := rand.Int(rand.Reader, big.NewInt(codeRange))
-	if err != nil {
-		return "", err
+	for _, c := range value {
+		if c >= '0' && c <= '9' {
+			result.WriteRune(c)
+		}
 	}
 
-	return fmt.Sprintf("%06d", minCode+int(n.Int64())), nil
+	return result.String()
 }
 
-// RequestReset initiates a password reset for the account identified by
-// email or phone. Unknown identifiers are handled silently to prevent
-// account enumeration.
+// RequestReset accepts an email address only.
 //
-// The raw six-digit code is returned to the caller for compatibility.
-// Only its SHA-256 hash is persisted. Notifications are dispatched
-// asynchronously through the configured notifier.
-func (s *PasswordResetService) RequestReset(identifier string) (*models.PasswordReset, string, error) {
-	identifier = strings.TrimSpace(identifier)
-	if identifier == "" {
+// For unknown accounts, it returns no token and no error so the handler
+// can return a generic response without revealing whether an account exists.
+func (s *PasswordResetService) RequestReset(
+	email string,
+) (*models.PasswordReset, string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	if email == "" || !strings.Contains(email, "@") {
 		return nil, "", nil
 	}
 
 	var user models.User
-	query := config.DB
 
-	if strings.Contains(identifier, "@") {
-		query = query.Where("LOWER(email) = ?", strings.ToLower(identifier))
-	} else {
-		digits := removeNonDigits(identifier)
-		if digits == "" {
-			return nil, "", nil
-		}
-		query = query.Where("phone = ?", digits)
-	}
+	err := config.DB.
+		Where("LOWER(email) = ?", email).
+		First(&user).Error
 
-	if err := query.First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, "", nil
-		}
-		return nil, "", err
-	}
-
-	// Do not issue reset codes for deactivated accounts.
-	if user.DeletedAt.Valid {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, "", nil
 	}
 
-	rawCode, err := generateResetCode()
 	if err != nil {
 		return nil, "", err
 	}
 
+	if user.DeletedAt.Valid {
+		return nil, "", nil
+	}
+
+	// Generate a cryptographically secure, 32-byte random token.
+	randomBytes := make([]byte, 32)
+
+	if _, err := rand.Read(randomBytes); err != nil {
+		return nil, "", err
+	}
+
+	rawToken := hex.EncodeToString(randomBytes)
+
+	// Store only the SHA-256 hash, never the raw token.
 	record := models.PasswordReset{
 		UserID:    user.ID,
-		Token:     sha256Hex(rawCode),
+		Token:     sha256Hex(rawToken),
 		ExpiresAt: time.Now().UTC().Add(defaultResetTokenTTL),
 		Used:      false,
 	}
@@ -117,56 +107,29 @@ func (s *PasswordResetService) RequestReset(identifier string) (*models.Password
 		return nil, "", err
 	}
 
-	// Keep the existing SMS and email notification behavior.
-	// Missing contact details are skipped.
-	go func() {
-		if resetNotifier == nil {
-			return
-		}
-
-		if user.Phone != "" {
-			resetNotifier.NotifySMS(user.Phone, rawCode)
-		}
-		if user.Email != "" {
-			resetNotifier.NotifyEmail(user.Email, user.FirstName, rawCode)
-		}
-	}()
-
-	return &record, rawCode, nil
+	// The raw token is returned to the handler for email delivery.
+	// It must never be stored in the database or application logs.
+	return &record, rawToken, nil
 }
 
-// ResetWithToken validates a raw reset code, hashes the new password,
-// consumes the reset record once, and revokes existing sessions and
-// refresh tokens.
-func (s *PasswordResetService) ResetWithToken(rawToken, newPassword string) error {
+// ResetWithToken validates and consumes a reset token, changes the password,
+// and revokes the user's existing access and refresh tokens.
+func (s *PasswordResetService) ResetWithToken(
+	rawToken string,
+	newPassword string,
+) error {
 	if len(newPassword) < 8 {
 		return errors.New("password must be at least 8 characters")
 	}
-	if strings.TrimSpace(rawToken) == "" {
+
+	rawToken = strings.TrimSpace(rawToken)
+
+	if rawToken == "" {
 		return errors.New("invalid or expired reset token")
 	}
 
+	tokenHash := sha256Hex(rawToken)
 	now := time.Now().UTC()
-	hash := sha256Hex(rawToken)
-
-	var record models.PasswordReset
-	if err := config.DB.
-		Where("token = ? AND used = ? AND expires_at > ?", hash, false, now).
-		First(&record).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("invalid or expired reset token")
-		}
-		return err
-	}
-
-	var user models.User
-	if err := config.DB.First(&user, "id = ?", record.UserID).Error; err != nil {
-		return errors.New("invalid or expired reset token")
-	}
-
-	if user.DeletedAt.Valid {
-		return errors.New("account is deactivated")
-	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(newPassword),
@@ -176,72 +139,91 @@ func (s *PasswordResetService) ResetWithToken(rawToken, newPassword string) erro
 		return err
 	}
 
-	tx := config.DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	var user models.User
+
+	err = config.DB.Transaction(func(tx *gorm.DB) error {
+		var record models.PasswordReset
+
+		err := tx.
+			Where(
+				"token = ? AND used = ? AND expires_at > ?",
+				tokenHash,
+				false,
+				now,
+			).
+			First(&record).Error
+
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("invalid or expired reset token")
+			}
+
+			return err
 		}
-	}()
 
-	// Consume the token conditionally. If another request already used it,
-	// or it expired while this request was running, the transaction fails.
-	result := tx.Model(&models.PasswordReset{}).
-		Where(
-			"id = ? AND used = ? AND expires_at > ?",
-			record.ID,
-			false,
-			time.Now().UTC(),
-		).
-		Update("used", true)
+		// Atomically mark the token as used. Only one request can
+		// successfully consume this token.
+		result := tx.
+			Model(&models.PasswordReset{}).
+			Where(
+				"id = ? AND used = ? AND expires_at > ?",
+				record.ID,
+				false,
+				time.Now().UTC(),
+			).
+			Update("used", true)
 
-	if result.Error != nil {
-		tx.Rollback()
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		tx.Rollback()
-		return errors.New("invalid or expired reset token")
-	}
+		if result.Error != nil {
+			return result.Error
+		}
 
-	if err := tx.Model(&models.User{}).
-		Where("id = ?", user.ID).
-		Update("password", string(hashedPassword)).Error; err != nil {
-		tx.Rollback()
+		if result.RowsAffected != 1 {
+			return errors.New("invalid or expired reset token")
+		}
+
+		if err := tx.
+			Where("id = ?", record.UserID).
+			First(&user).Error; err != nil {
+			return errors.New("invalid or expired reset token")
+		}
+
+		if user.DeletedAt.Valid {
+			return errors.New("invalid or expired reset token")
+		}
+
+		// Update the password using the bcrypt hash.
+		result = tx.
+			Model(&models.User{}).
+			Where("id = ?", user.ID).
+			Update("password", string(hashedPassword))
+
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected != 1 {
+			return errors.New("failed to update password")
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return err
 	}
 
-	// Revoke existing sessions and refresh tokens so the user must
-	// authenticate again on all devices after resetting the password.
-	tokenSvc := NewTokenService()
-	if err := tokenSvc.RevokeAllForUser(user.ID, "password_reset"); err != nil {
-		tx.Rollback()
+	// Revoke existing access tokens so the user must authenticate again.
+	if err := NewTokenService().RevokeAllForUser(
+		user.ID,
+		"password_reset",
+	); err != nil {
 		return err
 	}
 
-	refreshSvc := NewRefreshTokenService()
-	if err := refreshSvc.RevokeAllForUser(user.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err := tx.Commit().Error; err != nil {
+	// Revoke existing refresh tokens.
+	if err := NewRefreshTokenService().RevokeAllForUser(user.ID); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// removeNonDigits strips every non-digit character from a phone string.
-func removeNonDigits(s string) string {
-	b := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= '0' && c <= '9' {
-			b = append(b, c)
-		}
-	}
-	return string(b)
 }

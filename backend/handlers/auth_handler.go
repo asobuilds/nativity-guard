@@ -321,7 +321,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-		c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"id":             freshUser.ID,
 			"email":          freshUser.Email,
@@ -581,52 +581,67 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "All sessions revoked"})
 }
 
-// ForgotPassword initiates a password reset. The endpoint is public and
-// rate-limited. It always returns 200 with a generic message so callers
-// cannot enumerate which identifiers map to real accounts.
+// ForgotPassword initiates an email-only password reset.
+// The generic response prevents account enumeration.
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var input struct {
-		Identifier string `json:"identifier" binding:"required"`
+		Email string `json:"email" binding:"required,email"`
 	}
+
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If an account exists for that email, a reset link will be sent.",
+		})
 		return
 	}
 
+	email := strings.ToLower(strings.TrimSpace(input.Email))
 	svc := services.NewPasswordResetService()
-	_, rawToken, err := svc.RequestReset(input.Identifier)
+
+	_, rawToken, err := svc.RequestReset(email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If an account exists for that email, a reset link will be sent.",
+		})
 		return
 	}
 
-	// TODO: email delivery is not yet wired. When the identifier is an
-	// email, the token is currently sent to the resolved user's PHONE
-	// number (Correction 1). Replace this SMS branch with an email
-	// dispatch once an email service is added.
-	_ = rawToken
+	if rawToken != "" {
+		frontendURL := strings.TrimRight(os.Getenv("FRONTEND_URL"), "/")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:5173"
+		}
+
+		resetLink := frontendURL + "/auth/reset-password?token=" + rawToken
+
+		if err := SendPasswordResetEmail(email, resetLink); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "If an account exists for that email, a reset link will be sent.",
+			})
+			return
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "If an account with that email or phone number exists, we've sent a password reset link.",
+		"message": "If an account exists for that email, a reset link will be sent.",
 	})
 }
 
-// ResetPassword validates a reset token and applies the new password.
-// On success it marks the token used and revokes every existing session
-// and refresh token so the user must re-authenticate on all devices.
+// ResetPassword validates a single-use token and applies the new password.
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var input struct {
 		Token       string `json:"token" binding:"required"`
 		NewPassword string `json:"newPassword" binding:"required,min=8"`
 	}
+
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid token and password of at least 8 characters are required"})
 		return
 	}
 
 	svc := services.NewPasswordResetService()
 	if err := svc.ResetWithToken(input.Token, input.NewPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "The reset link is invalid, expired, or already used"})
 		return
 	}
 

@@ -1,0 +1,3873 @@
+===========================================================================
+ NATIVITY GUARD - AUTHENTICATION AND FRONTEND INSPECTION
+Generated: 10/15/2026 10:48:11
+===========================================================================
+
+
+### FRONTEND ROUTING AND AUTHENTICATION ###
+
+
+--- FILE: frontend\src\App.tsx ---
+
+import { lazy, Suspense, type ReactNode } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AuthProvider, useAuth } from '@/auth/AuthContext'
+import { RequireRole, homePathForRole } from '@/auth/RequireRole'
+import { AppShell } from '@/components/layout/AppShell'
+import { FullPageSpinner } from '@/components/ui/States'
+import { ToastProvider } from '@/components/ui/Toast'
+import { OfflineBanner } from '@/components/layout/OfflineBanner'
+import { queryClient } from '@/lib/queryClient'
+import { usePreferences } from '@/hooks/usePreferences'
+import { LandingPage } from '@/pages/LandingPage'
+
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const SignInLinkPage = lazy(() => import('@/pages/auth/SignInLinkPage').then(m => ({ default: m.SignInLinkPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
+const CitizenHomePage = lazy(() => import('@/pages/citizen/CitizenHomePage').then(m => ({ default: m.CitizenHomePage })))
+const CitizenCasePage = lazy(() => import('@/pages/citizen/CitizenCasePage').then(m => ({ default: m.CitizenCasePage })))
+const SosPage = lazy(() => import('@/pages/citizen/SosPage').then(m => ({ default: m.SosPage })))
+const SosDetailPage = lazy(() => import('@/pages/citizen/SosDetailPage').then(m => ({ default: m.SosDetailPage })))
+const ReportIncidentPage = lazy(() => import('@/pages/citizen/ReportIncidentPage').then(m => ({ default: m.ReportIncidentPage })))
+const OfficerQueuePage = lazy(() => import('@/pages/officer/OfficerQueuePage').then(m => ({ default: m.OfficerQueuePage })))
+const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').then(m => ({ default: m.OfficerCasePage })))
+const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })))
+const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m.UnitsPage })))
+const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
+const AdminCaseQueuePage = lazy(() => import('@/pages/admin/AdminCaseQueuePage').then(m => ({ default: m.AdminCaseQueuePage })))
+const AdminCaseReviewPage = lazy(() => import('@/pages/admin/AdminCaseReviewPage').then(m => ({ default: m.AdminCaseReviewPage })))
+const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m => ({ default: m.TransfersPage })))
+const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
+const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
+const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
+const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })))
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
+const AlertsPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertsPage })))
+const AlertDetailPage = lazy(() => import('@/pages/AwarenessPage').then(m => ({ default: m.AlertDetailPage })))
+const NewsPage = lazy(() => import('@/pages/NewsPage').then(m => ({ default: m.NewsPage })))
+const SubscriptionsPage = lazy(() => import('@/pages/SubscriptionsPage').then(m => ({ default: m.SubscriptionsPage })))
+const SuperOverviewPage = lazy(() => import('@/pages/super/SuperOverviewPage').then(m => ({ default: m.SuperOverviewPage })))
+const SuperUsersPage = lazy(() => import('@/pages/super/SuperUsersPage').then(m => ({ default: m.SuperUsersPage })))
+const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m => ({ default: m.SuperAuditPage })))
+const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage').then(m => ({ default: m.SuperAnalyticsPage })))
+const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
+const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
+const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
+const UnitDashboardPage = lazy(() => import('@/pages/admin/UnitDashboardPage').then(m => ({ default: m.UnitDashboardPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
+const AboutPage = lazy(() => import('@/pages/AboutPage').then(m => ({ default: m.AboutPage })))
+const UnitPolicyPage = lazy(() => import('@/pages/admin/UnitPolicyPage').then(m => ({ default: m.UnitPolicyPage })))
+const GovernanceAuditPage = lazy(() => import('@/pages/admin/GovernanceAuditPage').then(m => ({ default: m.GovernanceAuditPage })))
+const InvitationsPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InvitationsPage })))
+const InviteLandingPage = lazy(() => import('@/pages/InvitationsPage').then(m => ({ default: m.InviteLandingPage })))
+const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ default: m.SessionsPage })))
+const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
+const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
+const LGAChannelPage = lazy(() => import('@/pages/LGAChannelPage').then(m => ({ default: m.LGAChannelPage })))
+const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
+const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
+const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
+const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
+const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
+import type { Role } from '@/types/api'
+
+const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
+const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
+const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
+
+function PreferencesBootstrap() {
+  usePreferences()
+  return null
+}
+
+function ProtectedShell({ children }: { children?: ReactNode }) {
+  return (
+    <RequireRole roles={ALL_ROLES}>
+      <AppShell>{children}</AppShell>
+    </RequireRole>
+  )
+}
+
+function RootRoute() {
+  const { status } = useAuth()
+  if (status === 'loading') return <FullPageSpinner label="Restoring session…" />
+  if (status === 'anonymous') return <LandingPage />
+  return (
+    <ProtectedShell>
+      <HomeRoute />
+    </ProtectedShell>
+  )
+}
+
+function HomeRoute() {
+  const { role } = useAuth()
+  if (role && role !== 'citizen') {
+    const home = homePathForRole(role)
+    if (home) return <Navigate to={home} replace />
+  }
+  return <CitizenHomePage />
+}
+
+function LoginAlias() {
+  const location = useLocation()
+  return <Navigate to="/auth/login" replace state={location.state} />
+}
+
+export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
+export const LiveCommunityPage = lazy(() => import('@/pages/LiveCommunityPage').then(m => ({ default: m.LiveCommunityPage })))
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <OfflineBanner />
+        <BrowserRouter>
+          <AuthProvider>
+            <PreferencesBootstrap />
+            <Suspense fallback={<FullPageSpinner />}>
+              <Routes>
+                <Route path="/auth/login" element={<LoginPage />} />
+                <Route path="/auth/signup" element={<SignupPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/invite" element={<InviteLandingPage />} />
+
+                <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/auth/sign-in-link" element={<SignInLinkPage />} />
+
+                <Route path="/login" element={<LoginAlias />} />
+
+                <Route path="/" element={<RootRoute />} />
+
+                <Route element={<ProtectedShell />}>
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/verify-identity" element={<VerifyIdentityPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
+                  <Route path="/invites" element={<InvitationsPage />} />
+                  <Route path="/sessions" element={<SessionsPage />} />
+                  <Route path="/alerts" element={<RequireRole roles={['citizen', 'super_admin']}><AlertsPage /></RequireRole>} />
+                  <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
+                  <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
+                  <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
+                  <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/appeals" element={<AppealsPage />} />
+                  <Route path="/assistant" element={<AiAssistantPage />} />
+                  <Route path="/lga" element={<LGAChannelPage />} />
+                  <Route path="/sos" element={<SosPage />} />
+                  <Route path="/sos/:id" element={<SosDetailPage />} />
+                  <Route
+                    path="/cases/:id"
+                    element={
+                      <RequireRole roles={['citizen']}>
+                        <CitizenCasePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route path="/report" element={<ReportIncidentPage />} />
+
+                  <Route
+                    path="/officer/queue"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <OfficerQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/officer/cases/:id"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <OfficerCasePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route path="/map" element={<MapPage />} />
+                  <Route path="/units" element={<UnitsPage />} />
+                  <Route path="/units/:id" element={<UnitDetailPage />} />
+
+                  <Route
+                    path="/admin/cases"
+                    element={
+                      <RequireRole roles={ADMIN_ROLES}>
+                        <AdminCaseQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/cases/:id"
+                    element={
+                      <RequireRole roles={ADMIN_ROLES}>
+                        <AdminCaseReviewPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route path="/admin/transfers" element={<RequireRole roles={ADMIN_ROLES}><TransfersPage /></RequireRole>} />
+                  <Route path="/admin/unit-policy" element={<RequireRole roles={ADMIN_ROLES}><UnitPolicyPage /></RequireRole>} />
+                  <Route path="/admin/unit" element={<RequireRole roles={ADMIN_ROLES}><UnitDashboardPage /></RequireRole>} />
+                  <Route path="/admin/governance-audit" element={<RequireRole roles={ADMIN_ROLES}><GovernanceAuditPage /></RequireRole>} />
+
+                  <Route path="/admin/officers" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
+                  <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
+                  <Route path="/admin/overview" element={<RequireRole roles={ADMIN_ROLES}><AdminOverviewPage /></RequireRole>} />
+                  <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
+                  <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><AdminAnalyticsPage /></RequireRole>} />
+                  <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><AdminSettingsPage /></RequireRole>} />
+
+                  <Route
+                    path="/admin/identity"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <IdentityVerificationQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/units-verification"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <UnitVerificationQueuePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <FeedbackQueuePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
+                  <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
+                  <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
+                  <Route path="/super/analytics" element={<RequireRole roles={['super_admin']}><SuperAnalyticsPage /></RequireRole>} />
+                  <Route path="/super/settings" element={<RequireRole roles={['super_admin']}><SuperSettingsPage /></RequireRole>} />
+                  <Route
+                    path="/super/units"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <UnitsRegistryPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/super/units/new"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <UnitRegistrationPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/super/units/:id"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <SuperUnitRecordPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route path="/admin/*" element={<RequireRole roles={['unit_admin', 'super_admin']}><NotFoundPage /></RequireRole>} />
+                  <Route path="/super/*" element={<RequireRole roles={['super_admin']}><NotFoundPage /></RequireRole>} />
+
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+      </ToastProvider>
+    </QueryClientProvider>
+  )
+}
+
+--- FILE: frontend\src\auth\AuthContext.tsx ---
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { api, tokenStore, UNAUTHORIZED_EVENT } from '@/lib/apiClient'
+import { queryClient } from '@/lib/queryClient'
+import { normaliseRole } from '@/lib/role'
+import type { LoginResponse, ProfileResponse, Role, User } from '@/types/api'
+
+type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
+
+interface AuthContextValue {
+  user: User | null
+  role: Role | null
+  rawRole: string | null
+  status: AuthStatus
+  login: [REDACTED] string, password: [REDACTED] =[REDACTED] Promise<void>
+  loginWithLinkToken: (token: string) => Promise<void>
+  logout: () => void
+  refreshProfile: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [status, setStatus] = useState<AuthStatus>('loading')
+
+  const logout = useCallback(() => {
+    queryClient.clear()
+    tokenStore.clear()
+    setUser(null)
+    setStatus('anonymous')
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function restore() {
+      if (!tokenStore.get()) {
+        setStatus('anonymous')
+        return
+      }
+
+      try {
+        const { user: fresh } = await api.get<ProfileResponse>('/auth/profile')
+        if (!cancelled) {
+          setUser(fresh)
+          setStatus('authenticated')
+        }
+      } catch {
+        if (!cancelled) logout()
+      }
+    }
+
+    void restore()
+
+    return () => {
+      cancelled = true
+    }
+  }, [logout])
+
+  useEffect(() => {
+    const onUnauthorized = () => logout()
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+  }, [logout])
+
+  const finishLogin = useCallback(async (result: LoginResponse) => {
+    queryClient.clear()
+    tokenStore.set(result.token)
+    tokenStore.setRefresh(result.refreshToken)
+
+    try {
+      const { user: fresh } = await api.get<ProfileResponse>('/auth/profile')
+      setUser(fresh)
+    } catch {
+      setUser(result.user as User)
+    }
+
+    setStatus('authenticated')
+  }, [])
+
+  const login = useCallback(
+    async (email: [REDACTED], password: [REDACTED] =[REDACTED] {
+      const result = await api.postAnonymous<LoginResponse>('/auth/login', {
+        email,
+        password,
+      })
+      await finishLogin(result)
+    },
+    [finishLogin],
+  )
+
+  const loginWithLinkToken = useCallback(
+    async (token: string) => {
+      const result = await api.postAnonymous<LoginResponse>(
+        '/auth/sign-in-link/redeem',
+        { token },
+      )
+      await finishLogin(result)
+    },
+    [finishLogin],
+  )
+
+  const refreshProfile = useCallback(async () => {
+    const { user: fresh } = await api.get<ProfileResponse>('/auth/profile')
+    setUser(fresh)
+  }, [])
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      role: normaliseRole(user?.role),
+      rawRole: user?.role ?? null,
+      status,
+      login,
+      loginWithLinkToken,
+      logout,
+      refreshProfile,
+    }),
+    [user, status, login, loginWithLinkToken, logout, refreshProfile],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>')
+  return ctx
+}
+
+--- FILE: frontend\src\lib\apiClient.ts ---
+
+/**
+ * Typed fetch client for the Nativity Guard API.
+ *
+ * - Injects `Authorization: Bearer <token>` when a session exists.
+ * - Normalises errors into `ApiError`.
+ * - On 401 it clears the session and emits `cs:unauthorized` so AuthContext can
+ *   route the user back to login (see src/auth/AuthContext.tsx).
+ */
+
+import type { RefreshResponse } from '@/types/api'
+
+const TOKEN_KEY = 'cs.token'
+const REFRESH_KEY = 'cs.refresh'
+
+function resolveBase(): string {
+  const raw = (import.meta.env.VITE_API_URL ?? '').trim()
+  if (!raw) return '/api/v1'
+  const origin = raw.replace(/\/+$/, '')
+  return origin.endsWith('/api/v1') ? origin : `${origin}/api/v1`
+}
+
+export const API_BASE = resolveBase()
+
+export const UNAUTHORIZED_EVENT = 'cs:unauthorized'
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly body: unknown
+
+  constructor(status: number, message: string, body?: unknown) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.body = body
+  }
+
+  /** True when the failure is a connectivity problem rather than an HTTP error. */
+  static isNetwork(error: unknown): boolean {
+    return error instanceof ApiError && error.status === 0
+  }
+}
+
+function readKey(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeKey(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* storage unavailable (private mode) — session stays in memory only */
+  }
+}
+
+function removeKey(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Both halves of a session.
+ *
+ * The access token is short-lived; the refresh token is what keeps a signed-in
+ * user signed in past it. The two are stored and cleared together — clearing one
+ * without the other is how you get a session that can neither refresh nor end.
+ */
+export const tokenStore = {
+  get: () => readKey(TOKEN_KEY),
+  set: (token: string) => writeKey(TOKEN_KEY, token),
+  getRefresh: () => readKey(REFRESH_KEY),
+  setRefresh: (token: string) => writeKey(REFRESH_KEY, token),
+  clear(): void {
+    removeKey(TOKEN_KEY)
+    removeKey(REFRESH_KEY)
+  },
+}
+
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  body?: unknown
+  signal?: AbortSignal
+  /** Skip auth header + 401 handling (used by login). */
+  anonymous?: boolean
+}
+
+/**
+ * Turn a failed response into a message **and** keep the parsed body.
+ *
+ * The body matters: several endpoints refuse with a 409 that carries the reason in
+ * structured form — `{ error, status }` from `submit-review`, `{ error, update }`
+ * from a duplicate weekly update. Discarding it leaves the UI able to say only
+ * "conflict", when the contract is handing over exactly what it needs to correct
+ * itself.
+ */
+async function readError(response: Response): Promise<{ message: string; body: unknown }> {
+  try {
+    const data = (await response.json()) as { error?: string; message?: string }
+    return { message: data?.error ?? data?.message ?? response.statusText, body: data }
+  } catch {
+    return {
+      message: response.statusText || `Request failed (${response.status})`,
+      body: undefined,
+    }
+  }
+}
+
+/**
+ * The in-flight refresh, shared by every caller.
+ *
+ * Rotation makes concurrency a correctness problem rather than an efficiency one.
+ * If three requests each 401'd and each spent the refresh token, the second would
+ * present one the first had already consumed and be rejected as revoked — signing
+ * the user out at the exact moment the app was trying to keep them in.
+ */
+let refreshInFlight: Promise<string | null> | null = null
+
+/**
+ * Exchange the refresh token for a new pair, or `null` if it will not.
+ *
+ * Called with bare `fetch`, deliberately: routing it through `request` would let a
+ * 401 on the refresh recurse into another refresh.
+ */
+async function performRefresh(): Promise<string | null> {
+  const refreshToken = [REDACTED]
+  if (!refreshToken) return null
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+    if (!response.ok) return null
+
+    const payload = (await response.json()) as Partial<RefreshResponse>
+    if (!payload.token) return null
+
+    tokenStore.set(payload.token)
+    // Rotation: the token we just sent is spent. Failing to store its replacement
+    // means the *next* refresh presents a dead token and signs the user out.
+    if (payload.refreshToken) tokenStore.setRefresh(payload.refreshToken)
+    return payload.token
+  } catch {
+    // Network failure or an unparseable body — either way, no new token.
+    return null
+  }
+}
+
+/**
+ * Share the in-flight attempt, and clear it once it settles so a later expiry can
+ * start a fresh one — a cached-forever promise would silently stop refreshing.
+ */
+function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = performRefresh().finally(() => {
+    refreshInFlight = null
+  })
+  return refreshInFlight
+}
+
+/** Build and send one attempt, reading the token fresh so a retry picks up a new one. */
+async function send(
+  path: string,
+  method: string,
+  body: unknown,
+  signal: AbortSignal | undefined,
+  anonymous: boolean,
+): Promise<Response> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+
+  const token = tokenStore.get()
+  if (token && !anonymous) headers.Authorization = `Bearer ${token}`
+
+  try {
+    return await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      signal,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+    throw new ApiError(0, 'Network unavailable — check your connection.', cause)
+  }
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, signal, anonymous = false } = options
+
+  let response = await send(path, method, body, signal, anonymous)
+
+  // A 401 on an authenticated call usually means the access token aged out, not
+  // that the session is over. Try the refresh token once and replay — retrying
+  // more than once would loop, since a second 401 means the new token was
+  // rejected too, which is a genuine sign-out.
+  if (response.status === 401 && !anonymous) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) response = await send(path, method, body, signal, anonymous)
+  }
+
+  if (response.status === 401 && !anonymous) {
+    tokenStore.clear()
+    // Guarded so the client also works outside a DOM (tests, future SSR).
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+    }
+    const { message } = await readError(response)
+    throw new ApiError(401, message)
+  }
+
+  if (!response.ok) {
+    const { message, body: errorBody } = await readError(response)
+    throw new ApiError(response.status, message, errorBody)
+  }
+
+  if (response.status === 204) return undefined as T
+
+  const text = await response.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
+}
+
+/**
+ * `postAnonymous` exists for sign-in: a login request must not carry a stale
+ * bearer token, and a 401 from *bad credentials* must not tear down a session
+ * the user already has — only an authenticated request can do that.
+ */
+/**
+ * Multipart upload helper — uses the same 401/refresh pipeline as `request`.
+ *
+ * Do NOT set Content-Type; the browser sets it with the correct multipart boundary.
+ */
+async function requestUpload<T>(
+  path: string,
+  file: File,
+  fieldName: string,
+  anonymous: boolean,
+): Promise<T> {
+  const formData = new FormData()
+  formData.append(fieldName, file)
+
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const token = tokenStore.get()
+  if (token && !anonymous) headers.Authorization = `Bearer ${token}`
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
+    throw new ApiError(0, 'Network unavailable — check your connection.', cause)
+  }
+
+  // Same 401 handling as request(): refresh once, replay, then clear session.
+  if (response.status === 401 && !anonymous) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      const retryHeaders: Record<string, string> = { Accept: 'application/json' }
+      const newToken = tokenStore.get()
+      if (newToken) retryHeaders.Authorization = `Bearer ${newToken}`
+      response = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: retryHeaders,
+        body: formData,
+      })
+    }
+  }
+
+  if (response.status === 401 && !anonymous) {
+    tokenStore.clear()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+    }
+    const { message } = await readError(response)
+    throw new ApiError(401, message)
+  }
+
+  if (!response.ok) {
+    const { message, body: errorBody } = await readError(response)
+    throw new ApiError(response.status, message, errorBody)
+  }
+
+  if (response.status === 204) return undefined as T
+
+  const text = await response.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
+}
+
+/**
+ * Like `api.post`, but if the network is down the write is stored in the
+ * offline queue instead of throwing. Returns a synthetic response so callers
+ * can render a "queued" state without branching.
+ *
+ * Use this ONLY for append-only writes (SOS, reports). Never for anything
+ * that needs server-side validation to be trusted.
+ */
+export async function postQueued<T>(path: string, body: unknown): Promise<T | { queued: true }> {
+  try {
+    return await api.post<T>(path, body)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 0) {
+      const { enqueue } = await import('@/lib/offlineQueue')
+      await enqueue(path, body)
+      return { queued: true }
+    }
+    throw err
+  }
+}
+export const api = {
+	get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal }),
+	post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+	postAnonymous: <T>(path: string, body?: unknown) =>
+		request<T>(path, { method: 'POST', body, anonymous: true }),
+	put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+	patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+	delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+	upload: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
+		requestUpload<T>(path, file, fieldName, false),
+	uploadAnonymous: <T>(path: string, file: File, fieldName = 'file'): Promise<T> =>
+		requestUpload<T>(path, file, fieldName, true),
+}
+
+/**
+ * Constructs a full media URL from a relative path returned by the backend.
+ *
+ * The backend returns avatarPath/coverPath as relative paths like
+ * "avatars/2026/09/hash.jpg". The frontend must prefix these with the
+ * backend's public media base (e.g. Supabase storage public URL) to render
+ * them correctly.
+ *
+ * If the path is already a full URL (starts with http:// or https://), it is
+ * returned as-is. If VITE_MEDIA_BASE is not set, the original path is returned
+ * as a graceful fallback (may not render if the frontend and media are on
+ * different origins).
+ */
+export function mediaURL(path: string | null | undefined): string | null {
+  if (!path) return null
+  // If it's already a full URL, use it as-is
+  if (/^https?:\/\//i.test(path)) return path
+  // Otherwise prefix with the backend's public media base
+  if (!MEDIA_BASE) return path // graceful fallback
+  return `${MEDIA_BASE}/${path.replace(/^\/+/, '')}`
+}
+
+/**
+ * Resolves the media base URL once at module load. Vite bakes imports.env values
+ * into the bundle at build time, so a missing variable here means the env var
+ * was not set when the frontend was built — catch that early instead of
+ * shipping broken image URLs to production.
+ */
+const MEDIA_BASE = (import.meta.env.VITE_MEDIA_BASE ?? '').replace(/\/+$/, '')
+
+if (!MEDIA_BASE) {
+  console.warn(
+    '[mediaURL] VITE_MEDIA_BASE not set — images will 404. Set it in Render frontend env.',
+  )
+}
+
+--- FILE: frontend\src\vite-env.d.ts ---
+
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  /** Base origin of the API, e.g. https://nativityguard-backend.onrender.com */
+  readonly VITE_API_URL?: string
+  /** 'true' to serve data from local MSW mocks instead of the real API. */
+  readonly VITE_USE_MOCKS?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
+--- FILE: frontend\src\pages\auth\LoginPage.tsx ---
+
+import { useState, type FormEvent } from 'react'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { CheckCircle2, Shield } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Field, Input } from '@/components/ui/Field'
+import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/auth/AuthContext'
+import { homePathForRole } from '@/auth/RequireRole'
+import { UnrecognisedRoleScreen } from '@/auth/UnrecognisedRoleScreen'
+import { ApiError } from '@/lib/apiClient'
+import { MOCK_ACCOUNTS, USE_MOCKS } from '@/mocks/config'
+
+/**
+ * What an earlier screen may hand us. `from` is set when a guard bounced you
+ * here; `email` and `registered` are set by the signup page, because registration
+ * returns no token and so cannot sign anyone in itself. `reset` comes from the
+ * password-reset screen, which ends the session server-side and so must not leave
+ * anyone believing they are still signed in.
+ */
+interface LoginHandoff {
+  from?: string
+  email?: string
+  registered?: boolean
+  reset?: boolean
+}
+
+/**
+ * Sign-in. When mocks are enabled (`VITE_USE_MOCKS=true`) the seeded demo
+ * accounts are offered as one-tap fills so the workflows can be exercised
+ * without a running API.
+ */
+export function LoginPage() {
+  const { login, status, role, rawRole, logout } = useAuth()
+  const location = useLocation()
+  const { notify } = useToast()
+
+  const handoff = (location.state as LoginHandoff | null) ?? null
+
+  const [email, setEmail] = useState(handoff?.email ?? '')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (status === 'authenticated') {
+    const destination = handoff?.from || homePathForRole(role)
+    // No destination means the role is not one this build can name. Say so, rather
+    // than bouncing � an unrecognised role is what used to blank the screen.
+    if (!destination) return <UnrecognisedRoleScreen rawRole={rawRole} onSignOut={logout} />
+    return <Navigate to={destination} replace />
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      await login(email.trim(), password)
+      notify('Signed in.', 'success')
+      // AuthContext flips `status`, and the redirect above takes over.
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : 'Could not sign in. Check your details and try again.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="grid min-h-screen bg-base lg:grid-cols-2">
+      {/* Brand panel */}
+      <div className="hidden flex-col justify-between bg-surface p-10 lg:flex">
+        <div className="flex items-center gap-2">
+          <Shield className="size-7 text-signal" aria-hidden />
+          <span className="text-base font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+        </div>
+        <div>
+          <h1 className="max-w-md text-3xl font-semibold leading-tight text-ink">
+            Every report answered. Every case accounted for.
+          </h1>
+          <p className="mt-3 max-w-md text-sm text-ink-muted">
+            Nativity Guard connects citizens, security units and administrators on one operational
+            record � from the first SOS to the final report.
+          </p>
+        </div>
+        <p className="text-xs text-ink-faint">
+          Authorised personnel only. Activity on this system is recorded.
+        </p>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 flex items-center gap-2 lg:hidden">
+            <Shield className="size-6 text-signal" aria-hidden />
+            <span className="text-sm font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+          </div>
+
+          <h2 className="text-xl font-semibold text-ink">Sign in</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Use your service email address and password.
+          </p>
+          <Link to="/terms" className="mt-2 inline-block text-xs text-signal hover:underline">Read user rules</Link>
+
+          {handoff?.registered ? (
+            <p
+              role="status"
+              className="mt-4 flex items-start gap-2 rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ok"
+            >
+              <CheckCircle2 className="mt-px size-4 shrink-0" aria-hidden />
+              <span>Account created. Sign in with the password you just chose.</span>
+            </p>
+          ) : null}
+
+          {handoff?.reset ? (
+            <p
+              role="status"
+              className="mt-4 flex items-start gap-2 rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ok"
+            >
+              <CheckCircle2 className="mt-px size-4 shrink-0" aria-hidden />
+              <span>
+                Password changed. Every device on the account was signed out � sign in with the new
+                password.
+              </span>
+            </p>
+          ) : null}
+
+          <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+            <Field label="Email" required>
+              {(props) => (
+                <Input
+                  {...props}
+                  type="email"
+                  autoComplete="email"
+                  autoFocus
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              )}
+            </Field>
+
+            <Field label="Password" required error={error ?? undefined}>
+              {(props) => (
+                <Input
+                  {...props}
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              )}
+            </Field>
+
+            <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+              Sign in
+            </Button>
+
+            <Link
+              to="/auth/forgot-password"
+              className="-mt-2 self-end text-xs text-signal hover:text-signal-ink"
+            >
+              Forgot password?
+            </Link>
+          </form>
+
+          {USE_MOCKS ? (
+            <div className="mt-8 rounded-panel border border-border-hi bg-surface-hi p-3">
+              <p className="text-xs font-semibold text-ink">Demo accounts</p>
+              <p className="mt-0.5 text-[11px] text-ink-muted">
+                Running on mocks (<code>VITE_USE_MOCKS</code>) � tap a role to fill the form.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {MOCK_ACCOUNTS.map((account) => (
+                  <Button
+                    key={account.email}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setEmail(account.email)
+                      setPassword(account.password)
+                      setError(null)
+                    }}
+                  >
+                    {account.role}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <p className="mt-8 text-sm text-ink-muted">
+            No account yet?{' '}
+            <Link to="/auth/signup" className="text-signal hover:text-signal-ink">
+              Create one
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+--- FILE: frontend\src\pages\auth\ForgotPasswordPage.tsx ---
+
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AlertCircle, Shield } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Field, Input } from '@/components/ui/Field'
+import { api, ApiError } from '@/lib/apiClient'
+import { RESET_CODE_TTL_MINUTES, validateIdentifier } from '@/lib/passwordReset'
+import type { ForgotPasswordResponse } from '@/types/api'
+
+/**
+ * Step one of recovery: name the account.
+ *
+ * `POST /auth/forgot-password` answers 200 whatever you send — an unknown
+ * identifier is a deliberate silent no-op, so this screen cannot tell the user
+ * whether the account exists and does not try. Its own message says a "reset link"
+ * was sent; a 6-digit code is what actually arrives, so the copy here says code.
+ *
+ * The response is not shown, only the fact that the request was accepted. Passing
+ * the identifier forward lets the next screen say where the code went without
+ * asking for it twice.
+ */
+export function ForgotPasswordPage() {
+  const navigate = useNavigate()
+
+  const [identifier, setIdentifier] = useState('')
+  const [touched, setTouched] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [refusal, setRefusal] = useState<string | null>(null)
+
+  const error = validateIdentifier(identifier)
+  const errorForField = touched ? error : undefined
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    setTouched(true)
+    setRefusal(null)
+    if (error) return
+
+    setSubmitting(true)
+    try {
+      await api.postAnonymous<ForgotPasswordResponse>('/auth/forgot-password', {
+        identifier: identifier.trim(),
+      })
+      navigate('/auth/reset-password', {
+        replace: true,
+        state: { identifier: identifier.trim(), sent: true },
+      })
+    } catch (cause) {
+      // A 500 here is the service failing, not a verdict on the account — the
+      // distinction matters, so the message reports the failure and nothing else.
+      setRefusal(
+        cause instanceof ApiError
+          ? cause.message
+          : 'Could not send the code. Check your connection and try again.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="grid min-h-screen bg-base lg:grid-cols-2">
+      {/* Brand panel */}
+      <div className="hidden flex-col justify-between bg-surface p-10 lg:flex">
+        <div className="flex items-center gap-2">
+          <Shield className="size-7 text-signal" aria-hidden />
+          <span className="text-base font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+        </div>
+        <div>
+          <h1 className="max-w-md text-3xl font-semibold leading-tight text-ink">
+            Every report answered. Every case accounted for.
+          </h1>
+          <p className="mt-3 max-w-md text-sm text-ink-muted">
+            Forgot your password? We will send a one-time code to the phone number and email
+            already on your account.
+          </p>
+        </div>
+        <p className="text-xs text-ink-faint">
+          Authorised personnel only. Activity on this system is recorded.
+        </p>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 flex items-center gap-2 lg:hidden">
+            <Shield className="size-6 text-signal" aria-hidden />
+            <span className="text-sm font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+          </div>
+
+          <h2 className="text-xl font-semibold text-ink">Reset your password</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Enter the email address or phone number on your account and we will send a one-time
+            code. It expires in {RESET_CODE_TTL_MINUTES} minutes.
+          </p>
+
+          <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+            <Field
+              label="Email or phone number"
+              required
+              hint="Either one works — use whichever your account has."
+              error={errorForField}
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  type="text"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  value={identifier}
+                  onChange={(event) => {
+                    setIdentifier(event.target.value)
+                    setRefusal(null)
+                  }}
+                  onBlur={() => setTouched(true)}
+                />
+              )}
+            </Field>
+
+            {refusal ? (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn"
+              >
+                <AlertCircle className="mt-px size-4 shrink-0" aria-hidden />
+                <span>{refusal}</span>
+              </p>
+            ) : null}
+
+            <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+              Send reset code
+            </Button>
+          </form>
+
+          <p className="mt-8 text-sm text-ink-muted">
+            Remembered it?{' '}
+            <Link to="/auth/login" className="text-signal hover:text-signal-ink">
+              Back to sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+--- FILE: frontend\src\pages\auth\ResetPasswordPage.tsx ---
+
+import { useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AlertCircle, CheckCircle2, Shield } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Field, Input } from '@/components/ui/Field'
+import { useAuth } from '@/auth/AuthContext'
+import { api, ApiError } from '@/lib/apiClient'
+import {
+  MIN_RESET_PASSWORD_LENGTH,
+  RESET_CODE_LENGTH,
+  RESET_CODE_TTL_MINUTES,
+  maskIdentifier,
+  normaliseResetCode,
+  validateNewPassword,
+  validateResetCode,
+} from '@/lib/passwordReset'
+import { MOCK_RESET_CODE, USE_MOCKS } from '@/mocks/config'
+import type { ResetPasswordResponse } from '@/types/api'
+
+/**
+ * What step one hands over. Optional because this screen stands on its own: the
+ * code is the only thing `POST /auth/reset-password` needs, so a reload — which
+ * drops router state — must not leave the page unable to finish.
+ */
+interface ResetHandoff {
+  identifier?: string
+  sent?: boolean
+}
+
+/**
+ * Step two of recovery: the code, and the new password.
+ *
+ * Two behaviours of `POST /auth/reset-password` shape this screen:
+ *
+ *  1. It refuses anything under 8 characters, though registration accepts 6 — so
+ *     the hint states the floor that applies here rather than reusing signup's.
+ *  2. Success revokes **every** session and refresh token the account holds. If
+ *     someone is signed in on this browser, their session is dead by the time the
+ *     response lands; the screen signs out locally instead of leaving a token that
+ *     will fail its next request with no explanation.
+ */
+export function ResetPasswordPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { logout } = useAuth()
+
+  const handoff = (location.state as ResetHandoff | null) ?? null
+
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [touched, setTouched] = useState<ReadonlySet<'code' | 'password'>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+  const [refusal, setRefusal] = useState<string | null>(null)
+
+  const errors = {
+    code: validateResetCode(code),
+    password: [REDACTED],
+  }
+  const complete = !errors.code && !errors.password
+  const errorFor = (field: 'code' | 'password') => (touched.has(field) ? errors[field] : undefined)
+
+  function markTouched(field: 'code' | 'password') {
+    setTouched((current) => new Set(current).add(field))
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    setTouched(new Set<'code' | 'password'>(['code', 'password']))
+    setRefusal(null)
+    if (!complete) return
+
+    setSubmitting(true)
+    try {
+      await api.postAnonymous<ResetPasswordResponse>('/auth/reset-password', {
+        token: normaliseResetCode(code),
+        newPassword: [REDACTED],
+      })
+
+      // Every session is revoked server-side, this one included. Ending it here
+      // keeps the local state honest about that.
+      logout()
+
+      const identifier = handoff?.identifier ?? ''
+      // The sign-in screen's field is an email address. Carrying a phone number
+      // into it would put the wrong kind of value in front of the user.
+      const email = identifier.includes('@') ? identifier : undefined
+      navigate('/auth/login', { replace: true, state: { email, reset: true } })
+    } catch (cause) {
+      // `invalid or expired reset token` and `account is deactivated` are the
+      // service's own words and say exactly what went wrong, so they pass through.
+      setRefusal(
+        cause instanceof ApiError
+          ? cause.message
+          : 'Could not reset your password. Check your connection and try again.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const masked = handoff?.identifier ? maskIdentifier(handoff.identifier) : ''
+
+  return (
+    <div className="grid min-h-screen bg-base lg:grid-cols-2">
+      {/* Brand panel */}
+      <div className="hidden flex-col justify-between bg-surface p-10 lg:flex">
+        <div className="flex items-center gap-2">
+          <Shield className="size-7 text-signal" aria-hidden />
+          <span className="text-base font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+        </div>
+        <div>
+          <h1 className="max-w-md text-3xl font-semibold leading-tight text-ink">
+            Every report answered. Every case accounted for.
+          </h1>
+          <p className="mt-3 max-w-md text-sm text-ink-muted">
+            Choosing a new password signs out every device on your account. Sign back in with the
+            new one.
+          </p>
+        </div>
+        <p className="text-xs text-ink-faint">
+          Authorised personnel only. Activity on this system is recorded.
+        </p>
+      </div>
+
+      {/* Form panel */}
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 flex items-center gap-2 lg:hidden">
+            <Shield className="size-6 text-signal" aria-hidden />
+            <span className="text-sm font-bold tracking-wide text-ink">NATIVITY GUARD</span>
+          </div>
+
+          <h2 className="text-xl font-semibold text-ink">Enter your reset code</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            {handoff?.sent && masked ? (
+              <>
+                If an account matches <span className="text-ink">{masked}</span>, the code has gone
+                to the phone number and email on it. It expires in {RESET_CODE_TTL_MINUTES} minutes.
+              </>
+            ) : (
+              <>
+                Enter the {RESET_CODE_LENGTH}-digit code from your message and choose a new
+                password. Codes expire after {RESET_CODE_TTL_MINUTES} minutes.
+              </>
+            )}
+          </p>
+
+          <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+            <Field label="Reset code" required error={errorFor('code')}>
+              {(props) => (
+                <Input
+                  {...props}
+                  // `one-time-code` lets a phone offer the SMS code above the keyboard.
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  maxLength={RESET_CODE_LENGTH + 2}
+                  autoFocus
+                  required
+                  className="tabular tracking-[0.3em]"
+                  value={code}
+                  onChange={(event) => {
+                    setCode(event.target.value)
+                    setRefusal(null)
+                  }}
+                  onBlur={() => markTouched('code')}
+                />
+              )}
+            </Field>
+
+            <Field
+              label="New password"
+              required
+              hint={`At least ${MIN_RESET_PASSWORD_LENGTH} characters.`}
+              error={errorFor('password')}
+            >
+              {(props) => (
+                <Input
+                  {...props}
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setRefusal(null)
+                  }}
+                  onBlur={() => markTouched('password')}
+                />
+              )}
+            </Field>
+
+            {refusal ? (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn"
+              >
+                <AlertCircle className="mt-px size-4 shrink-0" aria-hidden />
+                <span>{refusal}</span>
+              </p>
+            ) : null}
+
+            <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+              Set new password
+            </Button>
+          </form>
+
+          {USE_MOCKS ? (
+            <p
+              role="status"
+              className="mt-4 flex items-start gap-2 rounded-lg border border-border-hi bg-surface-hi px-3 py-2 text-xs text-ink-muted"
+            >
+              <CheckCircle2 className="mt-px size-4 shrink-0 text-signal" aria-hidden />
+              <span>
+                Running on mocks — no message is sent. The code is{' '}
+                <code className="tabular text-ink">{MOCK_RESET_CODE}</code>.
+              </span>
+            </p>
+          ) : null}
+
+          <p className="mt-8 text-sm text-ink-muted">
+            Didn&rsquo;t get a code?{' '}
+            <Link to="/auth/forgot-password" className="text-signal hover:text-signal-ink">
+              Send another
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+--- FILE: frontend\src\pages\auth\SignInLinkPage.tsx ---
+
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Shield } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
+import { ApiError } from '@/lib/apiClient'
+
+export function SignInLinkPage() {
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { loginWithLinkToken } = useAuth()
+  const started = useRef(false)
+  const [message, setMessage] = useState(
+    'Verifying your sign-in link�',
+  )
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+
+    const token = searchParams.get('token')
+
+    if (!token) {
+      setMessage('This sign-in link is missing its token.')
+      setFailed(true)
+      return
+    }
+
+    let cancelled = false
+
+    async function redeem() {
+      try {
+        await loginWithLinkToken(token!)
+
+        if (!cancelled) {
+          navigate('/', { replace: true })
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setMessage(
+            cause instanceof ApiError
+              ? 'This sign-in link is invalid, expired, or already used. Request a new link.'
+              : 'We could not verify this link. Check your connection and request a new link.',
+          )
+          setFailed(true)
+        }
+      }
+    }
+
+    void redeem()
+
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, loginWithLinkToken, navigate])
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-base p-6">
+      <section className="w-full max-w-md rounded-panel border border-border-hi bg-surface p-8">
+        <div className="mb-5 flex items-center gap-2">
+          <Shield className="size-7 text-signal" aria-hidden />
+          <span className="font-bold tracking-wide text-ink">
+            NATIVITY GUARD
+          </span>
+        </div>
+
+        <h1 className="text-xl font-semibold text-ink">
+          Email sign-in
+        </h1>
+
+        <p className="mt-3 text-sm text-ink-muted" role="status">
+          {message}
+        </p>
+
+        {failed && (
+          <Link
+            to="/auth/login"
+            className="mt-6 inline-flex text-sm font-semibold text-signal hover:text-signal-ink"
+          >
+            Return to sign in
+          </Link>
+        )}
+      </section>
+    </main>
+  )
+}
+
+
+### BACKEND AUTHENTICATION AND EMAIL ###
+
+
+--- FILE: backend\routes\routes.go ---
+
+package routes
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"security-solution/handlers"
+	"security-solution/middleware"
+)
+
+func SetupRoutes(router *gin.Engine) {
+	router.GET("/health", handlers.GetHealth)
+
+	api := router.Group("/api/v1")
+	{
+		api.GET("/terms/:role", handlers.GetTermsForRole)
+		api.GET("/terms/my-acceptance", middleware.AuthMiddleware(), handlers.GetMyAcceptances)
+		api.GET("/public/cases", middleware.RateLimitGeneral(), handlers.GetPublicCases)
+		api.GET("/public/units", middleware.RateLimitGeneral(), handlers.GetPublicUnits)
+		api.GET("/public/units/:id/bank-accounts", handlers.GetPublicBankAccounts)
+		api.GET("/public/units/:id/summary", middleware.RateLimitGeneral(), handlers.GetUnitPublicSummary)
+		api.GET("/public/units/:id/ledger", middleware.RateLimitGeneral(), handlers.GetPublicUnitLedger)
+		api.GET("/public/units/:id/financial-years", handlers.GetPublicFinancialYears)
+		api.GET("/public/units/:id/financial-summary", handlers.GetCurrentYearSummary)
+		api.GET("/public/platform/donation-info", handlers.GetPlatformDonationInfo)
+		api.POST("/public/platform/donations", handlers.CreatePlatformDonation)
+		api.GET("/public/platform/supporters", handlers.ListPublicSupporters)
+		api.GET("/public/leaderboard", handlers.GetPublicLeaderboard)
+		api.GET("/public/units/suggest", handlers.SuggestUnits)
+		api.GET("/public/officers/:id/rating", middleware.RateLimitGeneral(), handlers.GetOfficerRating)
+		api.GET("/public/units/:id/rating", middleware.RateLimitGeneral(), handlers.GetUnitRating)
+		api.GET("/public/blueprint", handlers.GetBlueprint)
+		api.GET("/public/units/:id/auth", handlers.GetPublicUnitAuth)
+		api.POST("/invites/validate", middleware.RateLimitAuth(), handlers.ValidateInvite)
+
+		// Live external data â€” weather, news, directions, POIs.
+		api.GET("/weather/current", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetWeatherNow)
+		api.GET("/news/live", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLiveNews)
+		api.GET("/lga/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLGAChannel)
+		api.POST("/lga/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.PostLGAChannel)
+		api.POST("/directions", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.PostDirections)
+		api.GET("/map/pois", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetMapPOIs)
+
+		authHandler := handlers.NewAuthHandler()
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", middleware.RateLimitAuth(), authHandler.Register)
+			auth.POST("/login", middleware.RateLimitAuth(), authHandler.Login)
+			auth.POST("/sign-in-link/request", middleware.RateLimitAuth(), authHandler.RequestSignInLink)
+			auth.POST("/sign-in-link/redeem", middleware.RateLimitAuth(), authHandler.RedeemSignInLink)
+			auth.POST("/logout", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.Logout)
+			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
+			auth.POST("/change-password", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.ChangePassword)
+			auth.POST("/refresh", middleware.RateLimitAuth(), authHandler.Refresh)
+			auth.GET("/sessions", middleware.AuthMiddleware(), authHandler.ListSessions)
+			auth.DELETE("/sessions/:jti", middleware.AuthMiddleware(), authHandler.RevokeSession)
+			auth.DELETE("/sessions", middleware.AuthMiddleware(), authHandler.RevokeAllSessions)
+
+			auth.POST("/forgot-password", middleware.RateLimitOTP(), authHandler.ForgotPassword)
+			auth.POST("/reset-password", middleware.RateLimitOTP(), authHandler.ResetPassword)
+			auth.DELETE("/account", middleware.AuthMiddleware(), authHandler.DeleteAccount)
+			auth.POST("/account/cancel-deletion", middleware.AuthMiddleware(), authHandler.CancelDeletion)
+		}
+
+		identity := api.Group("/identity")
+		{
+			identity.POST(
+				"/document",
+				middleware.AuthMiddleware(),
+				middleware.UploadValidationMiddleware("document"),
+				handlers.UploadIdentityDocument,
+			)
+			identity.POST("/submit", middleware.AuthMiddleware(), handlers.SubmitIdentityVerification)
+			identity.GET("/me", middleware.AuthMiddleware(), handlers.GetMyIdentityVerification)
+		}
+
+		feedback := api.Group("/feedback")
+		{
+			feedback.POST("", middleware.AuthMiddleware(), handlers.CreateFeedback)
+			feedback.GET("/my", middleware.AuthMiddleware(), handlers.ListMyFeedback)
+		}
+
+		otp := api.Group("/otp")
+		{
+			otp.POST("/send", middleware.RateLimitOTP(), handlers.SendOTP)
+			otp.POST("/verify", middleware.RateLimitOTP(), handlers.VerifyOTP)
+			otp.POST("/resend", middleware.RateLimitOTP(), handlers.ResendOTP)
+		}
+
+		units := api.Group("/units")
+		{
+			units.GET("/nearby", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetNearbyUnits)
+			units.GET("/by-location", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetUnitsByLocation)
+			units.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllUnits)
+			units.POST("/apply", middleware.AuthMiddleware(), handlers.ApplyForSecurityUnit)
+			units.GET("/my-memberships", middleware.AuthMiddleware(), handlers.GetMyUnitMembership)
+			units.POST("/government-id", middleware.AuthMiddleware(), handlers.SubmitGovernmentID)
+			units.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitByID)
+			units.POST("/:id/logo", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitLogo)
+			units.POST("/:id/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadUnitCover)
+			units.DELETE("/:id/logo", middleware.AuthMiddleware(), handlers.DeleteUnitLogo)
+			units.DELETE("/:id/cover", middleware.AuthMiddleware(), handlers.DeleteUnitCover)
+			units.POST("", middleware.AuthMiddleware(), handlers.CreateUnit)
+			units.PUT("/:id", middleware.AuthMiddleware(), handlers.UpdateUnit)
+			units.POST("/:id/elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenAdminElection)
+			units.POST("/:id/head-admin-elections", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenHeadAdminElection)
+			units.POST("/:id/revocations", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenRevocationCycle)
+			units.GET("/:id/auth", middleware.AuthMiddleware(), handlers.GetUnitAuth)
+			units.PUT("/:id/auth", middleware.AuthMiddleware(), handlers.UpsertUnitAuth)
+			units.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersByUnit)
+			units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInUnitRanking)
+			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
+			units.GET("/:id/inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitInbox)
+			units.GET("/:id/compliance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitCompliance)
+			units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
+			units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
+			units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
+			units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
+			units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
+			units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
+			units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
+			units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
+			units.GET("/:id/access", middleware.AuthMiddleware(), handlers.GetUnitAccess)
+			units.GET("/:id/roster", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitRoster)
+		}
+
+		invites := api.Group("/invites")
+		{
+			invites.POST("", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateInvite)
+		}
+
+		users := api.Group("/users")
+		{
+			users.POST("/me/avatar", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadAvatar)
+			users.POST("/me/cover", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("image"), handlers.UploadCover)
+			users.DELETE("/me/avatar", middleware.AuthMiddleware(), handlers.DeleteAvatar)
+			users.DELETE("/me/cover", middleware.AuthMiddleware(), handlers.DeleteCover)
+			users.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateMe)
+			users.PUT("/me/cover-adjust", middleware.AuthMiddleware(), handlers.UpdateCoverAdjustment)
+		}
+
+		files := api.Group("/files")
+		{
+			files.GET("/:category/:hash", middleware.AuthMiddleware(), handlers.ServeFile)
+		}
+
+		notify := api.Group("/notifications")
+		{
+			notify.POST("/register", middleware.AuthMiddleware(), handlers.RegisterDevice)
+			notify.DELETE("/unregister", middleware.AuthMiddleware(), handlers.UnregisterDevice)
+			notify.POST("/test", middleware.AuthMiddleware(), handlers.TestNotification)
+		}
+
+		cases := api.Group("/cases")
+		{
+			cases.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllCases)
+			cases.POST("", middleware.AuthMiddleware(), handlers.CreateCase)
+			cases.GET("/analytics", middleware.AuthMiddleware(), handlers.GetCaseAnalytics)
+			cases.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), middleware.CanAccessCase, handlers.GetCaseByID)
+			cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.UpdateCaseStatus)
+			cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseTimeline)
+			cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
+			cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
+			cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
+			cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
+			cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)
+			cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.DispatchCase)
+			cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ArriveAtCase)
+			cases.POST("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseProgress)
+			cases.GET("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseProgress)
+			cases.POST("/:id/submit-review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitCaseForReview)
+			cases.GET("/:id/review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseReview)
+			cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.RequestCaseChanges)
+			cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ApproveCaseClosure)
+			cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitWeeklyCaseUpdate)
+			cases.GET("/:id/weekly-updates", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseWeeklyUpdates)
+			cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PutCounterStatement)
+			cases.GET("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCounterStatement)
+		}
+
+		elections := api.Group("/elections")
+		{
+			elections.POST("/:id/vote", middleware.AuthMiddleware(), middleware.RateLimitVote(), middleware.IdempotencyMiddleware(), handlers.CastAdminVote)
+			elections.POST("/:id/close", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.CloseAdminElection)
+			elections.GET("/:id/results", middleware.AuthMiddleware(), handlers.GetElectionResults)
+			elections.POST("/seats/:id/fill", middleware.AuthMiddleware(), handlers.FillSeatVacancy)
+		}
+
+		revocations := api.Group("/revocations")
+		{
+			revocations.POST("/:id/vote", middleware.AuthMiddleware(), middleware.RateLimitVote(), middleware.IdempotencyMiddleware(), handlers.CastRevocationVote)
+			revocations.POST("/:id/close", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.CloseRevocationCycle)
+			revocations.GET("/:id", middleware.AuthMiddleware(), handlers.GetRevocationCycle)
+		}
+
+		geo := api.Group("/geo")
+		{
+			geo.GET("/reverse", middleware.RateLimitMap(), handlers.ReverseGeocode)
+			geo.GET("/states", middleware.RateLimitMap(), handlers.ListStates)
+			geo.GET("/lgas", middleware.RateLimitMap(), handlers.ListLGAs)
+		}
+
+		location := api.Group("/location")
+		{
+			location.POST("", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.UpdateMyLocation)
+			location.GET("/sharing", middleware.AuthMiddleware(), handlers.GetLocationSharing)
+			location.PUT("/sharing", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UpdateLocationSharing)
+		}
+
+		evidence := api.Group("/evidence")
+		{
+			evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
+			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
+			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
+			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
+			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
+			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
+			evidence.PATCH("/:id/verify", middleware.AuthMiddleware(), handlers.VerifyEvidence)
+		}
+
+		ratings := api.Group("/ratings")
+		{
+			ratings.POST("", middleware.AuthMiddleware(), handlers.SubmitRating)
+			ratings.POST("/:id/flag", middleware.AuthMiddleware(), handlers.FlagRating)
+		}
+
+		sos := api.Group("/sos")
+		{
+			sos.POST("/send", middleware.AuthMiddleware(), handlers.SendSOSAlert)
+			sos.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlerts)
+			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
+			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)
+			sos.GET("/:id/responders/locations", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetSOSResponderLocations)
+			sos.GET("/:id/responders/:unitId/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSOfficerCandidates)
+			sos.PUT("/:id/responders/:unitId/officer", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.AssignSOSOfficer)
+			sos.POST("/:id/responders/:unitId/tracking", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.StartSOSTracking)
+			sos.DELETE("/:id/responders/:unitId/tracking", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.StopSOSTracking)
+			sos.PUT("/:id/responders/:unitId/location", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.UpdateSOSResponderLocation)
+			sos.PUT("/:id/status", middleware.AuthMiddleware(), handlers.UpdateSOSAlertStatus)
+			sos.POST("/:id/accept", middleware.AuthMiddleware(), handlers.AcceptSOS)
+			sos.POST("/:id/release", middleware.AuthMiddleware(), handlers.ReleaseSOS)
+			sos.POST("/:id/assign", middleware.AuthMiddleware(), handlers.AssignSOS)
+		}
+
+		suspects := api.Group("/suspects")
+		{
+			suspects.GET("/me/cases", middleware.AuthMiddleware(), handlers.GetMySuspectCases)
+			suspects.POST("", middleware.AuthMiddleware(), handlers.CreateSuspect)
+			suspects.GET("", middleware.AuthMiddleware(), handlers.GetAllSuspects)
+			suspects.GET("/:id", middleware.AuthMiddleware(), handlers.GetSuspectByID)
+			suspects.PUT("/:id", middleware.AuthMiddleware(), handlers.UpdateSuspect)
+			suspects.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteSuspect)
+			suspects.POST("/:id/sighting", middleware.AuthMiddleware(), handlers.ReportSighting)
+			suspects.GET("/:id/sightings", middleware.AuthMiddleware(), handlers.GetSuspectSightings)
+			suspects.GET("/:id/cases", middleware.AuthMiddleware(), handlers.GetSuspectCases)
+			suspects.POST("/:id/associations", middleware.AuthMiddleware(), handlers.CreateSuspectAssociation)
+			suspects.POST("/:id/expungement", middleware.AuthMiddleware(), handlers.RequestExpungement)
+			suspects.GET("/:id/expungement", middleware.AuthMiddleware(), handlers.ListMyExpungementRequests)
+		}
+
+		expungementGroup := api.Group("/expungement-requests")
+		{
+			expungementGroup.PUT("/:id/decision", middleware.AuthMiddleware(), handlers.DecideExpungement)
+		}
+
+		appeals := api.Group("/appeals")
+		{
+			appeals.POST("", middleware.AuthMiddleware(), handlers.FileAppeal)
+			appeals.GET("", middleware.AuthMiddleware(), handlers.ListAppeals)
+			appeals.GET("/:id", middleware.AuthMiddleware(), handlers.GetAppeal)
+			appeals.PUT("/:id/decision", middleware.AuthMiddleware(), handlers.DecideAppeal)
+		}
+
+		transfers := api.Group("/transfers")
+		{
+			transfers.POST("", middleware.AuthMiddleware(), handlers.RequestTransfer)
+			transfers.POST("/:id/approve", middleware.AuthMiddleware(), handlers.ApproveTransfer)
+			transfers.POST("/:id/reject", middleware.AuthMiddleware(), handlers.RejectTransfer)
+			transfers.GET("", middleware.AuthMiddleware(), handlers.GetTransferRequests)
+			transfers.GET("/:id/approvals", middleware.AuthMiddleware(), handlers.GetTransferApprovals)
+		}
+
+		news := api.Group("/news")
+		{
+			news.POST("", middleware.AuthMiddleware(), handlers.CreateNews)
+			news.GET("", middleware.AuthMiddleware(), handlers.GetAllNews)
+			news.GET("/:id", middleware.AuthMiddleware(), handlers.GetNewsByID)
+		}
+
+		ai := api.Group("/ai")
+		{
+			ai.POST("/chatbot", middleware.AuthMiddleware(), handlers.AIChatbot)
+			ai.POST("/analyze-image", middleware.AuthMiddleware(), handlers.AIAnalyzeImage)
+			ai.POST("/analyze-location", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIAnalyzeLocation)
+			ai.POST("/map-insights", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIGetMapInsights)
+			ai.POST("/security-warning", middleware.AuthMiddleware(), handlers.AIGenerateSecurityWarning)
+			ai.POST("/analyze-news", middleware.AuthMiddleware(), handlers.AIAnalyzeNews)
+			ai.POST("/smart-tips", middleware.AuthMiddleware(), handlers.AIGetSmartTips)
+			ai.POST("/predict-hotspots", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIPredictHotspots)
+			ai.GET("/status", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.AIStatus)
+		}
+
+		bank := api.Group("/bank")
+		{
+			bank.POST("/accounts", middleware.AuthMiddleware(), handlers.AddBankAccount)
+			bank.GET("/:id/accounts", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetBankAccounts)
+			bank.PUT("/accounts/:id", middleware.AuthMiddleware(), handlers.UpdateBankAccount)
+			bank.DELETE("/accounts/:id", middleware.AuthMiddleware(), handlers.DeleteBankAccount)
+			bank.PATCH("/accounts/:id/public", middleware.AuthMiddleware(), handlers.ToggleBankAccountPublic)
+			bank.GET("/units/:id/ledger", middleware.AuthMiddleware(), handlers.GetUnitLedger)
+			bank.POST("/donations", middleware.AuthMiddleware(), handlers.RecordDonation)
+			bank.POST("/donations/:id/confirm", middleware.AuthMiddleware(), handlers.ConfirmDonation)
+			bank.GET("/:id/donations", middleware.AuthMiddleware(), handlers.GetDonations)
+		}
+
+		finance := api.Group("/finance")
+		{
+			finance.POST("/transactions", middleware.AuthMiddleware(), handlers.CreateTransaction)
+			finance.POST("/transactions/:id/approve", middleware.AuthMiddleware(), handlers.ApproveTransaction)
+			finance.POST("/transactions/:id/reject", middleware.AuthMiddleware(), handlers.RejectTransaction)
+			finance.GET("/units/:id/transactions", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTransactions)
+			finance.GET("/transactions/:id", middleware.AuthMiddleware(), handlers.GetTransactionByID)
+			finance.GET("/units/:id/summary", middleware.AuthMiddleware(), handlers.GetTransactionSummary)
+			finance.POST("/budgets", middleware.AuthMiddleware(), handlers.CreateBudget)
+			finance.GET("/units/:id/budgets", middleware.AuthMiddleware(), handlers.GetBudgets)
+			finance.POST("/reports", middleware.AuthMiddleware(), handlers.GenerateFinancialReport)
+			finance.GET("/units/:id/reports", middleware.AuthMiddleware(), handlers.GetFinancialReports)
+		}
+
+		community := api.Group("/community")
+		{
+			community.POST("/posts", middleware.AuthMiddleware(), handlers.CreateForumPost)
+			community.GET("/posts", middleware.AuthMiddleware(), handlers.GetForumPosts)
+			community.GET("/posts/:id", middleware.AuthMiddleware(), handlers.GetForumPostByID)
+			community.POST("/replies", middleware.AuthMiddleware(), handlers.CreateForumReply)
+			community.POST("/announcements", middleware.AuthMiddleware(), handlers.CreateCommunityAnnouncement)
+			community.GET("/announcements", middleware.AuthMiddleware(), handlers.GetCommunityAnnouncements)
+			community.POST("/events", middleware.AuthMiddleware(), handlers.CreateCommunityEvent)
+			community.GET("/events", middleware.AuthMiddleware(), handlers.GetCommunityEvents)
+			community.POST("/events/:id/rsvp", middleware.AuthMiddleware(), handlers.RSVPToEvent)
+		}
+
+		audit := api.Group("/audit")
+		{
+			audit.POST("/activity", middleware.AuthMiddleware(), handlers.LogActivity)
+			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
+			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
+			audit.POST("/logs", middleware.AuthMiddleware(), handlers.CreateAuditLog)
+			audit.GET("/health", middleware.AuthMiddleware(), handlers.GetSystemHealth)
+			audit.POST("/health", middleware.AuthMiddleware(), handlers.UpdateSystemHealth)
+			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
+		}
+
+		alerts := api.Group("/alerts")
+		{
+			alerts.GET("/news", middleware.AuthMiddleware(), handlers.GetNewsAlerts)
+			alerts.POST("", middleware.AuthMiddleware(), handlers.CreateCommunityAlert)
+			alerts.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCommunityAlerts)
+
+			alerts.POST("/subscribe", middleware.AuthMiddleware(), handlers.UpsertAlertSubscription)
+			alerts.GET("/subscriptions", middleware.AuthMiddleware(), handlers.GetMyAlertSubscription)
+			alerts.DELETE("/subscriptions/:id", middleware.AuthMiddleware(), handlers.DeleteAlertSubscription)
+
+			alerts.GET("/:id", middleware.AuthMiddleware(), handlers.GetAlertByID)
+			alerts.POST("/:id/confirm", middleware.AuthMiddleware(), handlers.ConfirmAlert)
+		}
+
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/units/:id", middleware.AuthMiddleware(), handlers.GetUnitAnalytics)
+			analytics.GET("/user-activity", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetUserActivity)
+		}
+
+		settings := api.Group("/settings")
+		{
+			settings.GET("/public", handlers.GetPublicSettings)
+			settings.GET("/preferences", middleware.AuthMiddleware(), handlers.GetMyPreferences)
+			settings.PUT("/preferences", middleware.AuthMiddleware(), handlers.UpdateMyPreferences)
+			settings.GET("/templates/:name", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.GetEmailTemplate)
+			settings.PUT("/templates/:name", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.UpdateEmailTemplate)
+			settings.POST("/exports", middleware.AuthMiddleware(), handlers.CreateDataExport)
+			settings.GET("/exports", middleware.AuthMiddleware(), handlers.GetDataExports)
+			settings.GET("/onboarding", middleware.AuthMiddleware(), handlers.GetUserOnboarding)
+			settings.PUT("/onboarding", middleware.AuthMiddleware(), handlers.UpdateUserOnboarding)
+			settings.GET("/:key", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.GetSystemSetting)
+			settings.PUT("/:key", middleware.AuthMiddleware(), middleware.RoleMiddleware("super_admin"), handlers.UpdateSystemSetting)
+		}
+
+		mobile := api.Group("/mobile")
+		{
+			mobile.GET("/config", middleware.AuthMiddleware(), handlers.MobileAppConfig)
+			mobile.GET("/dashboard", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.MobileDashboard)
+			mobile.GET("/notifications", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.MobileNotifications)
+			mobile.PUT("/notifications/:id/read", middleware.AuthMiddleware(), handlers.MobileMarkNotificationRead)
+			mobile.PUT("/notifications/read-all", middleware.AuthMiddleware(), handlers.MobileMarkAllRead)
+			mobile.GET("/sync", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.MobileSync)
+			mobile.POST("/crash-report", middleware.AuthMiddleware(), handlers.MobileCrashReport)
+		}
+
+		video := api.Group("/video")
+		{
+			video.POST("/cameras", middleware.AuthMiddleware(), handlers.AddCamera)
+			video.GET("/units/:id/cameras", middleware.AuthMiddleware(), handlers.GetCameras)
+			video.POST("/alerts", middleware.AuthMiddleware(), handlers.GenerateVideoAlert)
+			video.GET("/alerts", middleware.AuthMiddleware(), handlers.GetVideoAlerts)
+			video.PUT("/alerts/:id/review", middleware.AuthMiddleware(), handlers.ReviewVideoAlert)
+			video.POST("/social/monitor", middleware.AuthMiddleware(), handlers.MonitorSocialMedia)
+			video.GET("/social/posts", middleware.AuthMiddleware(), handlers.GetSocialMediaPosts)
+		}
+
+		commGroup := api.Group("/communication")
+		{
+			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
+			commGroup.GET("/units/:id/rooms", middleware.AuthMiddleware(), handlers.GetRooms)
+			commGroup.POST("/messages", middleware.AuthMiddleware(), handlers.SendMessage)
+			commGroup.GET("/rooms/:roomId/messages", middleware.AuthMiddleware(), handlers.GetMessages)
+			commGroup.POST("/calls", middleware.AuthMiddleware(), handlers.InitiateCall)
+			commGroup.PUT("/calls/:id/end", middleware.AuthMiddleware(), handlers.EndCall)
+			commGroup.POST("/sync", middleware.AuthMiddleware(), handlers.SyncMessages)
+			commGroup.GET("/rooms/:roomId/sync-status", middleware.AuthMiddleware(), handlers.GetSyncStatus)
+		}
+
+		sms := api.Group("/sms")
+		{
+			sms.POST("/incoming", middleware.SMSWebhookSignature(), handlers.HandleIncomingSMS)
+			sms.POST("/ussd", middleware.SMSWebhookSignature(), handlers.HandleUSSD)
+		}
+
+		peace := api.Group("/peacebuilding")
+		{
+			peace.POST("/committees", middleware.AuthMiddleware(), handlers.CreatePeaceCommittee)
+			peace.GET("/units/:id/committees", middleware.AuthMiddleware(), handlers.GetPeaceCommittees)
+			peace.POST("/committees/:id/members", middleware.AuthMiddleware(), handlers.AddCommitteeMember)
+			peace.POST("/conflicts", middleware.AuthMiddleware(), handlers.CreateConflictResolution)
+			peace.GET("/units/:id/conflicts", middleware.AuthMiddleware(), handlers.GetConflictResolutions)
+			peace.PUT("/conflicts/:id", middleware.AuthMiddleware(), handlers.UpdateConflictResolution)
+			peace.GET("/units/:id/peace-metrics", middleware.AuthMiddleware(), handlers.GetPeaceMetrics)
+			peace.GET("/units/:id/trust-scores", middleware.AuthMiddleware(), handlers.GetTrustScores)
+			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
+		}
+
+		superAdmin := api.Group("/admin")
+		superAdmin.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
+		{
+			superAdmin.GET("/users", handlers.GetAllUsers)
+			superAdmin.GET("/users/:id", handlers.GetUserByID)
+			superAdmin.PUT("/users/:id/role", handlers.UpdateUserRole)
+			superAdmin.POST("/users/:id/suspend", handlers.SuspendUser)
+			superAdmin.POST("/users/:id/activate", handlers.ActivateUser)
+			superAdmin.POST("/users/:id/impersonate", handlers.ImpersonateUser)
+			superAdmin.PUT("/users/:id/age-override", handlers.AgeOverride)
+			superAdmin.POST("/stop-impersonate", handlers.StopImpersonation)
+			superAdmin.GET("/stats", handlers.GetSystemStats)
+			superAdmin.GET("/platform-donations", handlers.ListPlatformDonations)
+			superAdmin.POST("/platform-donations/:id/confirm", handlers.ConfirmPlatformDonation)
+
+			superAdmin.GET("/identity", handlers.ListIdentityVerifications)
+			superAdmin.POST("/identity/:id/approve", handlers.ApproveIdentityVerification)
+			superAdmin.POST("/identity/:id/reject", handlers.RejectIdentityVerification)
+
+			superAdmin.GET("/units/verifications", handlers.ListUnitVerifications)
+			superAdmin.POST("/units/:id/verify", handlers.ApproveUnit)
+			superAdmin.POST("/units/:id/reject", handlers.RejectUnit)
+			superAdmin.POST("/units/:id/under-review", handlers.MarkUnitUnderReview)
+			superAdmin.GET("/units/:id/record", handlers.GetSuperAdminUnitRecord)
+
+			superAdmin.GET("/feedback", handlers.ListAllFeedback)
+			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
+			superAdmin.POST("/feedback/:id/close", handlers.CloseFeedback)
+		}
+	}
+
+	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
+	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
+}
+
+--- FILE: backend\handlers\auth_link_handler.go ---
+
+package handlers
+
+import (
+	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"security-solution/services"
+)
+
+const signInLinkMessage = "If an account with that email exists, a sign-in link will be sent."
+
+// RequestSignInLink emails a short-lived, single-use sign-in link.
+// The response does not reveal whether the email belongs to an account.
+func (h *AuthHandler) RequestSignInLink(c *gin.Context) {
+	var input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid email address is required"})
+		return
+	}
+
+	frontendURL := strings.TrimRight(strings.TrimSpace(os.Getenv("FRONTEND_URL")), "/")
+	if frontendURL == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sign-in email is not configured"})
+		return
+	}
+
+	rawToken, err := services.NewAuthLinkService().CreateSignInLink(input.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process sign-in request"})
+		return
+	}
+
+	// An empty token means no matching account was found. Return the same
+	// generic response without disclosing whether the account exists.
+	if rawToken != "" {
+		signInURL := frontendURL + "/auth/sign-in-link?token=" + url.QueryEscape(rawToken)
+		body := fmt.Sprintf(
+			"Use this link to sign in to Nativity Guard:\n\n%s\n\n"+
+				"This link can be used once and expires in 15 minutes. "+
+				"If you did not request it, you can ignore this email.",
+			signInURL,
+		)
+
+		if err := SendEmail(
+			input.Email,
+			"Your Nativity Guard sign-in link",
+			body,
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send sign-in email"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": signInLinkMessage})
+}
+
+// RedeemSignInLink consumes a valid sign-in link and creates a normal
+// authenticated session, including access and refresh tokens.
+func (h *AuthHandler) RedeemSignInLink(c *gin.Context) {
+	var input struct {
+		Token string `json:"token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A sign-in token is required"})
+		return
+	}
+
+	user, err := services.NewAuthLinkService().RedeemSignInLink(input.Token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired sign-in link"})
+		return
+	}
+
+	accessToken, jti, err := h.authService.GenerateJWTWithJTI(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	now := time.Now().UTC()
+	sessionExpiry := now.Add(24 * time.Hour)
+
+	session, err := services.NewSessionService().Create(
+		user.ID,
+		jti,
+		"email-link",
+		c.Request.UserAgent(),
+		c.ClientIP(),
+		sessionExpiry,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	refreshToken, _, err := services.NewRefreshTokenService().Issue(user.ID, &session.ID)
+	if err != nil {
+		_ = services.NewSessionService().RevokeAll(user.ID, "sign_in_link_error")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":        accessToken,
+		"refreshToken": [REDACTED],
+		"user": gin.H{
+			"id":        user.ID,
+			"email":     user.Email,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"role":      user.Role,
+		},
+	})
+}
+
+--- FILE: backend\handlers\email_handler.go ---
+
+package handlers
+
+import (
+	"crypto/tls"
+	"fmt"
+	"net/smtp"
+	"os"
+
+	"security-solution/services"
+)
+
+type EmailConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	From     string
+}
+
+func getEmailConfig() EmailConfig {
+	pass := os.Getenv("SMTP_PASS")
+	if pass == "" {
+		pass = os.Getenv("SMTP_PASSWORD")
+	}
+	return EmailConfig{
+		Host:     os.Getenv("SMTP_HOST"),
+		Port:     os.Getenv("SMTP_PORT"),
+		User:     os.Getenv("SMTP_USER"),
+		Password: [REDACTED],
+		From:     os.Getenv("SMTP_FROM"),
+	}
+}
+
+func SendEmail(to, subject, body string) error {
+	config := getEmailConfig()
+	if config.Host =[REDACTED] "" || config.User =[REDACTED] "" || config.Password =[REDACTED] "" {
+		return fmt.Errorf("SMTP configuration missing")
+	}
+
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+		config.From, to, subject, body)
+
+	conn, err := tls.Dial("tcp", config.Host+":"+config.Port, &tls.Config{
+		ServerName: config.Host,
+	})
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, config.Host)
+	if err != nil {
+		return err
+	}
+	defer client.Quit()
+
+	auth := smtp.PlainAuth("", config.User, config.Password, config.Host)
+	if err = client.Auth(auth); err != nil {
+		return err
+	}
+
+	if err = client.Mail(config.From); err != nil {
+		return err
+	}
+	if err = client.Rcpt(to); err != nil {
+		return err
+	}
+
+	writer, err := client.Data()
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SendPasswordResetEmail(to, resetLink string) error {
+	subject := "?? Reset Your Nativity Guard Password"
+	body := fmt.Sprintf(`
+		<h1>Password Reset</h1>
+		<p>You requested a password reset for your Nativity Guard account.</p>
+		<p>Click the link below to reset your password:[REDACTED]
+		<p><a href="%s">%s</a></p>
+		<p>This link expires in 1 hour.</p>
+		<br>
+		<p>If you didn't request this, please ignore this email.</p>
+		<p>Stay safe,</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, resetLink, resetLink)
+	return SendEmail(to, subject, body)
+}
+
+func SendCaseStatusEmail(to, caseTitle, status, caseURL string) error {
+	subject := fmt.Sprintf("?? Case Update: %s", caseTitle)
+	body := fmt.Sprintf(`
+		<h1>Case Status Updated</h1>
+		<p>Your case "<strong>%s</strong>" has been updated.</p>
+		<p><strong>New Status:</strong> %s</p>
+		<p>View your case: <a href="%s">%s</a></p>
+		<br>
+		<p>Thank you for using Nativity Guard.</p>
+		<p>Stay safe,</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, caseTitle, status, caseURL, caseURL)
+	return SendEmail(to, subject, body)
+}
+
+func SendSOSConfirmationEmail(to, unitName, message string) error {
+	subject := "?? SOS Alert Confirmation"
+	body := fmt.Sprintf(`
+		<h1>?? SOS Alert Sent</h1>
+		<p>Your SOS alert has been sent successfully.</p>
+		<p><strong>Unit notified:</strong> %s</p>
+		<p><strong>Message:</strong> %s</p>
+		<p>A security unit has been dispatched to your location.</p>
+		<br>
+		<p>Stay safe,</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, unitName, message)
+	return SendEmail(to, subject, body)
+}
+
+func SendAnnouncementEmail(to, title, content string) error {
+	subject := fmt.Sprintf("?? New Alert: %s", title)
+	body := fmt.Sprintf(`
+		<h1>?? New Announcement</h1>
+		<p><strong>%s</strong></p>
+		<p>%s</p>
+		<br>
+		<p>Stay informed, stay safe.</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, title, content)
+	return SendEmail(to, subject, body)
+}
+
+// SendOTPEmail sends an OTP code via email
+func SendOTPEmail(to, code string) error {
+	subject := "?? Nativity Guard - OTP Verification"
+	body := fmt.Sprintf(`
+		<h1>OTP Verification</h1>
+		<p>Your OTP code for Nativity Guard is:</p>
+		<h2 style="font-size: 32px; letter-spacing: 4px; background: #f0f0f0; padding: 12px; text-align: center;">%s</h2>
+		<p>This code expires in 10 minutes.</p>
+		<br>
+		<p>If you didn't request this, please ignore this email.</p>
+		<p>Stay safe,</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, code)
+	return SendEmail(to, subject, body)
+}
+
+// emailNotifier implements services.ResetNotifier using the SMTP-backed
+// SendEmail helper above. Registered once at startup from main.go.
+type emailNotifier struct{}
+
+// NotifyEmail delivers the reset code via SMTP. If toEmail is empty, this
+// is a no-op � we never send to "".
+func (n *emailNotifier) NotifyEmail(toEmail, toName, code string) {
+	if toEmail == "" {
+		return
+	}
+	_ = SendPasswordResetTokenEmail(toEmail, code)
+}
+
+// NotifySMS delivers the reset code via the existing SMS service. If
+// toPhone is empty, this is a no-op.
+func (n *emailNotifier) NotifySMS(toPhone, code string) {
+	if toPhone == "" {
+		return
+	}
+	_ = services.SendSMS(toPhone, "Your Nativity Guard reset code: "+code+" (valid 1 hour)")
+}
+
+// NewEmailNotifier returns a services.ResetNotifier backed by SMTP/SMS.
+func NewEmailNotifier() *emailNotifier {
+	return &emailNotifier{}
+}
+
+// SendPasswordResetTokenEmail delivers the raw reset token via email.
+// The token is shown inline (not a clickable link) so the flow works
+// even before a BASE_URL is configured. TODO: once BASE_URL is set,
+// build a clickable reset link and reuse SendPasswordResetEmail.
+func SendPasswordResetTokenEmail(to, token string) error {
+	subject := "?? Reset Your Nativity Guard Password"
+	body := fmt.Sprintf(`
+		<h1>Password Reset</h1>
+		<p>You requested a password reset for your Nativity Guard account.</p>
+		<p>Your reset token is:</p>
+		<h2 style="font-size: 28px; letter-spacing: 2px; background: #f0f0f0; padding: 12px; text-align: center; font-family: monospace;">%s</h2>
+		<p>This token expires in 1 hour.</p>
+		<br>
+		<p>If you didn't request this, please ignore this email.</p>
+		<p>Stay safe,</p>
+		<p><strong>Nativity Guard Team</strong></p>
+	`, token)
+	return SendEmail(to, subject, body)
+}
+
+--- FILE: backend\services\auth_link_service.go ---
+
+package services
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"strings"
+	"time"
+
+	"security-solution/config"
+	"security-solution/models"
+
+	"gorm.io/gorm"
+)
+
+const (
+	authLinkPurposeSignIn = "sign_in"
+	authLinkLifetime      = 15 * time.Minute
+)
+
+type AuthLinkService struct{}
+
+func NewAuthLinkService() *AuthLinkService {
+	return &AuthLinkService{}
+}
+
+func hashAuthLinkToken(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+// CreateSignInLink creates a short-lived, single-use sign-in token.
+// An empty token with no error means the account was not found.
+func (s *AuthLinkService) CreateSignInLink(email string) (string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", errors.New("email is required")
+	}
+
+	var user models.User
+	if err := config.DB.Where("LOWER(email) = ?", email).
+		First(&user).Error; err != nil {
+		if err.Error() == "record not found" {
+			return "", nil
+		}
+
+		// GORM normally returns gorm.ErrRecordNotFound.
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	randomBytes := make([]byte, 32)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
+	}
+
+	rawToken := hex.EncodeToString(randomBytes)
+
+	record := models.AuthLinkToken{
+		UserID:    user.ID,
+		TokenHash: hashAuthLinkToken(rawToken),
+		Purpose:   authLinkPurposeSignIn,
+		ExpiresAt: time.Now().UTC().Add(authLinkLifetime),
+	}
+
+	if err := config.DB.Create(&record).Error; err != nil {
+		return "", err
+	}
+
+	return rawToken, nil
+}
+
+// RedeemSignInLink validates and consumes a sign-in token.
+// A token can be redeemed only once and expires after 15 minutes.
+func (s *AuthLinkService) RedeemSignInLink(rawToken string) (*models.User, error) {
+	rawToken = strings.TrimSpace(rawToken)
+	if rawToken == "" {
+		return nil, errors.New("invalid or expired sign-in link")
+	}
+
+	tokenHash := hashAuthLinkToken(rawToken)
+	now := time.Now().UTC()
+
+	var user models.User
+
+	err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var record models.AuthLinkToken
+
+		if err := tx.
+			Where(
+				"token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?",
+				tokenHash,
+				authLinkPurposeSignIn,
+				now,
+			).
+			First(&record).Error; err != nil {
+			return errors.New("invalid or expired sign-in link")
+		}
+
+		// Conditional update prevents two simultaneous requests from
+		// successfully redeeming the same link.
+		result := tx.Model(&models.AuthLinkToken{}).
+			Where(
+				"id = ? AND used_at IS NULL AND expires_at > ?",
+				record.ID,
+				now,
+			).
+			Update("used_at", now)
+
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("invalid or expired sign-in link")
+		}
+
+		// GORM's normal query scope excludes soft-deleted users.
+		if err := tx.First(&user, "id = ?", record.UserID).Error; err != nil {
+			return errors.New("account not found")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+--- FILE: backend\services\email_service.go ---
+
+package services
+
+import (
+	"errors"
+	"fmt"
+	"net/smtp"
+	"os"
+	"strings"
+)
+
+type EmailService struct{}
+
+func NewEmailService() *EmailService {
+	return &EmailService{}
+}
+
+// Send delivers an HTML email via SMTP. All config comes from env:
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+// If any required var is missing, returns an error (does not crash).
+// Fail-closed: an unconfigured server never silently "succeeds".
+func (s *EmailService) Send(to, subject, htmlBody string) error {
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	user := strings.TrimSpace(os.Getenv("SMTP_USER"))
+	pass := os.Getenv("SMTP_PASS")
+	from := strings.TrimSpace(os.Getenv("SMTP_FROM"))
+
+	if host == "" || port == "" || from == "" {
+		return errors.New("email service is not configured (SMTP_HOST/PORT/FROM missing)")
+	}
+	if strings.TrimSpace(to) == "" {
+		return errors.New("recipient email is required")
+	}
+
+	headers := map[string]string{
+		"From":         from,
+		"To":           to,
+		"Subject":      subject,
+		"MIME-Version": "1.0",
+		"Content-Type": "text/html; charset=\"UTF-8\"",
+	}
+
+	var msg strings.Builder
+	for k, v := range headers {
+		msg.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	msg.WriteString("\r\n")
+	msg.WriteString(htmlBody)
+
+	addr := host + ":" + port
+	var auth smtp.Auth
+	if user != "" && pass != "" {
+		auth = smtp.PlainAuth("", user, pass, host)
+	}
+	return smtp.SendMail(addr, auth, extractEmail(from), []string{to}, []byte(msg.String()))
+}
+
+// extractEmail pulls the raw address out of a "Name <addr@host>" form.
+func extractEmail(from string) string {
+	if i := strings.Index(from, "<"); i >= 0 {
+		if j := strings.Index(from[i:], ">"); j > 0 {
+			return from[i+1 : i+j]
+		}
+	}
+	return from
+}
+
+--- FILE: backend\services\password_reset_service.go ---
+
+package services
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"strings"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+
+	"security-solution/config"
+	"security-solution/models"
+)
+
+type PasswordResetService struct{}
+
+func NewPasswordResetService() *PasswordResetService {
+	return &PasswordResetService{}
+}
+
+// ResetNotifier abstracts out-of-band delivery so the service does not
+// depend on any specific transport. The handlers package assigns a
+// concrete implementation at startup; if nil, delivery is skipped.
+type ResetNotifier interface {
+	NotifyEmail(toEmail, toName, code string)
+	NotifySMS(toPhone, code string)
+}
+
+var resetNotifier ResetNotifier
+
+// SetResetNotifier installs the out-of-band delivery implementation.
+// Call once at startup (e.g. from main or an init in the handlers pkg).
+func SetResetNotifier(n ResetNotifier) {
+	resetNotifier = n
+}
+
+const defaultResetTokenTTL = 1 * time.Hour
+
+// sha256Hex returns the SHA-256 hex digest of raw. Only the hash is stored
+// in the database; the raw token is transmitted to the user once and never
+// persisted.
+func sha256Hex(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+// generateResetCode generates a cryptographically secure six-digit code
+// in the range 100000–999999.
+func generateResetCode() (string, error) {
+	const minCode = 100000
+	const codeRange = 900000
+
+	n, err := rand.Int(rand.Reader, big.NewInt(codeRange))
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%06d", minCode+int(n.Int64())), nil
+}
+
+// RequestReset initiates a password reset for the account identified by
+// email or phone. Unknown identifiers are handled silently to prevent
+// account enumeration.
+//
+// The raw six-digit code is returned to the caller for compatibility.
+// Only its SHA-256 hash is persisted. Notifications are dispatched
+// asynchronously through the configured notifier.
+func (s *PasswordResetService) RequestReset(identifier string) (*models.PasswordReset, string, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return nil, "", nil
+	}
+
+	var user models.User
+	query := config.DB
+
+	if strings.Contains(identifier, "@") {
+		query = query.Where("LOWER(email) = ?", strings.ToLower(identifier))
+	} else {
+		digits := removeNonDigits(identifier)
+		if digits == "" {
+			return nil, "", nil
+		}
+		query = query.Where("phone = ?", digits)
+	}
+
+	if err := query.First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", nil
+		}
+		return nil, "", err
+	}
+
+	// Do not issue reset codes for deactivated accounts.
+	if user.DeletedAt.Valid {
+		return nil, "", nil
+	}
+
+	rawCode, err := generateResetCode()
+	if err != nil {
+		return nil, "", err
+	}
+
+	record := models.PasswordReset{
+		UserID:    user.ID,
+		Token:     sha256Hex(rawCode),
+		ExpiresAt: time.Now().UTC().Add(defaultResetTokenTTL),
+		Used:      false,
+	}
+
+	if err := config.DB.Create(&record).Error; err != nil {
+		return nil, "", err
+	}
+
+	// Keep the existing SMS and email notification behavior.
+	// Missing contact details are skipped.
+	go func() {
+		if resetNotifier == nil {
+			return
+		}
+
+		if user.Phone != "" {
+			resetNotifier.NotifySMS(user.Phone, rawCode)
+		}
+		if user.Email != "" {
+			resetNotifier.NotifyEmail(user.Email, user.FirstName, rawCode)
+		}
+	}()
+
+	return &record, rawCode, nil
+}
+
+// ResetWithToken validates a raw reset code, hashes the new password,
+// consumes the reset record once, and revokes existing sessions and
+// refresh tokens.
+func (s *PasswordResetService) ResetWithToken(rawToken, newPassword string) error {
+	if len(newPassword) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	if strings.TrimSpace(rawToken) == "" {
+		return errors.New("invalid or expired reset token")
+	}
+
+	now := time.Now().UTC()
+	hash := sha256Hex(rawToken)
+
+	var record models.PasswordReset
+	if err := config.DB.
+		Where("token = ? AND used = ? AND expires_at > ?", hash, false, now).
+		First(&record).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("invalid or expired reset token")
+		}
+		return err
+	}
+
+	var user models.User
+	if err := config.DB.First(&user, "id = ?", record.UserID).Error; err != nil {
+		return errors.New("invalid or expired reset token")
+	}
+
+	if user.DeletedAt.Valid {
+		return errors.New("account is deactivated")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword(
+		[]byte(newPassword),
+		bcrypt.DefaultCost,
+	)
+	if err != nil {
+		return err
+	}
+
+	tx := config.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Consume the token conditionally. If another request already used it,
+	// or it expired while this request was running, the transaction fails.
+	result := tx.Model(&models.PasswordReset{}).
+		Where(
+			"id = ? AND used = ? AND expires_at > ?",
+			record.ID,
+			false,
+			time.Now().UTC(),
+		).
+		Update("used", true)
+
+	if result.Error != nil {
+		tx.Rollback()
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		tx.Rollback()
+		return errors.New("invalid or expired reset token")
+	}
+
+	if err := tx.Model(&models.User{}).
+		Where("id = ?", user.ID).
+		Update("password", string(hashedPassword)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Revoke existing sessions and refresh tokens so the user must
+	// authenticate again on all devices after resetting the password.
+	tokenSvc := NewTokenService()
+	if err := tokenSvc.RevokeAllForUser(user.ID, "password_reset"); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	refreshSvc := NewRefreshTokenService()
+	if err := refreshSvc.RevokeAllForUser(user.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// removeNonDigits strips every non-digit character from a phone string.
+func removeNonDigits(s string) string {
+	b := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= '0' && c <= '9' {
+			b = append(b, c)
+		}
+	}
+	return string(b)
+}
+
+--- FILE: backend\services\auth_service_jti.go ---
+
+package services
+
+import "security-solution/models"
+
+// GenerateJWTWithJTI exposes the existing JWT generator for trusted
+// authentication flows, including one-time sign-in links.
+func (s *AuthService) GenerateJWTWithJTI(user *models.User) (string, string, error) {
+	return s.generateJWTWithJTI(user)
+}
+
+--- FILE: backend\config\database.go ---
+
+package config
+
+import (
+	"log"
+	"os"
+	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var DB *gorm.DB
+
+func ConnectDatabase() {
+	dsn := os.Getenv("DATABASE_URL")
+
+	if dsn == "" {
+		log.Fatal("DATABASE_URL is not set")
+	}
+
+	var err error
+
+	DB, err = gorm.Open(
+		postgres.Open(dsn),
+		&gorm.Config{
+			Logger: logger.Default.LogMode(logger.Warn),
+		},
+	)
+	if err != nil {
+		log.Fatal("Error connecting to database:", err)
+	}
+
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Fatal("Error getting database instance:", err)
+	}
+
+        sqlDB.SetMaxIdleConns(5)
+        sqlDB.SetMaxOpenConns(20)
+        sqlDB.SetConnMaxLifetime(30 * time.Minute)
+        sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatal("Error pinging database:", err)
+	}
+
+	log.Println("Database connected successfully")
+}
+
+func CloseDatabase() {
+	if DB == nil {
+		return
+	}
+
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Println("Error getting database instance:", err)
+		return
+	}
+
+	if err := sqlDB.Close(); err != nil {
+		log.Println("Error closing database:", err)
+	}
+}
+
+--- FILE: backend\config\env_check.go ---
+
+package config
+
+import (
+	"log"
+	"os"
+	"strings"
+)
+
+// requiredEnvVars lists env vars the backend cannot safely run without.
+// If any is missing, startup halts — fail-closed, never fail-open.
+var requiredEnvVars = []string{
+	"DATABASE_URL",
+	"JWT_SECRET",
+	"ENCRYPTION_KEY",
+}
+
+// forbiddenDefaults are values that must never appear in production.
+var forbiddenDefaults = map[string]string{
+	"JWT_SECRET": [REDACTED]",
+}
+
+// EnforceRequiredEnv exits the process if any required env var is missing
+// or set to a known-insecure default. Call at the very start of main().
+func EnforceRequiredEnv() {
+	var missing []string
+	for _, key := range requiredEnvVars {
+		val := strings.TrimSpace(os.Getenv(key))
+		if val == "" {
+			missing = append(missing, key)
+			continue
+		}
+		if bad, ok := forbiddenDefaults[key]; ok && val == bad {
+			log.Fatalf("FATAL: %s is set to a known-insecure default. Generate a real value.", key)
+		}
+	}
+
+	if len(missing) > 0 {
+		log.Fatalf("FATAL: missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+
+	// ENCRYPTION_KEY must be 64 hex chars (32 bytes).
+	enc := strings.TrimSpace(os.Getenv("ENCRYPTION_KEY"))
+	if len(enc) != 64 {
+		log.Fatalf("FATAL: ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes), got %d", len(enc))
+	}
+
+	// JWT_SECRET must be reasonably strong.
+	jwt := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if len(jwt) < 32 {
+		log.Fatalf("FATAL: JWT_SECRET must be at least 32 characters, got %d", len(jwt))
+	}
+}
+
+--- FILE: backend\config\migrate.go ---
+
+package config
+
+import (
+	"log"
+
+	"security-solution/models"
+)
+
+func AutoMigrateAll() error {
+	log.Println("running auto-migration...")
+
+	err := DB.AutoMigrate(
+		&models.User{},
+		&models.UserPreferences{},
+		&models.SecurityUnit{},
+		&models.Officer{},
+		&models.GovernmentIDVerification{},
+		&models.IdentityVerification{},
+
+		&models.Feedback{},
+		&models.LGAMessage{},
+
+		&models.Case{},
+		&models.CaseAccountabilityEvent{},
+		&models.Evidence{},
+		&models.Progress{},
+		&models.CaseFeedback{},
+		&models.CaseOfficer{},
+		&models.CaseProgress{},
+		&models.CaseTemplate{},
+		&models.CaseTimeline{},
+		&models.CaseTransfer{},
+		&models.TransferRequest{},
+		&models.TransferApproval{},
+
+		&models.Rating{},
+		&models.Notification{},
+		&models.OTP{},
+		&models.PasswordReset{},
+		&models.AuthLinkToken{},
+		&models.PushSubscription{},
+		&models.PushToken{},
+
+		&models.AIAnalysis{},
+		&models.Alert{},
+		&models.Announcement{},
+		&models.News{},
+		&models.NewsAlert{},
+
+		&models.SOSAlert{},
+		&models.SOSResponder{},
+		&models.BankAccount{},
+		&models.Donation{},
+		&models.Transaction{},
+		&models.TransactionApproval{},
+		&models.Budget{},
+		&models.FinancialReport{},
+
+		&models.ForumPost{},
+		&models.ForumReply{},
+		&models.CommunityAnnouncement{},
+		&models.CommunityEvent{},
+		&models.EventAttendee{},
+		&models.CommunityAlert{},
+		&models.AlertSubscription{},
+
+		&models.AuditLog{},
+		&models.SystemHealth{},
+		&models.ActivityLog{},
+		&models.NotificationLog{},
+
+		&models.DataExport{},
+		&models.EmailTemplate{},
+		&models.SystemSettings{},
+		&models.SystemBackup{},
+		&models.UserOnboarding{},
+
+		&models.PeaceCommittee{},
+		&models.CommitteeMember{},
+		&models.ConflictResolution{},
+		&models.CommunityTrustScore{},
+		&models.PeaceMetric{},
+
+		&models.Suspect{},
+		&models.SuspectAssociation{},
+		&models.SuspectSighting{},
+		&models.SuspectCase{},
+
+		&models.Camera{},
+		&models.VideoAlert{},
+		&models.SocialMediaPost{},
+
+		&models.CommunicationRoom{},
+		&models.CommunicationMessage{},
+		&models.VoiceCall{},
+		&models.CommunicationSync{},
+
+		&models.ChatMessage{},
+		&models.Report{},
+		&models.CaseReview{},
+		&models.CaseWeeklyUpdate{},
+		&models.UnitMembership{},
+		&models.UnitAuth{},
+		&models.UnitInvite{},
+		&models.UnitAdminSeat{},
+		&models.UnitAdminElection{},
+		&models.AdminVote{},
+		&models.HeadAdminVote{},
+		&models.CaseAdminAssignment{},
+		&models.RevocationCycle{},
+		&models.RevocationVote{},
+
+		&models.RevokedToken{},
+		&models.TermsDocument{},
+		&models.TermsAcceptance{},
+		&models.RefreshToken{},
+		&models.UserSession{},
+		&models.IdempotencyRecord{},
+
+		&models.FinancialLedger{},
+		&models.LedgerSequence{},
+		&models.UnitFinancialYear{},
+		&models.PlatformDonation{},
+
+		&models.OfficerScore{},
+		&models.UnitScore{},
+		&models.CounterStatement{},
+		&models.Appeal{},
+		&models.AgeAudit{},
+		&models.GeocodeCache{},
+	)
+
+	if err != nil {
+		log.Printf("auto-migration failed: %v", err)
+		return err
+	}
+
+	log.Println("auto-migration complete")
+	return nil
+}
+
+
+### DEPLOYMENT CONFIGURATION (NO ENV FILES) ###
+
+
+--- FILE: docker-compose.yml ---
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: nativityguard-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: [REDACTED] POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: security_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - nativityguard-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d security_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nativityguard-backend
+    environment:
+      DATABASE_URL: [REDACTED] POSTGRES_PASSWORD in .env}@postgres:[REDACTED]
+      PORT: "8080"
+      GIN_MODE: release
+      JWT_SECRET: [REDACTED] JWT_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: [REDACTED]}
+      SMTP_FROM: ${SMTP_FROM:-}
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_API_KEY: [REDACTED]}
+      AT_SHORTCODE: ${AT_SHORTCODE:-}
+      OPENROUTER_API_KEY: [REDACTED]}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: [REDACTED]}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:example@example.com}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nativityguard-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_MEDIA_BASE: ${VITE_MEDIA_BASE:-}
+    container_name: nativityguard-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - nativityguard-network
+
+volumes:
+  postgres_data:
+
+networks:
+  nativityguard-network:
+    driver: bridge
+
+--- FILE: backend\Dockerfile ---
+
+FROM golang:1.26.5-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main .
+
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+COPY --from=builder /app/main ./main
+
+EXPOSE 8080
+CMD ["./main"]
+
+--- FILE: frontend\Dockerfile ---
+
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+
+RUN npm run build
+
+FROM nginx:alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+--- FILE: frontend\nginx.conf ---
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://backend:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+--- FILE: frontend\.dockerignore ---
+
+node_modules
+dist
+.git
+.env
+.env.*
+npm-debug.log*
+coverage
+.vite
+
+--- FILE: frontend\package.json ---
+
+{
+  "name": "nativityguard-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.103.2",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.469.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/leaflet": "^1.9.15",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.14.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.9"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.21.5": true
+  }
+}
+
+--- FILE: backend\go.mod ---
+
+module security-solution
+
+go 1.26.5
+
+require (
+	github.com/aws/aws-sdk-go-v2 v1.47.1
+	github.com/aws/aws-sdk-go-v2/config v1.33.6
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
+	github.com/gin-contrib/cors v1.7.7
+	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
+	github.com/joho/godotenv v1.5.1
+	golang.org/x/crypto v0.55.0
+	gorm.io/driver/postgres v1.6.2
+	gorm.io/gorm v1.31.2
+)
+
+require (
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.10.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.38.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 // indirect
+	github.com/aws/smithy-go v1.28.1 // indirect
+	github.com/bytedance/gopkg v0.1.3 // indirect
+	github.com/bytedance/sonic v1.15.0 // indirect
+	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
+	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-playground/validator/v10 v10.30.1 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.10.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/ugorji/go/codec v1.3.1 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	golang.org/x/arch v0.23.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
+)
+
+--- FILE: render.yaml ---
+
+services:
+  # Backend Service
+  - type: web
+    name: nativityguard-backend
+    runtime: go
+    rootDir: backend
+    buildCommand: go build -o main .
+    startCommand: ./main
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: GIN_MODE
+        value: release
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nativityguard-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SMS_WEBHOOK_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://nativityguard-frontend.onrender.com
+      - key: MEDIA_ENDPOINT
+        sync: false
+      - key: MEDIA_REGION
+        value: eu-west-2
+      - key: MEDIA_ACCESS_KEY_ID
+        sync: false
+      - key: MEDIA_SECRET_ACCESS_KEY
+        sync: false
+      - key: MEDIA_BUCKET
+        value: nativityguard-media
+      - key: MEDIA_PUBLIC_BASE
+        sync: false
+    healthCheckPath: /health
+    numInstances: 1
+    plan: free
+
+  # Frontend Service
+  - type: web
+    name: nativityguard-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://nativityguard-backend.onrender.com
+      - key: VITE_USE_MOCKS
+        value: "false"
+      - key: VITE_MEDIA_BASE
+        sync: false
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: nativityguard-db
+    plan: free
+    databaseName: nativityguard
+    user: nativityguard
+
+
+### RELEVANT FILES IN THE PROJECT ###
+frontend\src\App.tsx
+frontend\src\main.tsx
+frontend\src\vite-env.d.ts
+frontend\src\auth\AuthContext.tsx
+frontend\src\auth\RequireRole.tsx
+frontend\src\auth\UnrecognisedRoleScreen.tsx
+frontend\src\components\ErrorBoundary.tsx
+frontend\src\components\admin\AssignOfficerDialog.tsx
+frontend\src\components\brand\AnimatedLogo.tsx
+frontend\src\components\brand\Logo.tsx
+frontend\src\components\case\activity.ts
+frontend\src\components\case\CaseFacts.tsx
+frontend\src\components\case\CaseHeader.tsx
+frontend\src\components\case\CaseLog.tsx
+frontend\src\components\case\CaseReviewTrail.tsx
+frontend\src\components\case\CaseStatusStepper.tsx
+frontend\src\components\case\CitizenFeedback.tsx
+frontend\src\components\case\EvidenceGallery.tsx
+frontend\src\components\case\EvidenceUpload.tsx
+frontend\src\components\case\ProgressTimeline.tsx
+frontend\src\components\case\WeeklyUpdates.tsx
+frontend\src\components\cases\CaseTracker.tsx
+frontend\src\components\layout\AppBackground.tsx
+frontend\src\components\layout\AppShell.tsx
+frontend\src\components\layout\LoadingBanner.tsx
+frontend\src\components\layout\NotificationBell.tsx
+frontend\src\components\layout\OfflineBanner.tsx
+frontend\src\components\map\IncidentMap.tsx
+frontend\src\components\map\MapView.tsx
+frontend\src\components\map\POIControlPanel.tsx
+frontend\src\components\map\POILayer.tsx
+frontend\src\components\map\RouteLayer.tsx
+frontend\src\components\news\LiveNewsFeed.tsx
+frontend\src\components\profile\LinkedCases.tsx
+frontend\src\components\sos\SosLiveTracking.tsx
+frontend\src\components\sos\SosTracker.tsx
+frontend\src\components\ui\AvatarUpload.tsx
+frontend\src\components\ui\BackLink.tsx
+frontend\src\components\ui\Button.tsx
+frontend\src\components\ui\Card.tsx
+frontend\src\components\ui\Chips.tsx
+frontend\src\components\ui\CoverEditorDialog.tsx
+frontend\src\components\ui\CoverUpload.tsx
+frontend\src\components\ui\Field.tsx
+frontend\src\components\ui\index.ts
+frontend\src\components\ui\Modal.tsx
+frontend\src\components\ui\States.tsx
+frontend\src\components\ui\Tabs.tsx
+frontend\src\components\ui\Toast.tsx
+frontend\src\components\ui\UnitMediaUploader.tsx
+frontend\src\components\unit\ComplianceMatrix.tsx
+frontend\src\components\unit\ElectionCard.tsx
+frontend\src\components\unit\GovernancePanel.tsx
+frontend\src\components\unit\InviteManager.tsx
+frontend\src\components\unit\LGAChannelPanel.tsx
+frontend\src\components\unit\MembershipActionMenu.tsx
+frontend\src\components\unit\OpenElectionDialog.tsx
+frontend\src\components\unit\SeatGrid.tsx
+frontend\src\components\unit\UnitHero.tsx
+frontend\src\components\unit\UnitInboxPanel.tsx
+frontend\src\components\unit\UnitMemberRoster.tsx
+frontend\src\components\unit\UnitStatsGrid.tsx
+frontend\src\components\unit\UnitTabs.tsx
+frontend\src\components\unit\VotePanel.tsx
+frontend\src\components\weather\WeatherChip.tsx
+frontend\src\components\weather\WeatherPanel.tsx
+frontend\src\hooks\useCaseReview.ts
+frontend\src\hooks\useCases.ts
+frontend\src\hooks\useDirections.ts
+frontend\src\hooks\useElectionActions.ts
+frontend\src\hooks\useEvidence.ts
+frontend\src\hooks\useGeo.test.ts
+frontend\src\hooks\useGeo.ts
+frontend\src\hooks\useLGAChannel.ts
+frontend\src\hooks\useLiveNews.ts
+frontend\src\hooks\useLocation.test.ts
+frontend\src\hooks\useLocation.ts
+frontend\src\hooks\useMapPOIs.ts
+frontend\src\hooks\useMembershipActions.ts
+frontend\src\hooks\useNotifications.ts
+frontend\src\hooks\useOfficers.ts
+frontend\src\hooks\useOfflineQueue.ts
+frontend\src\hooks\usePreferences.ts
+frontend\src\hooks\useProfile.ts
+frontend\src\hooks\useProgress.ts
+frontend\src\hooks\useReverseGeocode.test.tsx
+frontend\src\hooks\useReverseGeocode.ts
+frontend\src\hooks\useRouteLoading.ts
+frontend\src\hooks\useSos.ts
+frontend\src\hooks\useSuperAdmin.ts
+frontend\src\hooks\useUnitAccess.ts
+frontend\src\hooks\useUnitCompliance.ts
+frontend\src\hooks\useUnitGovernance.ts
+frontend\src\hooks\useUnitInbox.ts
+frontend\src\hooks\useUnitInvites.ts
+frontend\src\hooks\useUnitPublicSummary.ts
+frontend\src\hooks\useUnitRecord.ts
+frontend\src\hooks\useUnitRoster.ts
+frontend\src\hooks\useUnits.test.ts
+frontend\src\hooks\useUnits.ts
+frontend\src\hooks\useWeather.ts
+frontend\src\hooks\useWeeklyUpdates.ts
+frontend\src\lib\apiClient.test.ts
+frontend\src\lib\apiClient.ts
+frontend\src\lib\assignment.test.ts
+frontend\src\lib\assignment.ts
+frontend\src\lib\caseLog.test.ts
+frontend\src\lib\caseLog.ts
+frontend\src\lib\cn.ts
+frontend\src\lib\coverPosition.ts
+frontend\src\lib\format.ts
+frontend\src\lib\mapGroups.test.ts
+frontend\src\lib\mapGroups.ts
+frontend\src\lib\offlineQueue.ts
+frontend\src\lib\passwordReset.test.ts
+frontend\src\lib\passwordReset.ts
+frontend\src\lib\polyline.ts
+frontend\src\lib\preferences.ts
+frontend\src\lib\queryClient.ts
+frontend\src\lib\reportDraft.test.ts
+frontend\src\lib\reportDraft.ts
+frontend\src\lib\role.test.ts
+frontend\src\lib\role.ts
+frontend\src\lib\signup.test.ts
+frontend\src\lib\signup.ts
+frontend\src\lib\sosLocationSession.test.ts
+frontend\src\lib\sosLocationSession.ts
+frontend\src\lib\sosTracking.test.ts
+frontend\src\lib\sosTracking.ts
+frontend\src\lib\status.test.ts
+frontend\src\lib\status.ts
+frontend\src\lib\week.test.ts
+frontend\src\lib\week.ts
+frontend\src\mocks\adapter.ts
+frontend\src\mocks\admin.test.ts
+frontend\src\mocks\browser.ts
+frontend\src\mocks\community.test.ts
+frontend\src\mocks\community.ts
+frontend\src\mocks\config.ts
+frontend\src\mocks\handlers.ts
+frontend\src\mocks\install.ts
+frontend\src\mocks\seed.ts
+frontend\src\mocks\sos.test.ts
+frontend\src\pages\AboutPage.tsx
+frontend\src\pages\AiAssistantPage.tsx
+frontend\src\pages\AppealsPage.tsx
+frontend\src\pages\AwarenessPage.tsx
+frontend\src\pages\ComingSoonPage.tsx
+frontend\src\pages\CommunityPage.tsx
+frontend\src\pages\FeedbackPage.tsx
+frontend\src\pages\InvitationsPage.tsx
+frontend\src\pages\LandingPage.tsx
+frontend\src\pages\LGAChannelPage.tsx
+frontend\src\pages\LiveCommunityPage.tsx
+frontend\src\pages\MapPage.tsx
+frontend\src\pages\NewsPage.tsx
+frontend\src\pages\NotFoundPage.tsx
+frontend\src\pages\NotificationsPage.tsx
+frontend\src\pages\OnboardingPage.tsx
+frontend\src\pages\ProfilePage.tsx
+frontend\src\pages\SessionsPage.tsx
+frontend\src\pages\SettingsPage.tsx
+frontend\src\pages\SubscriptionsPage.tsx
+frontend\src\pages\TermsPage.tsx
+frontend\src\pages\UnitDetailPage.tsx
+frontend\src\pages\UnitsPage.tsx
+frontend\src\pages\VerifyIdentityPage.tsx
+frontend\src\pages\admin\AdminAnalyticsPage.tsx
+frontend\src\pages\admin\AdminCaseQueuePage.tsx
+frontend\src\pages\admin\AdminCaseReviewPage.tsx
+frontend\src\pages\admin\AdminFinancePage.tsx
+frontend\src\pages\admin\AdminOfficersPage.tsx
+frontend\src\pages\admin\AdminOverviewPage.tsx
+frontend\src\pages\admin\AdminSettingsPage.tsx
+frontend\src\pages\admin\FeedbackQueuePage.tsx
+frontend\src\pages\admin\GovernanceAuditPage.tsx
+frontend\src\pages\admin\IdentityVerificationQueuePage.tsx
+frontend\src\pages\admin\TransfersPage.tsx
+frontend\src\pages\admin\UnitDashboardPage.tsx
+frontend\src\pages\admin\UnitPolicyPage.tsx
+frontend\src\pages\admin\UnitVerificationQueuePage.tsx
+frontend\src\pages\auth\ForgotPasswordPage.tsx
+frontend\src\pages\auth\LoginPage.tsx
+frontend\src\pages\auth\ResetPasswordPage.tsx
+frontend\src\pages\auth\SignInLinkPage.tsx
+frontend\src\pages\auth\SignupPage.tsx
+frontend\src\pages\citizen\CitizenCasePage.tsx
+frontend\src\pages\citizen\CitizenHomePage.tsx
+frontend\src\pages\citizen\ReportIncidentPage.tsx
+frontend\src\pages\citizen\SosDetailPage.tsx
+frontend\src\pages\citizen\SosPage.tsx
+frontend\src\pages\officer\OfficerCasePage.tsx
+frontend\src\pages\officer\OfficerQueuePage.tsx
+frontend\src\pages\super\SuperAnalyticsPage.tsx
+frontend\src\pages\super\SuperAuditPage.tsx
+frontend\src\pages\super\SuperOverviewPage.tsx
+frontend\src\pages\super\SuperSettingsPage.tsx
+frontend\src\pages\super\SuperUnitRecordPage.tsx
+frontend\src\pages\super\SuperUsersPage.tsx
+frontend\src\pages\super\UnitRegistrationPage.tsx
+frontend\src\pages\super\UnitsRegistryPage.tsx
+frontend\src\types\api.ts
+frontend\src\types\community.ts
+backend\main.go
+backend\cmd\make_super_admin\main.go
+backend\cmd\migrate\main.go
+backend\config\database.go
+backend\config\env_check.go
+backend\config\migrate.go
+backend\content\terms_v1.go
+backend\cryptoutil\encryption.go
+backend\data\embed.go
+backend\data\nigeria.json
+backend\handlers\admin_handler.go
+backend\handlers\age_handler.go
+backend\handlers\ai_handler.go
+backend\handlers\alert_handler.go
+backend\handlers\alert_subscriptions_handler.go
+backend\handlers\analytics_handler.go
+backend\handlers\announcement_handler.go
+backend\handlers\appeal_handler.go
+backend\handlers\archive_handler.go
+backend\handlers\audit_handler.go
+backend\handlers\auth_consent_test.go
+backend\handlers\auth_handler.go
+backend\handlers\auth_handler_fuzz_test.go
+backend\handlers\auth_link_handler.go
+backend\handlers\auth_test.go
+backend\handlers\bank_account_handler.go
+backend\handlers\blueprint_handler.go
+backend\handlers\cases_test.go
+backend\handlers\case_assignment_handler.go
+backend\handlers\case_claim_handler.go
+backend\handlers\case_handler.go
+backend\handlers\case_review_handler.go
+backend\handlers\case_workflow_handler.go
+backend\handlers\communication_handler.go
+backend\handlers\community_authorization_test.go
+backend\handlers\community_handler.go
+backend\handlers\concurrency_test.go
+backend\handlers\cors_test.go
+backend\handlers\counter_statement_handler.go
+backend\handlers\cover_position_handler.go
+backend\handlers\elections_test.go
+backend\handlers\election_handler.go
+backend\handlers\election_vacancy_handler.go
+backend\handlers\email_handler.go
+backend\handlers\evidence_handler.go
+backend\handlers\evidence_presign_handler.go
+backend\handlers\evidence_upload_handler.go
+backend\handlers\expungement_handler.go
+backend\handlers\external_data_handler.go
+backend\handlers\feedback_handler.go
+backend\handlers\file_serve_handler.go
+backend\handlers\finance_handler.go
+backend\handlers\finance_test.go
+backend\handlers\financial_year_handler.go
+backend\handlers\geo_handler.go
+backend\handlers\geo_handler_test.go
+backend\handlers\governance_audit_handler.go
+backend\handlers\health_handler.go
+backend\handlers\http_security_test.go
+backend\handlers\identity_handler.go
+backend\handlers\invite_handler.go
+backend\handlers\leaderboard_handler.go
+backend\handlers\ledger_handler.go
+backend\handlers\lga_channel_handler.go
+backend\handlers\location_handler.go
+backend\handlers\location_sharing_handler.go
+backend\handlers\location_sharing_test.go
+backend\handlers\main_test.go
+backend\handlers\mobile_handler.go
+backend\handlers\news_handler.go
+backend\handlers\notification_handler.go
+backend\handlers\officers_handler.go
+backend\handlers\otp_handler.go
+backend\handlers\peacebuilding_handler.go
+backend\handlers\platform_donation_handler.go
+backend\handlers\preferences_handler.go
+backend\handlers\progress_handler.go
+backend\handlers\public_bank_handler.go
+backend\handlers\public_handler.go
+backend\handlers\push_handler.go
+backend\handlers\ratings_test.go
+backend\handlers\rating_handler.go
+backend\handlers\report_handler.go
+backend\handlers\revocation_handler.go
+backend\handlers\security_test.go
+backend\handlers\settings_handler.go
+backend\handlers\sms_handler.go
+backend\handlers\sos_accept_handler.go
+backend\handlers\sos_assign_handler.go
+backend\handlers\sos_handler.go
+backend\handlers\sos_tracking_handler.go
+backend\handlers\sos_tracking_integration_test.go
+backend\handlers\sos_tracking_test.go
+backend\handlers\super_admin_handler.go
+backend\handlers\super_admin_unit_record_handler.go
+backend\handlers\suspects_test.go
+backend\handlers\suspect_handler.go
+backend\handlers\suspect_self_view_handler.go
+backend\handlers\terms_handler.go
+backend\handlers\transfer_handler.go
+backend\handlers\twitter_handler.go
+backend\handlers\unit_access_handler.go
+backend\handlers\unit_admin_helper.go
+backend\handlers\unit_auth_handler.go
+backend\handlers\unit_governance_handler.go
+backend\handlers\unit_handler.go
+backend\handlers\unit_media_handler.go
+backend\handlers\unit_membership_handler.go
+backend\handlers\unit_membership_ops_handler.go
+backend\handlers\unit_ops_handler.go
+backend\handlers\unit_public_summary_handler.go
+backend\handlers\unit_verification_handler.go
+backend\handlers\user_handler.go
+backend\handlers\user_media_handler.go
+backend\handlers\video_analytics_handler.go
+backend\handlers\websocket_handler.go
+backend\internal\testutil\builders.go
+backend\internal\testutil\setup.go
+backend\middleware\audit_middleware.go
+backend\middleware\auth_middleware.go
+backend\middleware\idempotency_middleware.go
+backend\middleware\panic_recovery_middleware.go
+backend\middleware\permission_middleware.go
+backend\middleware\rate_limit_middleware.go
+backend\middleware\security_headers_middleware.go
+backend\middleware\sms_signature_middleware.go
+backend\middleware\structured_logger_middleware.go
+backend\middleware\structured_logger_middleware_test.go
+backend\middleware\upload_validation_middleware.go
+backend\models\AdminVote.go
+backend\models\AgeAudit.go
+backend\models\AIAnalysis.go
+backend\models\Alert.go
+backend\models\Announcement.go
+backend\models\Appeal.go
+backend\models\Audit.go
+backend\models\AuthLinkToken.go
+backend\models\BankAccount.go
+backend\models\Case.go
+backend\models\CaseAccountabilityEvent.go
+backend\models\CaseAdminAssignment.go
+backend\models\CaseFeedback.go
+backend\models\CaseOfficer.go
+backend\models\CaseProgress.go
+backend\models\CaseReview.go
+backend\models\CaseTemplate.go
+backend\models\CaseTimeline.go
+backend\models\CaseTransfer.go
+backend\models\CaseWeeklyUpdate.go
+backend\models\CaseWorkflow.go
+backend\models\ChatMessage.go
+backend\models\Communication.go
+backend\models\Community.go
+backend\models\CommunityAlert.go
+backend\models\CounterStatement.go
+backend\models\DataExport.go
+backend\models\Donation.go
+backend\models\EmailTemplate.go
+backend\models\ExpungementRequest.go
+backend\models\Feedback.go
+backend\models\FinancialLedger.go
+backend\models\GeocodeCache.go
+backend\models\GovernmentIDVerification.go
+backend\models\HeadAdminVote.go
+backend\models\IdempotencyRecord.go
+backend\models\IdentityVerification.go
+backend\models\LedgerSequence.go
+backend\models\LGAMessage.go
+backend\models\News.go
+backend\models\Notification.go
+backend\models\Officer.go
+backend\models\OfficerScore.go
+backend\models\OTP.go
+backend\models\PasswordReset.go
+backend\models\Peacebuilding.go
+backend\models\PlatformDonation.go
+backend\models\PushSubscription.go
+backend\models\PushToken.go
+backend\models\Rating.go
+backend\models\RefreshToken.go
+backend\models\Report.go
+backend\models\RevocationCycle.go
+backend\models\RevocationVote.go
+backend\models\RevokedToken.go
+backend\models\SOSAlert.go
+backend\models\SOSResponder.go
+backend\models\Suspect.go
+backend\models\SystemBackup.go
+backend\models\SystemSettings.go
+backend\models\TermsAcceptance.go
+backend\models\TermsDocument.go
+backend\models\Transaction.go
+backend\models\TransferApproval.go
+backend\models\Unit.go
+backend\models\UnitAdminElection.go
+backend\models\UnitAdminSeat.go
+backend\models\UnitAuth.go
+backend\models\UnitFinancialYear.go
+backend\models\UnitInvite.go
+backend\models\UnitMembership.go
+backend\models\UnitScore.go
+backend\models\UnitVerification.go
+backend\models\User.go
+backend\models\UserLocation.go
+backend\models\UserOnboarding.go
+backend\models\UserPreferences.go
+backend\models\UserSession.go
+backend\models\VideoAnalytics.go
+backend\routes\routes.go
+backend\services\age_service.go
+backend\services\ai_prediction.go
+backend\services\ai_service.go
+backend\services\appeal_service.go
+backend\services\audit_service.go
+backend\services\auth_link_service.go
+backend\services\auth_service.go
+backend\services\auth_service_fuzz_test.go
+backend\services\auth_service_jti.go
+backend\services\case_accountability_service.go
+backend\services\case_location_service.go
+backend\services\directions.go
+backend\services\election_service.go
+backend\services\email_service.go
+backend\services\error_reporter.go
+backend\services\expungement_service.go
+backend\services\file_storage_service.go
+backend\services\geocoding_service.go
+backend\services\ledger_service.go
+backend\services\metrics.go
+backend\services\news.go
+backend\services\password_reset_service.go
+backend\services\password_reset_service_fuzz_test.go
+backend\services\poi.go
+backend\services\r2_service.go
+backend\services\ranking_service.go
+backend\services\rating_service.go
+backend\services\refresh_token_service.go
+backend\services\revocation_service.go
+backend\services\scheduler_service.go
+backend\services\session_service.go
+backend\services\sms_service.go
+backend\services\sos_dispatch_service.go
+backend\services\terms_service.go
+backend\services\token_service.go
+backend\services\unit_auth_service.go
+backend\services\weather.go
+backend\utils\geohash.go
+backend\utils\geohash_test.go
+backend\websocket\hub.go
+
+
+### CURRENT GIT STATE ###
+## feature/one-time-signin-reset...origin/feature/one-time-signin-reset
+?? AUTH_INSPECTION_REPORT.txt
+a5eaba6 feat: add one-time sign-in and deployment fixes
+8ba51e0 Merge pull request #63 from asobuilds/fix/navigation-and-public-background-regression
+a580457 Document responsive navigation regression fix and preserve background design in AGENT.md
+6d3d0c1 Document responsive navigation regression fix and preserve background design in README.md
+87405d3 Preserve requested carved-mask background and five theme treatments
