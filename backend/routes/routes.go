@@ -1,4 +1,4 @@
-﻿package routes
+package routes
 
 import (
 	"github.com/gin-gonic/gin"
@@ -45,6 +45,8 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			auth.POST("/register", middleware.RateLimitAuth(), authHandler.Register)
 			auth.POST("/login", middleware.RateLimitAuth(), authHandler.Login)
+			auth.POST("/sign-in-link/request", middleware.RateLimitAuth(), authHandler.RequestSignInLink)
+			auth.POST("/sign-in-link/redeem", middleware.RateLimitAuth(), authHandler.RedeemSignInLink)
 			auth.POST("/logout", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.Logout)
 			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
 			auth.POST("/change-password", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.ChangePassword)
@@ -109,14 +111,14 @@ func SetupRoutes(router *gin.Engine) {
 			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
 			units.GET("/:id/inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitInbox)
 			units.GET("/:id/compliance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitCompliance)
-			        units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
-            units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
-            units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
-            units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
-            units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
-            units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
-            units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
-            units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
+			units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
+			units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
+			units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
+			units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
+			units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
+			units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
+			units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
+			units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
 			units.GET("/:id/access", middleware.AuthMiddleware(), handlers.GetUnitAccess)
 			units.GET("/:id/roster", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitRoster)
 		}
@@ -470,10 +472,3 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
-
-
-
-
-
-
-

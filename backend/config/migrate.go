@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"log"
@@ -8,6 +8,7 @@ import (
 
 func AutoMigrateAll() error {
 	log.Println("running auto-migration...")
+
 	err := DB.AutoMigrate(
 		&models.User{},
 		&models.UserPreferences{},
@@ -36,6 +37,7 @@ func AutoMigrateAll() error {
 		&models.Notification{},
 		&models.OTP{},
 		&models.PasswordReset{},
+		&models.AuthLinkToken{},
 		&models.PushSubscription{},
 		&models.PushToken{},
 
@@ -127,9 +129,12 @@ func AutoMigrateAll() error {
 		&models.AgeAudit{},
 		&models.GeocodeCache{},
 	)
+
 	if err != nil {
+		log.Printf("auto-migration failed: %v", err)
 		return err
 	}
+
 	log.Println("auto-migration complete")
 	return nil
 }

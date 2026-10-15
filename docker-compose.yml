@@ -1,12 +1,10 @@
-﻿version: '3.8'
-
 services:
   postgres:
     image: postgres:15
     container_name: nativityguard-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: security_platform
     ports:
       - "5432:5432"
@@ -14,6 +12,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - nativityguard-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d security_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
@@ -21,30 +24,30 @@ services:
       dockerfile: Dockerfile
     container_name: nativityguard-backend
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: security_platform
-      PORT: 8080
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/security_platform?sslmode=disable
+      PORT: "8080"
       GIN_MODE: release
-      JWT_SECRET: your-production-secret
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SMTP_USER: your-email@gmail.com
-      SMTP_PASSWORD: your-app-password
-      SMTP_FROM: your-email@gmail.com
-      AT_USERNAME: your-username
-      AT_API_KEY: your-api-key
-      AT_SHORTCODE: your-shortcode
-      OPENROUTER_API_KEY: your-key
-      VAPID_PUBLIC_KEY: your-public-key
-      VAPID_PRIVATE_KEY: your-private-key
-      VAPID_SUBJECT: mailto:your-email@example.com
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_API_KEY: ${AT_API_KEY:-}
+      AT_SHORTCODE: ${AT_SHORTCODE:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:example@example.com}
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - nativityguard-network
     volumes:
@@ -54,6 +57,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_MEDIA_BASE: ${VITE_MEDIA_BASE:-}
     container_name: nativityguard-frontend
     ports:
       - "80:80"

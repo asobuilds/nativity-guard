@@ -1,33 +1,19 @@
-# Build stage
-FROM golang:1.21-alpine AS builder
+﻿FROM golang:1.26.5-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+FROM alpine:3.22
 
-# Final stage
-FROM alpine:latest
+RUN apk add --no-cache ca-certificates
 
-RUN apk --no-cache add ca-certificates
+WORKDIR /app
+COPY --from=builder /app/main ./main
 
-WORKDIR /root/
-
-# Copy the binary from builder
-COPY --from=builder /app/main .
-
-# Copy .env.production
-COPY .env.production .env
-
-# Expose port
 EXPOSE 8080
-
-# Run the application
 CMD ["./main"]

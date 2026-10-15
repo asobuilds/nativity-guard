@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
@@ -15,6 +15,7 @@ const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ defau
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const SignInLinkPage = lazy(() => import('@/pages/auth/SignInLinkPage').then(m => ({ default: m.SignInLinkPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const CitizenHomePage = lazy(() => import('@/pages/citizen/CitizenHomePage').then(m => ({ default: m.CitizenHomePage })))
 const CitizenCasePage = lazy(() => import('@/pages/citizen/CitizenCasePage').then(m => ({ default: m.CitizenCasePage })))
@@ -86,7 +87,7 @@ function ProtectedShell({ children }: { children?: ReactNode }) {
 
 function RootRoute() {
   const { status } = useAuth()
-  if (status === 'loading') return <FullPageSpinner label="Restoring sessionâ€¦" />
+  if (status === 'loading') return <FullPageSpinner label="Restoring session…" />
   if (status === 'anonymous') return <LandingPage />
   return (
     <ProtectedShell>
@@ -129,6 +130,7 @@ export function App() {
 
                 <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/auth/sign-in-link" element={<SignInLinkPage />} />
 
                 <Route path="/login" element={<LoginAlias />} />
 
@@ -281,4 +283,3 @@ export function App() {
     </QueryClientProvider>
   )
 }
-
