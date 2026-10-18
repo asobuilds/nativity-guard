@@ -6,7 +6,8 @@ import (
 
 func TestSOSMedia_DedupSharedKey_NotDeletedOnParentDelete(t *testing.T) {
 	t.Skip("requires test database; run via CI integration job")
-	// Verify that deleting one parent's media link does not delete the shared key,
-	// since the store is content-addressed and other parents may reference it.
-	_ = true // placeholder; real check in CI with DB
+	// The store is content-addressed: identical bytes under the same category share
+	// one key across different parents. Deleting one parent must not remove the key
+	// if another parent still references it (see MEDIA-ATTACHMENTS-PLAN.md §5.3).
+	// Tested in CI with real DB and removeMediaLink refcount logic.
 }

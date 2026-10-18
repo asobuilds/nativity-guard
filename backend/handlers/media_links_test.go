@@ -8,11 +8,8 @@ import (
 )
 
 func TestMediaLink_AttachCreatesRow(t *testing.T) {
-	// This test verifies that attachMediaLink persists a row
-	// when a test database is configured. It is meant to be run
-	// with a real Postgres instance (via TestMain/SwapConfigDB).
 	t.Skip("requires test database; run via CI integration job")
-	// uuid is a fresh ID; the unique index makes repeat attach idempotent
+	// The unique index on (object_key, parent_type, parent_id) makes repeat attach idempotent
 	id := uuid.New()
 	err := attachMediaLink("sos_media/2026/10/abc123.mp4", "sos", id)
 	if err != nil {
