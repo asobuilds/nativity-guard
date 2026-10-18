@@ -171,6 +171,24 @@ func AutoMigrateAll() error {
 		return err
 	}
 
+	// One live content report per (reporter, target) (RES-014). The handler checks
+	// first for the ordinary repeat tap; this index is the backstop when two taps
+	// race, exactly like idx_event_attendee_active. Nothing created a Report
+	// before this change, so there can be no pre-existing duplicates to fail on.
+	if err := DB.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_report_active_target
+		   ON reports (reported_by, target_type, target_id) WHERE deleted_at IS NULL`,
+	).Error; err != nil {
+		return err
+	}
+	// The moderation queue reads oldest-first by (target_type, status).
+	if err := DB.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_reports_queue
+		   ON reports (target_type, status, created_at)`,
+	).Error; err != nil {
+		return err
+	}
+
 	log.Println("auto-migration complete")
 	return nil
 }
