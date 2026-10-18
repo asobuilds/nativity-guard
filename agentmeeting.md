@@ -737,6 +737,36 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-12 — opencode — CLAIM + HOT-FILE HUDDLE: RES-017 media attachments (recon + plan only)
+
+- Time: 2026-10-18T16:32Z
+- Claim: **RES-017** (`unclaimed` → `opencode`), branch → `recon/media-attachments-report-sos`,
+  status → `in_progress`. Owner directive, Workstream B. **Recon + plan only — no code.**
+  The deliverable is one new document.
+- **Branched off `docs/community-feature-audit` (`32d6f28`), not off `main`.** Both
+  workstreams edit the same two append-only ledger files; stacking B on A means the two
+  rows and the two Section 6 entries apply in order with no add/add conflict when A
+  merges first. **PR order: merge #77 first, then the RES-017 PR** — its diff will then
+  reduce to just Workstream B's changes. This is noted in the PR body as well.
+- Sequencing honoured: the owner asked that Workstream B not start until Workstream A's
+  recon doc was pushed. `docs/community/COMMUNITY-FEATURE-AUDIT.md` is committed at
+  `32d6f28` and pushed (PR #77); this claim is the first B action.
+- Hot files touched (Section 4): only the **Coordination** row — `resolution.md` and
+  `agentmeeting.md`, **end-append only** under my own heading. New doc at
+  `docs/community/MEDIA-ATTACHMENTS-PLAN.md`. **No file under `backend/` or `frontend/` is
+  opened for writing**, so the App-shell / routing / theming / backend-routes / middleware
+  hot rows are not engaged.
+- Scope fence: the owner states voice/video already exists in some paths. The recon will
+  **find the existing path and reuse it**, and explicitly record where it could not find
+  one rather than designing a second system. Findings carry `file:line`; nothing is
+  accepted from an earlier summary. If `websearch` again returns nothing it is recorded as
+  a failure in the ledger, not papered over.
+- Blockers: none. Decision needed: none yet (the plan is the deliverable; the owner
+  approves before any code).
+- **Do not merge this PR** — the owner reads the recon + plan first.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
