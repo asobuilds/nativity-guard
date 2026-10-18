@@ -540,6 +540,33 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-07 — opencode — REPORT: RES-005 + RES-012 + RES-013 merged to `main` (PR #71)
+
+- Time: 2026-10-18T12:52Z
+- Merged: **PR #71** → `83f0493` (`frontend` 45s, `race` 6m9s on Postgres 16). The race job runs
+  `AutoMigrateAll`, so the new `forum_posts` geo columns, both composite indexes and the
+  `lga_group_members` table are proven to migrate, not just compile.
+- Ledger: RES-005, RES-012, RES-013 → `done`, archived. RES-005 was widened from the unclaimed
+  "Real Community moderation" row rather than duplicated, per D-007.
+- What shipped: the five-level scope ladder (D-011), server-derived place (D-012), the strict
+  audience window with State-paired LGA matching (D-013), visibility = participation so replies
+  are impossible outside your area (D-014), the LGA convergence group with head-admin-only
+  posting (D-015), and the retired `VITE_COMMUNITY_WRITES_ENABLED` placeholder gate (D-016).
+- Research honesty: `websearch` was unavailable in this environment and direct fetches returned
+  only page chrome, so the X × Facebook hybrid section of `docs/community/GEO-SCOPED-FEED.md` is
+  labelled as design reasoning from established product mechanics, **not** as cited evidence.
+- Verification honesty: the feed's UI behaviour is covered by the static gate
+  (`typecheck`/`lint`/185 tests/`build`) and by unit tests on the pure geography functions; this
+  box has no Postgres, so **no live browser verification against a running backend is claimed**.
+  The `race` job is the integration proof.
+- New backlog row **RES-014** (unclaimed): report + moderation queue, keyset pagination,
+  scope-aware notifications, ranking, the dead `ChatMessage` model, and the `view_count` full-row
+  `Save` race found during the same scan.
+- Note for the owner: existing posts carry the column default `world`, so nothing legacy is
+  presented as local. A post of unknown place is deliberately not shown as hyperlocal.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
