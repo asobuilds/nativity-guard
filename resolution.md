@@ -38,7 +38,7 @@ All timestamps UTC ISO-8601. Status values:
 | RES-001 | Security | Global settings authorization | `claude` | `fix/super-admin-global-settings` | `backend/handlers`, `backend/middleware`, unit-admin UI | `done` | — | #62 |
 | RES-002 | Security | Last-super-admin protection | `unclaimed` | `fix/last-super-admin-protection` | `backend/handlers` (user mutation), `backend/models` | `unclaimed` | — | — |
 | RES-003 | Security | Final role-by-role authorization audit | `unclaimed` | `fix/role-route-authz-audit` | `backend/routes/routes.go`, `backend/middleware` | `unclaimed` | — | — |
-| RES-004 | Community | RSVP concurrency / capacity safety | `opencode` | `fix/community-rsvp-concurrency` | `backend/handlers/community_handler.go` (RSVP path), `backend/models/Community.go`, `backend/config/migrate.go`, `backend/internal/testutil/setup.go`, new `backend/handlers/rsvp_concurrency_test.go` | `in_review` | 2026-10-17T16:12Z | — |
+| RES-004 | Community | RSVP concurrency / capacity safety | `opencode` | `fix/community-rsvp-concurrency` | `backend/handlers/community_handler.go` (RSVP path), `backend/models/Community.go`, `backend/config/migrate.go`, `backend/internal/testutil/setup.go`, new `backend/handlers/rsvp_concurrency_test.go` | `in_review` | 2026-10-17T16:12Z | #69 |
 | RES-005 | Community | Real Community moderation | `unclaimed` | `feat/community-moderation` | `backend/handlers`, `backend/models`, `frontend/src/pages/LiveCommunityPage.tsx` | `unclaimed` | — | — |
 | RES-006 | Finance | Finance/bank route authorization, atomic approvals, API contract alignment | `antigravity` | `fix/finance-route-review` | `backend/handlers/{finance,bank_account,ledger,public_bank,platform_donation}_handler.go`, `backend/routes/routes.go` (aliases only), new `backend/handlers/finance_auth_test.go` | `claimed` | 2026-10-17T16:19Z | — |
 | RES-007 | Docs | Reconcile stale hardening queue in README/AGENT.md | `unclaimed` | `docs/reconcile-hardening-queue` | `README.md`, `AGENT.md` | `unclaimed` | — | — |
@@ -102,7 +102,7 @@ Hand-off for RES-004 (the branch is committed locally but this box cannot push).
   merged with `origin/main` (`31eb19d`, which carries the RES-011 changes and the first
   committed copy of this ledger; resolver took `main`'s ledger verbatim, no branch-only
   ledger content was dropped). Backend re-verified after the merge: `go build ./...`,
-  `go vet ./...`, `go test ./...` all pass. Branch pushed and PR opened; the push/PR item
+  `go vet ./...`, `go test ./...` all pass. Branch pushed and PR **#69** opened; the push/PR item
   above is closed. `TestRSVP` still needs the CI Postgres, and the production duplicate
   pre-check still needs a read-only `DATABASE_URL`.
 
