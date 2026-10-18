@@ -603,6 +603,55 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-09 — opencode — CLAIM + HOT-FILE HUDDLE: RES-014 (report + moderation queue, keyset pagination, `view_count` atomicity)
+
+- Time: 2026-10-18T13:38Z
+- Claim: **RES-014** (`unclaimed` → `opencode`), branch → `fix/community-report-queue-pagination`,
+  status → `in_progress`. The row's scope was **narrowed by the owner** to exactly three items
+  (report+queue, keyset pagination, `view_count`). The previously-listed ranking, scope-aware
+  notifications, dead `ChatMessage` model and "communication room" authz scan were split out
+  into a **new `RES-015` row (unclaimed)** so they are not lost, plus the obvious follow-on this
+  recon surfaced: content takedown/hide.
+- Hot files touched (Section 4) — announcing **before** the first commit, per D-002:
+  - `backend/handlers/` — `community_handler.go` plus a new `community_moderation.go`.
+    **middleware/authz, security-sensitive**; the moderation authorization rule is stated below
+    so it is reviewable before it ships.
+  - `backend/routes/routes.go` — **append-only** registration of three endpoints inside the
+    existing `/community` block; no regrouping, per D-010.
+  - `backend/config/migrate.go` — one idempotent partial unique index (same posture as
+    `idx_event_attendee_active`).
+  - `frontend/src/pages/LiveCommunityPage.tsx` — RES-005's page, so already opencode's.
+- Recon findings that fix the incident (each verified, not assumed):
+  1. **Reports fail silently.** `models.Report` is migrated (`config/migrate.go:98`) with
+     `TargetType`/`Status` fields, but **no code anywhere creates a `Report`** — there is no
+     handler and no route. `report_handler.go` is a *different* meaning of "report"
+     (case/unit analytics and PDF export). The only caller today is
+     `frontend/src/pages/CommunityPage.tsx:28`, which is the **demo** page ("Demo community
+     only … reset when the page reloads"); the **live** `LiveCommunityPage.tsx` has no report
+     control at all.
+  2. **`view_count` race.** `GetForumPostByID` does `post.ViewCount++` then
+     `config.DB.Save(&post)` (`community_handler.go:244-245`) — a full-row write and a
+     read-modify-write lost-update, the same class as RES-004's RSVP bug.
+  3. **Pagination.** RES-005 already replaced the unbounded `Find` with a bounded `LIMIT`
+     (default 20, cap 50), so the residual defect is **offset** pagination: unstable under
+     concurrent inserts and O(offset) as the feed grows. This PR moves it to keyset.
+- Authorization rule for this PR (recorded so it can be reversed deliberately):
+  - Reporting requires the post to be **visible** to the reporter — the same D-014 predicate,
+    so you cannot report what you cannot see. Reporting is **idempotent** per
+    (reporter, post): a second tap returns `200 already reported`, never a duplicate row.
+  - The queue is readable by `super_admin` (whole platform) and by `unit_admin` (only posts
+    visible to them **and** no broader than `state`, or authored in their own unit). Global and
+    country/world-scope reports are therefore super-admin-only.
+  - `POST /community/reports/:id/resolve` sets the report to `reviewed` or `dismissed` with the
+    same authorization re-checked. **No content removal in this PR** — that is new capability,
+    not requested, and is filed as RES-015.
+- Collision check on live claims at `origin/main` (`56504ed`): no other agent holds files in
+  `backend/handlers/community_*` or `frontend/src/pages/LiveCommunityPage.tsx`. RES-008
+  (`RSVPToEvent` authz) remains unclaimed and is a different function.
+- Blockers: none. Decision needed: none blocking (the rule above is the one to review).
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
