@@ -279,16 +279,23 @@ html[data-theme='ocean'] select {
 
 /* Public landing and onboarding: theme-aware carved artwork treatment.
    The image asset is supplied separately; until then the theme gradients
-   provide a complete and accessible visual fallback. */
+   provide a complete and accessible visual fallback.
+
+   The artwork is atmosphere behind heading copy, never the subject:
+   `--public-art-blur` stops the carved edges from competing with the text, and
+   `--public-overlay-strength` plus the gradient shape below hand the page under
+   the hero back to solid theme colour so no section heading is read over
+   raw artwork. All five themes keep their own values. */
 html {
-  --public-art-opacity: 0.25;
+  --public-art-opacity: 0.22;
+  --public-art-blur: 18px;
   --public-art-blend: luminosity;
-  --public-overlay-strength: 0.84;
+  --public-overlay-strength: 0.92;
 }
-html[data-theme='midnight'] { --public-art-opacity: 0.36; --public-overlay-strength: 0.77; }
-html[data-theme='daylight'] { --public-art-opacity: 0.11; --public-overlay-strength: 0.92; }
-html[data-theme='ocean'] { --public-art-opacity: 0.34; --public-overlay-strength: 0.77; }
-html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength: 0.85; }
+html[data-theme='midnight'] { --public-art-opacity: 0.30; --public-art-blur: 22px; --public-overlay-strength: 0.88; }
+html[data-theme='daylight'] { --public-art-opacity: 0.10; --public-art-blur: 12px; --public-overlay-strength: 0.96; }
+html[data-theme='ocean'] { --public-art-opacity: 0.28; --public-art-blur: 22px; --public-overlay-strength: 0.88; }
+html[data-theme='stone'] { --public-art-opacity: 0.17; --public-art-blur: 18px; --public-overlay-strength: 0.93; }
 
 .ng-public-scene {
   position: relative;
@@ -298,15 +305,27 @@ html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength
 .ng-public-scene::before {
   content: '';
   position: absolute;
+  /* Capped so a long landing page does not ask a phone to rasterise a blurred
+     layer several thousand pixels tall. The scrim is opaque before the cap. */
+  inset: 0 0 auto 0;
+  height: min(100%, 1800px);
   z-index: -1;
-  inset: 0;
   pointer-events: none;
-  background-image: url('/images/nativity-carved-masks%20(2).webp');
+  /* The asset is referenced under a URL-safe name on purpose. As shipped, the
+     file was `nativity-carved-masks (2).webp`, and the CSS minifier in the
+     production build mis-tracked the quotes around that token, emitting
+     `/images/nativity-carved-masks%20(2").webp` — a URL that 404s, so the
+     artwork never rendered in any built bundle. Reproduced against a pristine
+     `main` build, so the corruption predates this change. */
+  background-image: url('/images/nativity-carved-masks.webp');
   background-position: center top;
   background-size: min(100%, 1200px) auto;
   background-repeat: repeat-y;
   opacity: var(--public-art-opacity);
   mix-blend-mode: var(--public-art-blend);
+  /* Blurred and slightly desaturated, so the carved highlights stop pulling the
+     eye away from the paragraph beside them. */
+  filter: blur(var(--public-art-blur)) saturate(115%);
 }
 .ng-public-scene::after {
   content: '';
@@ -314,7 +333,13 @@ html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--color-base), transparent 28%, var(--color-base));
+  /* Clearest just under the hero, solid theme colour from 34% down. */
+  background: linear-gradient(
+    180deg,
+    var(--color-base) 0%,
+    transparent 10%,
+    var(--color-base) 34%
+  );
   opacity: var(--public-overlay-strength);
 }
 .ng-public-glass,
@@ -328,5 +353,7 @@ html[data-theme='stone'] { --public-art-opacity: 0.20; --public-overlay-strength
   .ng-public-scene::before { background-size: auto 800px; }
 }
 @media (prefers-reduced-transparency: reduce) {
+  /* Flatten the artwork out instead of leaving the page busy behind the text. */
+  .ng-public-scene::before { opacity: 0.06; filter: none; }
   .ng-public-glass { background: var(--color-surface); }
 }

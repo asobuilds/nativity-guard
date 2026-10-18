@@ -105,11 +105,17 @@ func (CommunityEvent) TableName() string {
 	return "community_events"
 }
 
-// EventAttendee tracks event attendees
+// EventAttendee tracks event attendees.
+//
+// A user may hold at most one live RSVP per event. Because EventAttendee is
+// soft-deleted, that uniqueness is a *partial* index over
+// (event_id, user_id) WHERE deleted_at IS NULL — otherwise a cancelled RSVP
+// would permanently block re-registration. AutoMigrate creates it; a duplicate
+// live row therefore fails the migration loudly and must be resolved first.
 type EventAttendee struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	EventID   uuid.UUID      `gorm:"type:uuid;not null" json:"eventId"`
-	UserID    uuid.UUID      `gorm:"type:uuid;not null" json:"userId"`
+	EventID   uuid.UUID      `gorm:"type:uuid;not null;uniqueIndex:idx_event_attendee_active,where:deleted_at IS NULL" json:"eventId"`
+	UserID    uuid.UUID      `gorm:"type:uuid;not null;uniqueIndex:idx_event_attendee_active,where:deleted_at IS NULL" json:"userId"`
 	Status    string         `gorm:"default:registered" json:"status"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

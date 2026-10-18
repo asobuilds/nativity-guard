@@ -1,0 +1,166 @@
+# resolution.md — Action Ledger
+
+> What the room (`agentmeeting.md`) **agreed**, and what is **actually moving**,
+> with timeboxes and evidence. Append-only except for the status fields of a row
+> you own. Contract: [`AGENT.md`](./AGENT.md).
+
+All timestamps UTC ISO-8601. Status values:
+
+| Status | Meaning |
+|---|---|
+| `unclaimed` | Free to take. Claim before editing code. |
+| `claimed` | Owner has announced it in `agentmeeting.md` Section 6. |
+| `in_progress` | Code being written; branch exists and is pushed. |
+| `in_review` | PR open; waiting on review/merge. |
+| `blocked` | Waiting on another row (`after: RES-xxx`) or a human decision. |
+| `done` | Merged to `main` **and** evidence recorded below. |
+| `dropped` | Abandoned; reason recorded. |
+
+---
+
+## Cycle
+
+| Field | Value |
+|---|---|
+| Cycle | `CYCLE-2026-10-17` |
+| Opens | 2026-10-17T17:00:00Z |
+| Review checkpoint | 2026-10-20T17:00:00Z |
+| Closes | 2026-10-24T17:00:00Z |
+| Goal | Clear the security hardening queue without regressing the navigation/theme work shipped in PR #63. |
+
+---
+
+## Active board
+
+| ID | Workstream | Feature | Owner | Branch | Files / area | Status | Started | PR |
+|---|---|---|---|---|---|---|---|---|
+| RES-000 | Meta | Multi-agent coordination protocol | `claude` | `main` (uncommitted) | `agentmeeting.md`, `resolution.md` | `in_review` | 2026-10-17T16:03Z | — |
+| RES-001 | Security | Global settings authorization | `claude` | `fix/super-admin-global-settings` | `backend/handlers`, `backend/middleware`, unit-admin UI | `done` | — | #62 |
+| RES-002 | Security | Last-super-admin protection | `unclaimed` | `fix/last-super-admin-protection` | `backend/handlers` (user mutation), `backend/models` | `unclaimed` | — | — |
+| RES-003 | Security | Final role-by-role authorization audit | `unclaimed` | `fix/role-route-authz-audit` | `backend/routes/routes.go`, `backend/middleware` | `unclaimed` | — | — |
+| RES-004 | Community | RSVP concurrency / capacity safety | `opencode` | `fix/community-rsvp-concurrency` | `backend/handlers/community_handler.go` (RSVP path), `backend/models/Community.go`, `backend/config/migrate.go`, `backend/internal/testutil/setup.go`, new `backend/handlers/rsvp_concurrency_test.go` | `in_review` | 2026-10-17T16:12Z | #69 |
+| RES-005 | Community | Real Community moderation | `unclaimed` | `feat/community-moderation` | `backend/handlers`, `backend/models`, `frontend/src/pages/LiveCommunityPage.tsx` | `unclaimed` | — | — |
+| RES-006 | Finance | Finance/bank route authorization, atomic approvals, API contract alignment | `antigravity` | `fix/finance-route-review` | `backend/handlers/{finance,bank_account,ledger,public_bank,platform_donation}_handler.go`, `backend/routes/routes.go` (aliases only), new `backend/handlers/finance_auth_test.go` | `claimed` | 2026-10-17T16:19Z | — |
+| RES-007 | Docs | Reconcile stale hardening queue in README/AGENT.md | `unclaimed` | `docs/reconcile-hardening-queue` | `README.md`, `AGENT.md` | `unclaimed` | — | — |
+| RES-008 | Security | Event RSVP object-level authorization (cross-unit + non-upcoming) | `opencode` | `fix/community-rsvp-authorization` | `backend/handlers/community_handler.go` (`RSVPToEvent`) | `blocked` (`after: RES-004`) | — | — |
+| RES-009 | Frontend | Perceived reliability: global error surfacing, loading states, mutation feedback | `claude` | `feat/frontend-reliability-pass` | `frontend/src/lib/queryClient.ts`, `frontend/src/components/ui/States.tsx`, data-heavy pages | `claimed` | 2026-10-17T16:27Z | — |
+| RES-010 | Infra | Backend build/vet CI gate (none exists today) | `unclaimed` | `ci/backend-build-vet` | `.github/workflows/` | `unclaimed` | — | — |
+| RES-011 | Frontend | Phone drawer width/insets + public background legibility | `opencode` | `fix/responsive-drawer-and-public-backgrounds` | `frontend/src/components/layout/AppShell.tsx`, `frontend/src/index.css`, `frontend/src/theme.css`, new `frontend/src/components/layout/shellInsets.test.ts`, `frontend/package.json` (adds `@types/node@^22`), renamed `frontend/public/images/nativity-carved-masks.webp` | `done` | 2026-10-18T10:20Z | #67 |
+
+**Suggested split for the three agents** (a suggestion is not a claim — confirm
+in `agentmeeting.md` before starting):
+
+- `claude` — RES-002, then RES-003 (backend authorization, needs the broadest
+  repo context).
+- `antigravity` — RES-005 frontend half only once a backend contract exists;
+  until then RES-006 review (read-mostly, no hot files).
+- `opencode` — RES-004 (self-contained handler + migration), then RES-007.
+
+---
+
+## Decisions
+
+| ID | Date | Decision | Rationale | Decided by |
+|---|---|---|---|---|
+| D-001 | 2026-10-17 | One feature = one owner = one branch; claims live in this file. | Two agents editing one handler causes silent authz drift. | `claude` |
+| D-002 | 2026-10-17 | Hot files (Section 4 of `agentmeeting.md`) require a meeting entry even when owned. | `AppShell.tsx` and `routes.go` are the two highest-collision files in the repo. | `claude` |
+| D-003 | 2026-10-17 | Log appends go at the bottom of a section, under the agent's own heading. | End-appends merge cleanly; interleaved edits conflict. | `claude` |
+| D-004 | 2026-10-17 | `global settings authorization` is treated as complete (PR #62) and removed from the active queue. | Code and merge history supersede the stale README line. | `claude` |
+| D-005 | 2026-10-17 | Nav/theme work (PR #63) is frozen unless the human owner requests otherwise. | Explicit regression guard appended to `AGENT.md`. | `claude` |
+| D-006 | 2026-10-17 | Each agent works in its **own git worktree**, not the shared directory: `claude` → `/home/asobuild/nativity-guard`, `antigravity` → `/home/asobuild/nativity-guard-ag`, `opencode` → `/home/asobuild/nativity-guard-oc`. | Three processes sharing one checkout means any `git checkout -b` switches branches under the other two. Worktrees share `.git` and `origin` but have separate working trees, so `fetch` sees every claim and `checkout` affects only its own tree. Resolves OPF-001's second question. | human owner + `claude` |
+| D-007 | 2026-10-17 | Approved the RES-004 / RES-005 split: RES-004 owns the RSVP path (`RSVPToEvent`, `EventAttendee`, `CommunityEvent.AttendeeCount`); RES-005 owns moderation and `LiveCommunityPage.tsx`. | Resolves OPF-002. Same file, different functions, so the split is by function and enforced by review, not by path. | `claude`, for the owner |
+| D-008 | 2026-10-17 | New timestamps are machine UTC (`date -u +%Y-%m-%dT%H:%M:%SZ`). Existing entries are append-only and stay as written. | Resolves OPF-003. Re-stamping history would violate §2.6; the ladder compares claim order, so the skew is cosmetic. | `claude` |
+| D-009 | 2026-10-17 | RES-006 is scoped to finance/bank handlers and finance tests. RES-003 (route-wide authz audit) remains a separate, later pass. | Antigravity's claim is broad; explicit scope prevents RES-003 becoming a duplicate. | `claude` |
+| D-010 | 2026-10-17 | RES-006 may alias `/bank/units/:id/accounts` in `routes.go`, but must not re-register or regroup existing routes. | `routes.go` is hot; append-only registration keeps RES-003/RES-006 merges clean. | `claude` |
+
+---
+
+## Handoffs
+
+Record partial work that another agent must continue. A handoff is a contract:
+state what is done, what is not, and what must be read first.
+
+_None yet._
+
+Hand-off for RES-004 (the branch is committed locally but this box cannot push).
+
+### HANDOFF-2026-10-18-01 — from `opencode` to human owner
+- Feature: RES-004
+- Branch / PR: `fix/community-rsvp-concurrency` (committed locally; **not pushed** — no credentials)
+- Done: `RSVPToEvent` is transactional and capacity/duplicate safe; partial unique index
+  `idx_event_attendee_active`; two integration tests; local build/vet/unit and
+  `-tags integration` type-check all green.
+- Not done: `git push` + PR (needs a GitHub credential); `TestRSVP` execution (needs the CI
+  Postgres); production duplicate pre-check (needs a read-only `DATABASE_URL`).
+- Must read before continuing: this entry; the RES-004 row and evidence above.
+- Known risks: `origin/main` still does **not** contain the coordination ledger — this branch
+  carries a copy bootstrapped from the untracked working tree. If a separate
+  `docs/agent-coordination-protocol` bootstrap is pushed as well, expect an add/add conflict
+  on `agentmeeting.md`/`resolution.md`; merge the ledger once. Production `AutoMigrate` will
+  fail if duplicate live `(event_id,user_id)` rows exist, and deduping needs owner approval.
+- Update 2026-10-18T11:45Z: unblocked — the owner supplied a GitHub credential. The branch was
+  merged with `origin/main` (`31eb19d`, which carries the RES-011 changes and the first
+  committed copy of this ledger; resolver took `main`'s ledger verbatim, no branch-only
+  ledger content was dropped). Backend re-verified after the merge: `go build ./...`,
+  `go vet ./...`, `go test ./...` all pass. Branch pushed and PR **#69** opened; the push/PR item
+  above is closed. `TestRSVP` still needs the CI Postgres, and the production duplicate
+  pre-check still needs a read-only `DATABASE_URL`.
+
+### HANDOFF-2026-10-18-02 — from `opencode` to human owner
+- Feature: RES-011
+- Branch / PR: `fix/responsive-drawer-and-public-backgrounds` → PR **#67** (pushed 2026-10-18)
+- Done: the below-`lg` drawer is capped at `w-[17rem]` / `max-w-[calc(100vw-3.5rem)]` so it always leaves a 56px gutter instead of covering 80% of a phone; the shell clears the iPhone home indicator and Android gesture bar via five `safe-*` classes defined in `index.css` with `env(safe-area-inset-*)` (header, drawer, `<main>`, bottom bar, SOS) plus `lg` overrides; the public-scene artwork is blurred and de-contrasted per theme (`theme.css`) so headings measure >= 12:1 contrast; `shellInsets.test.ts` guards the class-to-rule linkage; a pre-existing minifier/404 bug in the artwork URL is fixed by renaming the asset. Full commands, numbers and the browser-verification method are in the RES-011 evidence row.
+- Not done: `git push` + PR (needs a GitHub credential). Real-device safe-area rendering (CDP cannot emulate `env(safe-area-inset-*)`; the mechanism is proven only with `env()`=0). Body scroll is not locked while the drawer is open — pre-existing on `main`, left alone to keep the diff surgical.
+- Update 2026-10-18T11:05Z: unblocked — the owner supplied a GitHub credential, `gh auth setup-git` is configured, the branch is pushed and PR #67 is open. The push/PR item in "Not done" is closed; the other two items stand.
+- Must read before continuing: this entry; `MEET-2026-10-18-02` (the hot-file huddle) and `MEET-2026-10-18-03` (the report) in `agentmeeting.md`; the RES-011 evidence row.
+- Known risks: **OPF-004 is unanswered** — `claude`'s uncommitted working-tree `AppShell.tsx` (blob `3b76787`) touches the same file and would widen the drawer to `max-w-[85vw]` and still ship four dead `safe-*` names. Whoever commits first must reconcile; do not merge both. The branch carries its own copy of `agentmeeting.md`/`resolution.md` (neither is on `origin/main`), so expect an add/add conflict on those two files if another ledger copy is pushed; merge the ledger once. The asset rename assumes nothing else links the old filename — only `/favicon.svg` and `/manifest.webmanifest` are precached by the service worker, so a stale cached `index.html` is the only way to 404.
+
+Template:
+
+```
+### HANDOFF-YYYY-MM-DD-NN — from <handle> to <handle>
+- Feature: RES-xxx
+- Branch / PR:
+- Done:
+- Not done:
+- Must read before continuing:
+- Known risks:
+```
+
+---
+
+## Evidence log
+
+`done` is not a feeling. Attach the commands and results.
+
+| ID | Date | Agent | Evidence |
+|---|---|---|---|
+| RES-001 | — | `claude` | PR #62 merged (`ed8c135`, `53c7cbe`, `d7df697`). Backend scoped global settings/templates to super_admin via existing role middleware. |
+| RES-000 | 2026-10-17 | `claude` | Created `agentmeeting.md` + `resolution.md`. Not committed pending owner instruction. |
+| RES-004 | 2026-10-18 | `opencode` | Local: `go build ./...`, `go vet ./...`, `go test ./...`, `go vet -tags integration ./...` all pass. `TestRSVP` (`rsvp_concurrency_test.go`) executes in CI `integration-race.yml` against `postgres:16`; this box has no Postgres server. Push/PR not run here: no GitHub credentials (gh logged out; no token/SSH). See `HANDOFF-2026-10-18-01`. Re-verified 2026-10-18 after merging `origin/main` (`31eb19d`) into the branch: `go build ./...`, `go vet ./...`, `go test ./...` all pass. **CI proof:** PR #69 `race` job ran the integration suite against `postgres:16` — `TestRSVPConcurrentRespectsCapacity` PASS (32.77s), `TestRSVPConcurrentDuplicateUserSingleRow` PASS (2.19s). |
+| RES-011 | 2026-10-18 | `opencode` | **Static gate** (`frontend/`, exit 0 each): `npm run typecheck`; `npm run lint` 0 errors / 3 pre-existing warnings (`useOfflineQueue.ts`, `ProfilePage.tsx`, `ReportIncidentPage.tsx`); `npm test` 20 files / **185 passed** (new `shellInsets.test.ts` = 7, pins each shell `safe-*` class to a real `env(safe-area-inset-*)` rule and pins the drawer cap); `npm run build` OK. **Built CSS proof** (`dist/assets/index-*.css`): all five rules survive minification — `safe-top-inset{padding-top:calc(.75rem + env(safe-area-inset-top,0px))}`, `safe-inset-y`, `safe-main-inset{padding-bottom:calc(5rem + env(safe-area-inset-bottom,0px))}` becoming `0` at `@media (min-width:64rem)`, `safe-bottom-bar{padding-bottom:calc(.375rem + env(safe-area-inset-bottom,0px))}`, `safe-sos-offset{bottom:calc(4rem + env(safe-area-inset-bottom,0px))}` becoming `1.25rem` at `lg`; artwork resolves as `url(/images/nativity-carved-masks.webp)` with the file present on disk, 0 occurrences of `%20`/stray quote. **Browser verification** (headless Chrome 155 + CDP against `vite preview` of the dev-mock build; no CI signal used for UI): drawer at 360x740 = w 272px, gutter 88px (share 75.6%); 320x568 = w 264, gutter 56; 740x360 = w 272, gutter 468; 768x1024 = w 272, gutter 496, nav not overflowing; 1280 = docked `lg:w-60` (240px), bottom bar 0px, SOS `bottom` 20px. All four dismissal paths land offscreen: X, backdrop (`backdropClick.found true`), Escape, and a nav click (`/sos`). `contentClearsBar.ok` everywhere (`mainPad 80px` >= bar 62px) and `sosBottom 64px` > bar height. Public scene, all five themes: artwork request 200 / 129028 bytes, `background-repeat: repeat-y`, per-theme blur 12/18/22px, scrim opacity 0.88-0.96, artwork layer capped `height: 1800px`. Objective contrast (text hidden, rendered pixels behind each section heading): >= **12.06:1** at p99 across all five themes; artwork contribution to the brightest pixel behind section text <= +0.006 luminance on dark themes and -0.177 on daylight. **Not claimed:** real-device safe-area rendering — CDP `setDisplayFeaturesOverride` cannot emulate `env(safe-area-inset-*)`, so the inset plumbing was proven live only with `env()`=0 (header 12px, main 80px, bar 6px, SOS 64px). **Pre-existing bug found and fixed:** the minifier emitted `url('/images/nativity-carved-masks%20(2").webp')` (stray quote, 404) and `content:'"` on the `::after` scrim, also breaking `background-repeat`/`opacity` in built output; reproduced against a pristine `main` build, so it predates this change, and `origin/fix/auth-background-and-drawer-visibility:frontend/src/theme.css:304` still carries it. Fixed by renaming the asset (the minifier decodes `%28`/`%29` back to parens and drops the quotes, so percent-encoding does not hold). executed and verified before the credential existed; the branch is now pushed and open as **PR #67** (2026-10-18). **Merged** as `31eb19d` on 2026-10-18T11:36:41Z; PR #67 checks `frontend` and `race` both green. See `HANDOFF-2026-10-18-02`. |
+
+---
+
+## Update protocol
+
+1. **Claim:** set `Owner`, `Branch`, `Status = claimed`, `Started = now`.
+   Announce in `agentmeeting.md` Section 6.
+2. **Start coding:** push branch; set `Status = in_progress`; list real file
+   paths in the board row.
+3. **Open PR:** set `Status = in_review` and fill `PR`.
+4. **Merge:** set `Status = done`, add an evidence row with test commands and
+   results, move nothing — history stays in place.
+5. **Block:** set `Status = blocked` and name the dependency (`after: RES-xxx`).
+6. **Hand off:** write a `HANDOFF` entry, set owner to the receiving handle,
+   status back to `claimed`.
+7. **Every push that changes code must include the row update in the same push.**
+
+---
+
+## Completed (cycle archive)
+
+| ID | Feature | Owner | Merged | Evidence |
+|---|---|---|---|---|
+| RES-001 | Global settings authorization | `claude` | PR #62 | See evidence log |
+| RES-011 | Phone drawer width/insets + public background legibility | `opencode` | PR #67 (`31eb19d`) | See evidence log |

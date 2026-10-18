@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -543,40 +545,83 @@ func RSVPToEvent(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
+	// Distinguish the failure modes inside the transaction from the HTTP
+	// mapping outside it, so a validation failure never surfaces as a 500.
+	var (
+		errEventNotFound = errors.New("event not found")
+		errAlreadyRSVPed = errors.New("already rsvped")
+		errEventFull     = errors.New("event full")
+	)
+
 	var event models.CommunityEvent
-	if err := config.DB.First(&event, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-		return
-	}
 
-	// Check if already RSVP'd
-	var existing models.EventAttendee
-	if err := config.DB.Where("event_id = ? AND user_id = ?", id, userObj.ID).First(&existing).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "You have already RSVP'd to this event"})
-		return
-	}
+	txErr := config.DB.Transaction(func(tx *gorm.DB) error {
+		// Lock the event row first. This serialises every concurrent RSVP for
+		// the same event, turning the old check-then-act (capacity check then
+		// insert, RES-004) into a single atomic section. Without it two
+		// callers can both observe a free seat and both insert.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&event, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errEventNotFound
+			}
+			return err
+		}
 
-	// Check capacity
-	if event.MaxAttendees > 0 && event.AttendeeCount >= event.MaxAttendees {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Event is full"})
-		return
-	}
+		// Derive the live attendee count instead of trusting the denormalised
+		// counter. Besides being race-free under the row lock above, this
+		// self-heals any historic drift of CommunityEvent.AttendeeCount.
+		var current int64
+		if err := tx.Model(&models.EventAttendee{}).
+			Where("event_id = ?", id).
+			Count(&current).Error; err != nil {
+			return err
+		}
 
-	attendee := models.EventAttendee{
-		EventID: id,
-		UserID:  userObj.ID,
-		Status:  "registered",
-	}
+		// Reject a duplicate RSVP. The partial unique index
+		// idx_event_attendee_active is the database-level backstop.
+		var existing models.EventAttendee
+		err := tx.Where("event_id = ? AND user_id = ?", id, userObj.ID).
+			First(&existing).Error
+		if err == nil {
+			return errAlreadyRSVPed
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
 
-	if err := config.DB.Create(&attendee).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to RSVP"})
-		return
-	}
+		if event.MaxAttendees > 0 && current >= int64(event.MaxAttendees) {
+			return errEventFull
+		}
 
-	event.AttendeeCount++
-	config.DB.Save(&event)
+		attendee := models.EventAttendee{
+			EventID: id,
+			UserID:  userObj.ID,
+			Status:  "registered",
+		}
+		if err := tx.Create(&attendee).Error; err != nil {
+			return err
+		}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "RSVP successful",
+		// Keep the denormalised counter equal to the rows it summarises.
+		if err := tx.Model(&models.CommunityEvent{}).
+			Where("id = ?", id).
+			Update("attendee_count", current+1).Error; err != nil {
+			return err
+		}
+		return nil
 	})
+
+	switch {
+	case txErr == nil:
+		c.JSON(http.StatusOK, gin.H{"message": "RSVP successful"})
+	case errors.Is(txErr, errEventNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+	case errors.Is(txErr, errAlreadyRSVPed):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You have already RSVP'd to this event"})
+	case errors.Is(txErr, errEventFull):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Event is full"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to RSVP"})
+	}
 }

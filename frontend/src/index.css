@@ -132,6 +132,57 @@
   .mobile-nav-scroll::-webkit-scrollbar {
     display: none;
   }
+
+  /*
+    Safe-area insets for the app shell.
+
+    `components/layout/AppShell.tsx` refers to these names, and before this block
+    they were defined nowhere: Tailwind emits no CSS for a class it does not know,
+    so the shell had no clearance for the iPhone home indicator or the Android
+    gesture bar, and the `fixed` bottom navigation and SOS button sat on top of
+    page content with no space reserved for them.
+
+    `env()` is 0px wherever there is no cutout, so the values below are the whole
+    offset on a plain screen and phones simply get more room. The two `calc()`
+    offsets keep the pixel values the shell used before it lost them (5rem of
+    content padding, 4rem of SOS lift) and add the inset on top.
+  */
+  .safe-top-inset {
+    /* 0.75rem is the header's own vertical padding (`py-3`). It lives here
+       rather than in the class list because a Tailwind utility out-ranks a
+       component-layer class and would cancel the inset. */
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  }
+
+  .safe-inset-y {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-main-inset {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The bar grows by the inset instead of hiding its last row behind it.
+     0.375rem is the bar's own padding (`py-1.5`), moved here for the same
+     reason as above. */
+  .safe-bottom-bar {
+    padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .safe-sos-offset {
+    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The bottom bar does not exist from `lg` up, so neither offset applies. */
+  @media (min-width: 64rem) {
+    .safe-main-inset {
+      padding-bottom: 0;
+    }
+    .safe-sos-offset {
+      bottom: 1.25rem;
+    }
+  }
 }
 
 /* Loading banner mark */

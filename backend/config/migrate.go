@@ -130,6 +130,18 @@ func AutoMigrateAll() error {
 	if err != nil {
 		return err
 	}
+
+	// EventAttendee is soft-deleted, so RSVP uniqueness must cover only live
+	// rows. The model tag declares this index; this is the explicit, idempotent
+	// migration form (RES-004). It is intentionally NOT tolerant of existing
+	// duplicates: AutoMigrate/this statement fails loudly so the drift is
+	// fixed by an approved data migration rather than silently.
+	if err := DB.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendee_active ON event_attendees (event_id, user_id) WHERE deleted_at IS NULL`,
+	).Error; err != nil {
+		return err
+	}
+
 	log.Println("auto-migration complete")
 	return nil
 }
