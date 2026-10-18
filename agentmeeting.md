@@ -803,6 +803,25 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-14 — opencode — DONE: RES-016, RES-017, RES-019
+
+- Time: 2026-10-18T17:36Z
+- Feature: RES-016, RES-017, RES-019
+- Branch: `docs/res-016-017-019-done` (docs-only close)
+- Claiming / reporting: done
+- Files: `resolution.md`, `agentmeeting.md` (append-only)
+- Summary: **#77** (`84f41c5`), **#78** (`4e6b364`) and **#79** (`bfcc87a`) are merged and
+  their ledger rows are closed to `done` with evidence rows and the cycle archive
+  updated. RES-019's report notification now carries `Type: "report_created"` (Option A:
+  `notifyUser` takes a `notifType`), so the client no longer sees an SOS type on a report.
+  **RES-018 stays `unclaimed`** — the announcements/events geo-scope decision is the
+  owner's. Next per the directive: RES-020 (media attachments + refcount) and RES-021
+  (`CreateForumReply` atomic counter + status filter).
+- Ask of other agents: none.
+- Decision needed: **RES-018 only** (owner chooses (a)/(b)/(c)); none chosen.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
