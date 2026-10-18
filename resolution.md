@@ -52,6 +52,8 @@ All timestamps UTC ISO-8601. Status values:
 | RES-015 | Community | Deferred community hardening: content takedown/hide, ranking, scope-aware notifications, dead `ChatMessage` model, "communication room" membership authz scan, unrouted demo `CommunityPage.tsx` + its mock | `unclaimed` | `feat/community-hardening` | `backend/handlers`, `backend/models`, `frontend/src/pages/LiveCommunityPage.tsx`, `frontend/src/pages/CommunityPage.tsx`, `frontend/src/mocks/community.ts` | `unclaimed` | — | — |
 | RES-016 | Community | Community feature audit: Discussions, Announcements, Events — integration flow and phantom endpoints (recon only, no code) | `opencode` | `docs/community-feature-audit` | new `docs/community/COMMUNITY-FEATURE-AUDIT.md`, plus `resolution.md` / `agentmeeting.md` ledger rows only | `in_review` | 2026-10-18T16:13Z | #77 |
 | RES-017 | Community | Media attachments on report and SOS: existing infrastructure recon + implementation plan (recon only, no code) | `opencode` | `recon/media-attachments-report-sos` (stacked on `docs/community-feature-audit` / #77 — merge #77 first) | new `docs/community/MEDIA-ATTACHMENTS-PLAN.md`, plus `resolution.md` / `agentmeeting.md` ledger rows only | `in_review` | 2026-10-18T16:32Z | #78 |
+| RES-018 | Community | Announcements and Events geo-scope: product decision required | `unclaimed` | — | `resolution.md` (ledger row + decision brief only — **no code**) | `unclaimed` | — | — |
+| RES-019 | Community | Moderation notification on report creation | `opencode` | `fix/report-moderation-notification` | `backend/handlers/community_moderation.go`, new `backend/handlers/community_report_notification_test.go`, `backend/internal/testutil/setup.go` (test table list only) | `claimed` | 2026-10-18T17:16Z | — |
 
 **Suggested split for the three agents** (a suggestion is not a claim — confirm
 in `agentmeeting.md` before starting):
@@ -61,6 +63,34 @@ in `agentmeeting.md` before starting):
 - `antigravity` — RES-005 frontend half only once a backend contract exists;
   until then RES-006 review (read-mostly, no hot files).
 - `opencode` — RES-004 (self-contained handler + migration), then RES-007.
+
+---
+
+### RES-018 — decision brief: Announcements and Events geo-scope
+
+Filed from `docs/community/COMMUNITY-FEATURE-AUDIT.md` findings 2 and 3. **No code is
+written and no scope is chosen here — this row is for the owner to decide.**
+
+Findings (evidence in the audit):
+- `CommunityAnnouncement` and `CommunityEvent` have **no `GeoPlace`** embed and their read
+  filters are `unit_id`-only, so each can address exactly one unit or everyone — never an
+  LGA or state, and never the viewer's own place (`models/Community.go:79-127`;
+  `community_handler.go:551-561`, `:691-701`).
+- Events therefore **contradict D-015**: the LGA convergence group deliberately spans units
+  within one LGA, while an event cannot reach a neighbouring unit in the same LGA. The two
+  features disagree on what "local" means.
+
+Options — the owner picks one:
+- **(a)** Add a `GeoPlace` embed to both models and reuse `scopeWindowCondition` /
+  `placeVisibleToViewer`, giving announcements and events the same
+  `locality → lga → state → country → world` ladder as forum posts. Largest change; it
+  changes who sees existing rows.
+- **(b)** Keep the unit-only filter and **document the divergence** from D-011/D-013 as
+  deliberate (announcements/events are unit-scoped by design).
+- **(c)** Introduce a new **LGA-level audience** that spans units, aligning events with
+  D-015's LGA group.
+
+**Not decided. No implementation.** If (a) or (c) is chosen, it becomes its own row.
 
 ---
 

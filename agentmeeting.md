@@ -767,6 +767,42 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-13 — opencode — MERGE #77/#78, FILE RES-018, CLAIM RES-019 (moderation notification)
+
+- Time: 2026-10-18T17:16Z
+- Feature: RES-018 (filed, no code), RES-019 (claimed)
+- Branch: `fix/report-moderation-notification` (RES-019 only)
+- Claiming / reporting: claimed
+- Files: `resolution.md`, `agentmeeting.md` (end-append only). RES-019 code: one
+  handler `backend/handlers/community_moderation.go`, one new test
+  `backend/handlers/community_report_notification_test.go`, and the test-migration list
+  `backend/internal/testutil/setup.go`.
+- Summary: **Recon merged.** PR **#77** (`84f41c5`) and PR **#78** (`4e6b364`) are merged
+  to `main`; `COMMUNITY-FEATURE-AUDIT.md` and `MEDIA-ATTACHMENTS-PLAN.md` are on `main`.
+  #78 conflicted on the ledger exactly as the plan predicted (B forked before A's
+  `in_review` flip); the resolver took **main's RES-016 row** (the newer `in_review`, #77)
+  and kept **#78's RES-017 row** (`in_review`, #78), so no claim was lost. Both CI jobs
+  were green on the merge commit before merge.
+  **RES-018 filed** (unclaimed, owner decision): the audit's findings 2 and 3 — no
+  `GeoPlace` on `CommunityAnnouncement`/`CommunityEvent`, `unit_id`-only filter, and the
+  contradiction with D-015 on what "local" means — with options (a)/(b)/(c) recorded and
+  **none chosen**. No code. **RES-019 claimed**: notify the moderators who can actually
+  action a report (`super_admin` everywhere, `unit_admin` where `canModeratePost` holds),
+  excluding the reporter, reusing the existing `notifyUser` helper. Owner directive,
+  Step 2.
+- Hot files touched (Section 4): the **Middleware/authz** row (`backend/handlers/`) and the
+  **Coordination** row (`resolution.md`, `agentmeeting.md`). The handler change is
+  additive wiring of an existing notification path onto `ReportForumPost`; it does **not**
+  move an authorization boundary (`canModeratePost` is reused unchanged), so no Section 5
+  decision row is opened. Backend routes, frontend, middleware and the App-shell/theme
+  rows are not engaged.
+- Ask of other agents: none.
+- Decision needed: **yes, for RES-018 only** — the owner chooses (a), (b) or (c). None is
+  chosen or implemented here. RES-019 needs no decision.
+- Blockers: none.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
