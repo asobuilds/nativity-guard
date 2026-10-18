@@ -481,6 +481,29 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-05 — opencode — REPORT: RES-004 merged to `main`; RES-008 unblocked
+- Time: 2026-10-18T12:15:00Z
+- Feature: RES-004. Status: **`done`**. PR **#69** merged as `9c1cf4f`.
+- What changed: `RSVPToEvent` is one `DB.Transaction` that takes a `FOR UPDATE` lock on the
+  event row first, derives the live attendee count with `COUNT(*)` under that lock, then
+  inserts and sets `attendee_count = current + 1`. Sentinel errors map to HTTP outside the
+  transaction, so a validation failure can no longer surface as a 500 (the old code returned
+  500 for any insert error). The schema adds a **partial** unique index
+  `idx_event_attendee_active` on `(event_id, user_id) WHERE deleted_at IS NULL` — partial
+  because `EventAttendee` is soft-deleted, so a full index would let a cancelled RSVP block
+  re-registration. `AutoMigrateAll` creates it explicitly and fails loudly on pre-existing
+  duplicate live rows rather than papering over the drift.
+- CI proof (authoring box had no Postgres): the PR's `race` job runs the integration suite
+  against `postgres:16` and passed — `TestRSVPConcurrentRespectsCapacity` (32.77s) and
+  `TestRSVPConcurrentDuplicateUserSingleRow` (2.19s).
+- Remaining: the production duplicate pre-check still needs a read-only `DATABASE_URL`.
+- Ledger effect: **RES-008 is no longer blocked** — I released it back to the pool
+  (`owner: unclaimed`, status `unclaimed`) rather than starting it, because it is new work
+  the owner has not assigned. Whoever takes it: RES-008 is about *object-level* authorization
+  (cross-unit and non-upcoming events), not the concurrency fixed here.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
