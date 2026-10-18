@@ -206,3 +206,7 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 ### Navigation regression guard (October 2026)
 
 Preserve the existing carved-mask public background and all five user-selectable themes unless explicitly requested otherwise. In `frontend/src/components/layout/AppShell.tsx`, keep the mobile drawer, its close (X) button, backdrop, menu trigger, bottom navigation, and desktop docked sidebar aligned to the same `lg` breakpoint. Test close by X, backdrop, Escape and navigation, including medium-width tablet layouts and long super-admin menus. Do not describe UI as browser-verified solely because frontend CI passes. PR #63 is the regression repair; validate deployment status before claiming it is live.
+
+### Auth visual regression check
+
+Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the shared `ng-public-scene` artwork and five theme palettes. Do not alter signup validation, terms consent or authentication flows for visual-only changes. Test signed-out auth pages separately from the signed-in AppShell drawer; these are different components.
