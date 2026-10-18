@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -321,7 +322,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-		c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"id":             freshUser.ID,
 			"email":          freshUser.Email,
@@ -581,33 +582,40 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "All sessions revoked"})
 }
 
-// ForgotPassword initiates a password reset. The endpoint is public and
-// rate-limited. It always returns 200 with a generic message so callers
-// cannot enumerate which identifiers map to real accounts.
+// ForgotPassword sends a password-reset link to the user's email.
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var input struct {
-		Identifier string `json:"identifier" binding:"required"`
+		Email string `json:"email" binding:"required,email"`
 	}
+
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "A valid email is required"})
 		return
 	}
 
+	email := strings.ToLower(strings.TrimSpace(input.Email))
 	svc := services.NewPasswordResetService()
-	_, rawToken, err := svc.RequestReset(input.Identifier)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
-		return
-	}
 
-	// TODO: email delivery is not yet wired. When the identifier is an
-	// email, the token is currently sent to the resolved user's PHONE
-	// number (Correction 1). Replace this SMS branch with an email
-	// dispatch once an email service is added.
-	_ = rawToken
+	_, rawToken, err := svc.RequestReset(email)
+	if err != nil {
+		// Never log raw reset tokens, reset links, or the submitted email.
+		log.Printf("password reset request failed: %v", err)
+	} else if rawToken != "" {
+		frontendURL := strings.TrimRight(os.Getenv("FRONTEND_URL"), "/")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:5173"
+		}
+
+		resetLink := frontendURL + "/auth/reset-password?token=" + rawToken
+		if err := SendPasswordResetEmail(email, resetLink); err != nil {
+			// Preserve the non-enumerating response while making failures visible
+			// in server logs. Never log the reset link or token.
+			log.Printf("password reset email delivery failed: %v", err)
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "If an account with that email or phone number exists, we've sent a password reset link.",
+		"message": "If an account with that email exists, a password reset link will be sent.",
 	})
 }
 
