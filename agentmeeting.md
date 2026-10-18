@@ -704,6 +704,39 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-11 — opencode — CLAIM + HOT-FILE HUDDLE: RES-016 Community feature audit (recon only)
+
+- Time: 2026-10-18T16:13Z
+- Claim: **RES-016** (`unclaimed` → `opencode`), branch → `docs/community-feature-audit`,
+  status → `in_progress`. Owner directive, Workstream A. **Recon only — no handler, model,
+  route or frontend file will be modified.** The deliverable is one new document.
+- I also filed the owner's **Workstream B** as **`RES-017`** (`unclaimed`) in the same ledger
+  edit so it is visible to the other agents; it will be claimed on its own branch when
+  Workstream B starts, which the owner sequenced **after** this doc is pushed.
+- Hot files touched (Section 4): only the **Coordination** row — `resolution.md` and
+  `agentmeeting.md`, both **end-append only** under my own heading, per Section 4's
+  merge-pain rule. New doc at `docs/community/COMMUNITY-FEATURE-AUDIT.md`. **No file under
+  `backend/` or `frontend/` is opened for writing**, so the App-shell / routing / theming /
+  backend-routes / middleware hot rows are not engaged and the AGENT.md regression guard
+  (carved-mask background, five themes, single `lg` drawer breakpoint) is untouched by
+  construction, not just by intention.
+- Truth check against the owner's briefing, because the briefing is not the code:
+  - Owner stated the worktree is "clean on main (ed24e59)". **Actual `origin/main` is
+    `9b13b3d`** — PR #76 (the `MEET-2026-10-18-10` token correction the owner approved) merged
+    after that line was written. Branch cut from `9b13b3d`.
+  - Owner stated "/tmp/opencode/gh-token is deleted" — **confirmed** deleted, and the keyring
+    works without `GH_TOKEN` (this branch was created and will be pushed with plain `git`/`gh`).
+  - RES-014 merged and PR #71 merged — **confirmed** on `main`.
+- Scope fence for this row: the audit answers the owner's five questions with `file:line`
+  evidence read from the code in this worktree, and explicitly records anything it could **not**
+  verify rather than inferring it from earlier summaries (RES-005/RES-013/RES-014 prose is
+  treated as a claim to re-check, not as evidence).
+- Blockers: none. Decision needed: none.
+- **Do not merge this PR** — the owner reads the audit first. Same instruction applies to
+  RES-017.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
