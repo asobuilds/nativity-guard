@@ -424,6 +424,7 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 - Time: 2026-10-18T10:58:00Z (= 11:58 WAT local)
 - Feature: RES-011. Branch: `fix/responsive-drawer-and-public-backgrounds` (from `origin/main`, `8ba51e0`).
 - Reporting: `in_review` — code committed locally, **not pushed** (no credentials), so no PR number yet.
+- Update 2026-10-18T11:05Z: the owner supplied a GitHub credential; branch pushed and **PR #67** is open. Nothing else in this entry changed.
 - Files as shipped (all three hot files, with the huddle filed in `MEET-2026-10-18-02` before editing):
   `frontend/src/components/layout/AppShell.tsx`, `frontend/src/index.css`,
   `frontend/src/theme.css`, new `frontend/src/components/layout/shellInsets.test.ts`,
