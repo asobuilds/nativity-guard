@@ -224,6 +224,10 @@ func SetupRoutes(router *gin.Engine) {
 		sos := api.Group("/sos")
 		{
 			sos.POST("/send", middleware.AuthMiddleware(), handlers.SendSOSAlert)
+			// Attachment presign (RES-020). Caller-scoped because the alert does
+			// not exist until /sos/send; the returned key is only accepted by
+			// SendSOSAlert when it is a private sos_media/ key.
+			sos.POST("/media/presign", middleware.AuthMiddleware(), handlers.PresignSOSMedia)
 			sos.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlerts)
 			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
 			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)
@@ -347,6 +351,9 @@ func SetupRoutes(router *gin.Engine) {
 			// open to any member who can see the post; the queue is unit/super
 			// admin only, narrowed per-post by canModeratePost.
 			community.POST("/posts/:id/report", middleware.AuthMiddleware(), handlers.ReportForumPost)
+			// Attachment presign for a report (RES-020). Gated by the post's
+			// visibility, so media can only be staged for a post you can open.
+			community.POST("/posts/:id/report/presign", middleware.AuthMiddleware(), handlers.PresignReportMedia)
 			community.GET("/reports", middleware.AuthMiddleware(), handlers.GetCommunityReports)
 			community.POST("/reports/:id/resolve", middleware.AuthMiddleware(), handlers.ResolveCommunityReport)
 		}

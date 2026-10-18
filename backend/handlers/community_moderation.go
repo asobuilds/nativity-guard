@@ -105,6 +105,11 @@ func ReportForumPost(c *gin.Context) {
 
 	var input struct {
 		Reason string `json:"reason"`
+		// Optional attachments, mirroring the SOS path: private report_media/
+		// keys from POST /community/posts/:id/report/presign, re-verified
+		// against the store before the report row is written.
+		VoiceNoteKey string `json:"voiceNoteKey"`
+		VideoKey     string `json:"videoKey"`
 	}
 	// A report with no reason is still valid — the UI sends none — but it must
 	// not be empty in the database, because the column is NOT NULL.
@@ -115,6 +120,17 @@ func ReportForumPost(c *gin.Context) {
 	}
 	if len(reason) > 2000 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "reason must be 2000 characters or fewer"})
+		return
+	}
+
+	// Re-verify declared attachments before recording anything, so a bad key does
+	// not leave a report row pointing at an object that is not there.
+	voiceNoteKey, ok := attachVerifiedMedia(c, input.VoiceNoteKey, reportMediaPrefix, voiceMediaMaxBytes)
+	if !ok {
+		return
+	}
+	videoKey, ok := attachVerifiedMedia(c, input.VideoKey, reportMediaPrefix, videoMediaMaxBytes)
+	if !ok {
 		return
 	}
 
@@ -159,6 +175,10 @@ func ReportForumPost(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record report"})
 		return
 	}
+
+	// Record attachment links now the report has an id. Best-effort, on the same
+	// reasoning as SOS: the report is already recorded.
+	linkMedia(MediaParentReport, report.ID, voiceNoteKey, videoKey)
 
 	// A report is only useful if a moderator learns about it. RES-014 made the
 	// queue work but left it pull-only (audit finding 1, §4.4); this closes that

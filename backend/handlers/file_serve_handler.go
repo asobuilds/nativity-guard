@@ -27,12 +27,15 @@ const privateReadTTL = 10 * time.Minute
 //
 // Delivery depends on the prefix:
 //   - public  (avatars, covers, units, news, community) -> 302 to R2_PUBLIC_BASE
-//   - private (evidence, gov_ids, voice_notes)           -> 302 to a short-lived
-//     presigned GET URL. A public URL is never returned for these.
+//   - private (evidence, gov_ids, voice_notes, sos_media, report_media) -> 302 to
+//     a short-lived presigned GET URL. A public URL is never returned for these.
 //
 // Access rules:
 //   - avatars/*, covers/*, units/*, news/*, community/*  : any authenticated user
 //   - evidence/*, voice_notes/*  : requires case access via caseId query param
+//   - sos_media/*                : requires the sosId to pass sosReadScope
+//   - report_media/*             : requires reportId whose post is visible, or
+//     the caller canModeratePost
 //   - gov_ids/*                  : admin only
 func ServeFile(c *gin.Context) {
 	userInterface, exists := c.Get("user")
@@ -154,6 +157,61 @@ func authorizeFileCategory(c *gin.Context, category string, userObj *models.User
 	case "gov_ids":
 		if !userObj.IsSuperAdmin && userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+			return false
+		}
+		return true
+	case "sos_media":
+		// The attachment is only as readable as its parent alert. sosReadScope is
+		// the exact predicate the alert detail uses, so this cannot drift from it.
+		sosIDStr := strings.TrimSpace(c.Query("sosId"))
+		if sosIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "sosId query param required for SOS media"})
+			return false
+		}
+		sosID, err := uuid.Parse(sosIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sosId"})
+			return false
+		}
+		var alert models.SOSAlert
+		if err := sosReadScope(config.DB, userObj).
+			First(&alert, "sos_alerts.id = ?", sosID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "SOS not found or not accessible"})
+			return false
+		}
+		return true
+	case "report_media":
+		// Readable by anyone who can see the reported post, and by a moderator who
+		// can action it — the same pair the report itself is gated by.
+		reportIDStr := strings.TrimSpace(c.Query("reportId"))
+		if reportIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "reportId query param required for report media"})
+			return false
+		}
+		reportID, err := uuid.Parse(reportIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reportId"})
+			return false
+		}
+		var report models.Report
+		if err := config.DB.First(&report, "id = ?", reportID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+			return false
+		}
+		postID, err := uuid.Parse(report.TargetID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Reported post not found"})
+			return false
+		}
+		var post models.ForumPost
+		if err := config.DB.First(&post, "id = ?", postID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Reported post not found"})
+			return false
+		}
+		lat, lng := parseCoords(c)
+		if !postVisibleTo(userObj, post, lat, lng) &&
+			!canModeratePost(userObj, post, resolveViewerPlace(userObj, lat, lng)) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 			return false
 		}
 		return true
