@@ -270,6 +270,31 @@ _Superseded placeholder: "None yet." — replaced 2026-10-17T16:12Z._
   UTC from `date -u +%Y-%m-%dT%H:%M:%SZ`. Conflict ladder step 2 compares claim
   **order** first; timestamps are supporting evidence, not the arbiter. See D-008.
 
+### OPF-004 — asked by `opencode`, to the human owner / `claude` — feature: RES-011 vs RES-009
+- Question: **`AppShell.tsx` has two writers.** `main` (`8ba51e0`) holds
+  `max-w-[80vw]`, `pb-20`, `bottom-16` and the `mobile-nav-scroll` bottom bar.
+  In the main checkout claude has an **uncommitted, unclaimed** rewrite of the
+  same file (working-tree blob `3b76787`) that adds four `safe-*` class names that
+  **no ref anywhere defines**, widens the drawer to `max-w-[85vw]`, and replaces
+  the bottom bar with a `BOTTOM_PRIMARY=4` + `More`-button pattern. Claude's
+  RES-009 row lists `queryClient.ts` and `States.tsx`, not `AppShell.tsx`, so
+  neither the ledger nor Section 4 gives opencode a way to know who owns it.
+- Section 4 says "one owner at a time" and ladder step 5 says escalate rather than
+  race, so opencode has **not** touched the main checkout's copy and has not
+  overwritten anything. opencode's branch changes only: the drawer width cap, the
+  real definitions for the four inset class names, and the public-scene layers.
+- What is needed: a one-line decision.
+  1. **opencode owns `AppShell.tsx`; claude discards its AppShell copy** and keeps
+     `Toast.tsx`/`queryClient.ts` for RES-009.** (opencode's recommendation — the
+     human assigned this file to opencode, and claude's copy would widen the
+     drawer and keep the inset classes dead.)
+  2. claude lands its copy first; opencode rebases on it by **merge** and only
+     adds the missing class definitions plus the width cap.
+  3. Serialize: opencode's RES-011 becomes `blocked` until claude commits.
+- Blocked meanwhile: nothing is stopped — opencode is proceeding in its own
+  worktree on a branch, which cannot corrupt claude's files. Only the *merge* order
+  is undecided.
+
 ---
 
 ## 7a. Workspace layout (added 2026-10-17T16:26Z)
@@ -278,7 +303,7 @@ _Superseded placeholder: "None yet." — replaced 2026-10-17T16:12Z._
 |---|---|---|
 | `claude` | `/home/asobuild/nativity-guard` | `feat/frontend-reliability-pass` (after bootstrap) |
 | `antigravity` | `/home/asobuild/nativity-guard-ag` | `fix/finance-route-review` |
-| `opencode` | `/home/asobuild/nativity-guard-oc` | `fix/community-rsvp-concurrency` |
+| `opencode` | `/home/asobuild/nativity-guard-oc` | `fix/responsive-drawer-and-public-backgrounds` (RES-011); `fix/community-rsvp-concurrency` holds the committed-but-unpushed RES-004 work |
 
 One-time setup by the human owner on the main checkout:
 
@@ -336,6 +361,114 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
   branch is committed locally and handed off — see `HANDOFF-2026-10-18-01`.
 - Ask of other agents: none
 - Decision needed: no
+
+---
+
+### MEET-2026-10-18-02 — opencode — HOT-FILE HUDDLE: drawer width + public background legibility
+- Time: 2026-10-18T10:20:00Z (= 11:20 WAT local)
+- Feature: RES-011 (new row). Owner-assigned, overrides the RES-004/RES-007 split for this handle.
+- Branch: `fix/responsive-drawer-and-public-backgrounds` (from `origin/main`, `8ba51e0`)
+- Claiming / reporting: claimed
+- Files (all Section 4 hot files — this entry is the required pre-commit huddle):
+  `frontend/src/components/layout/AppShell.tsx`,
+  `frontend/src/index.css`, `frontend/src/theme.css`.
+- Summary: the human owner has explicitly re-opened navigation/theme work (the
+  "unless explicitly requested otherwise" clause in D-005 and the `AGENT.md`
+  regression guard), reviewed the regression guard first, and assigned two items:
+  (1) the phone drawer must stop covering the screen and the shell must fit real
+  device insets; (2) the public scene artwork must be blurred and de-contrasted so
+  body text stays the focus. Facts established by inspection, because the earlier
+  reading of PR #63 was wrong and the correction matters:
+  - **PR #63 is intact on `main`.** `main` has the `lg:` alignment the guard
+    requires (backdrop `lg:hidden`, aside `lg:static lg:w-60`, close button
+    `lg:hidden`). `a9c4649` changed only 10 lines: the `md:`→`lg:` shift.
+  - **`main` has real, working inset values**: `<main>` is `pb-20 lg:pb-0`
+    (`AppShell.tsx:291`), the SOS button is `bottom-16 ... lg:bottom-5` (`:310`),
+    and the bottom bar is a horizontal scroller (`mobile-nav-scroll … overflow-x-auto`,
+    `:318`).
+  - **No ref in this repository has ever committed a safe-area inset.**
+    `git log -S 'safe-inset-y' --all` and `git log -S 'safe-main-inset' --all` are
+    both empty, and `git log -S 'env(safe-area-inset' --all` is empty. So `main`,
+    and every merged branch, renders with **zero** clearance for the iPhone home
+    indicator or the Android gesture bar, and the fixed bottom bar + SOS button
+    overlap page content on those devices.
+  - **`safe-inset-y`, `safe-main-inset`, `safe-sos-offset` and `safe-bottom-bar`
+    exist only in claude's *uncommitted* working tree in the main checkout**
+    (verified there with `git diff -- frontend/src/components/layout/AppShell.tsx`;
+    working-tree blob `3b76787`). They are referenced there
+    but defined nowhere. `git status` in that checkout also shows uncommitted
+    `Toast.tsx` and `queryClient.ts` (claude's RES-009), so claude is mid-flight.
+  - Therefore claude's uncommitted AppShell copy, if committed unchanged, would
+    (a) still ship four dead class names, and (b) widen the drawer from
+    `max-w-[80vw]` to `max-w-[85vw]` — the opposite of item 1.
+- Conflict: claude holds uncommitted, unclaimed changes to `AppShell.tsx`
+  (Section 4: "one owner at a time"). Raised as **OPF-004** rather than resolved
+  unilaterally. My diff is deliberately surgical so the two reconcile: I add
+  **definitions** for the four class names, apply them, and cap the width. I am
+  **not** taking claude's `BOTTOM_PRIMARY`/`More`-button redesign, the
+  `id="app-navigation"`/`aria-controls` additions, or the `glass-bar` panel change
+  — those are claude's design decisions and stay on claude's side.
+- Theme-file note: Section 4 marks `theme.css` / `index.css` "additive only unless
+  the theme owner is idle". `feat/theme-aware-public-glass` is already an ancestor
+  of `main` and `fix/auth-background-and-drawer-visibility` does not touch either
+  file, so no theme owner is active; non-additive edits are permitted. I change no
+  theme token name, no colour value and no theme count — only the public-scene
+  layers.
+- Ask of other agents: do not edit `AppShell.tsx`, `index.css` or `theme.css`
+  until this branch lands or OPF-004 says otherwise.
+- Decision needed: yes — OPF-004 (AppShell.tsx arbitration).
+
+---
+
+### MEET-2026-10-18-03 — opencode — REPORT: RES-011 drawer width/insets + public background legibility
+- Time: 2026-10-18T10:58:00Z (= 11:58 WAT local)
+- Feature: RES-011. Branch: `fix/responsive-drawer-and-public-backgrounds` (from `origin/main`, `8ba51e0`).
+- Reporting: `in_review` — code committed locally, **not pushed** (no credentials), so no PR number yet.
+- Update 2026-10-18T11:05Z: the owner supplied a GitHub credential; branch pushed and **PR #67** is open. Nothing else in this entry changed.
+- Files as shipped (all three hot files, with the huddle filed in `MEET-2026-10-18-02` before editing):
+  `frontend/src/components/layout/AppShell.tsx`, `frontend/src/index.css`,
+  `frontend/src/theme.css`, new `frontend/src/components/layout/shellInsets.test.ts`,
+  `frontend/package.json` (+`@types/node@^22`, to type the test's disk read — the repo
+  had no Node types), and `frontend/public/images/nativity-carved-masks.webp`
+  (renamed from `…masks (2).webp`, see below).
+- What changed, item 1 (drawer / responsiveness):
+  - Drawer is now `w-[17rem] max-w-[calc(100vw-3.5rem)]` (was `w-72 max-w-[80vw]`), so
+    it stops 3.5rem short of the right edge on every phone. The previous default
+    filled 80% of a 360px screen and the backdrop was barely tappable.
+  - Five `safe-*` classes are now **defined** in `index.css` (`safe-top-inset`,
+    `safe-inset-y`, `safe-main-inset`, `safe-bottom-bar`, `safe-sos-offset`) and applied
+    in the shell. Before this, they were referenced in claude's uncommitted copy but
+    defined nowhere — `git log -S 'env(safe-area-inset' --all` was empty, so every
+    merged ref rendered with zero cutout clearance. `lg` restores the old desktop
+    offsets via `@media (min-width: 64rem)`.
+  - `shellInsets.test.ts` (7 tests) fails if any `safe-*` class used by the shell loses
+    its rule, if a rule stops referencing `env(safe-area-inset-*)`, or if the drawer cap
+    regresses. This is the check that CI cannot do, because Tailwind emits nothing for a
+    class it does not recognise and the shell still builds and passes typecheck.
+- What changed, item 2 (public background legibility): per-theme `--public-art-blur`
+  (12–22px), reduced artwork opacity, raised scrim strength (0.88–0.96), a tighter scrim
+  gradient, `filter: blur(…) saturate(115%)`, and an artwork layer capped at
+  `height: min(100%, 1800px)`. **No theme token, colour, or theme count changed** — all
+  five user themes and the carved-mask artwork are preserved as the regression guard
+  requires.
+- Verification (UI is browser-verified, not asserted from CI): headless Chrome 155 + CDP
+  against `vite preview` (dev-mock build). 360/320/740×360/768/1280 viewports; drawer
+  width + gutter, all four dismissal paths (X, backdrop, Escape, navigation), content
+  clearance under the bottom bar, and all five themes' artwork request/blur/scrim. Full
+  commands and numbers are in the RES-011 evidence row in `resolution.md`. Real-device
+  safe-area rendering is explicitly **not** claimed: CDP cannot emulate `env()` insets,
+  and the plumbing was proven live only with `env()`=0.
+- Pre-existing bug found and fixed: the production minifier emitted
+  `url('/images/nativity-carved-masks%20(2").webp')` (stray quote → 404) and a broken
+  `content:'"` on the `::after` scrim, which also dropped `background-repeat`/`opacity`.
+  Reproduced against a pristine `main` build, so it predates this branch; it is still
+  present on `origin/fix/auth-background-and-drawer-visibility:frontend/src/theme.css:304`.
+  Fixed by renaming the asset (the minifier decodes `%28`/`%29` back to literal parens
+  and strips the quotes, so percent-encoding does not survive).
+- Ask of other agents: keep off `AppShell.tsx` / `index.css` / `theme.css` until this
+  lands or **OPF-004** is answered. `claude`'s uncommitted copy otherwise collides and
+  would re-introduce `max-w-[85vw]` plus four undefined `safe-*` names.
+- Decision needed: yes — OPF-004 is still open.
 
 ---
 
