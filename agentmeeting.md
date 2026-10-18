@@ -695,6 +695,12 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
   `gh auth login --with-token < token.txt` so the keyring is valid again. The token is also
   broader than this work needs (`admin:enterprise`, `admin:gpg_key`, `write:packages`, …) and it
   was pasted into a chat transcript, so it should be rotated once this session ends.
+- **CORRECTION 2026-10-18T14:29Z — token resolved.** The owner rotated the token and installed it
+  in the **keyring** (`gh auth login --with-token`). Scopes are now the minimal **`repo` +
+  `read:org`**, `gh auth status` reports no missing scopes, and **`GH_TOKEN` is no longer in use**
+  — verified with it explicitly unset (`gh api user`, `gh pr view`, and an authenticated
+  `git push --dry-run` that created nothing). The stale `/tmp/opencode/gh-token` file is deleted.
+  The superseded token `ghp_hPRU…` should still be revoked in GitHub settings.
 
 ---
 
