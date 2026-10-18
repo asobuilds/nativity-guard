@@ -205,7 +205,11 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-200',
+          // Below `lg` this is a drawer. It stops 3.5rem short of the right edge so
+          // the page it covers stays visible and the backdrop stays tappable,
+          // instead of the panel filling 80% of a 360px phone.
+          'fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[calc(100vw-3.5rem)] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-200',
+          'safe-inset-y',
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:static lg:z-auto lg:w-60 lg:translate-x-0',
         )}
@@ -257,7 +261,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-base/90 px-4 py-3 backdrop-blur">
+        <header className="safe-top-inset sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-base/90 px-4 pb-3 backdrop-blur">
           <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
@@ -288,7 +292,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
+        <main className="safe-main-inset min-w-0 flex-1">
           <ErrorBoundary title="This page failed to render">
             {/* `children` when a caller renders the shell directly (`/` does, since
                 it has to decide between the landing page and the console before
@@ -307,7 +311,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
           <NavLink
             to="/sos"
             aria-label="Open emergency SOS"
-            className="fixed bottom-16 right-4 z-30 flex min-h-12 items-center gap-2 rounded-full border-2 border-white bg-emergency px-4 font-semibold text-white shadow-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:bottom-5"
+            className="safe-sos-offset fixed right-4 z-30 flex min-h-12 items-center gap-2 rounded-full border-2 border-white bg-emergency px-4 font-semibold text-white shadow-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:bottom-5"
           >
             <ShieldAlert className="size-5" aria-hidden /> SOS
           </NavLink>
@@ -315,7 +319,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
         <nav
           aria-label="Primary"
-          className="mobile-nav-scroll fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 py-1.5 backdrop-blur lg:hidden"
+          className="mobile-nav-scroll safe-bottom-bar fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 pt-1.5 backdrop-blur lg:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <NavItems items={items} variant="bottom" />
