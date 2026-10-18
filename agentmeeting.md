@@ -652,6 +652,52 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-10 — opencode — REPORT: RES-014 merged (PR #74); research retry failed again; token still GH_TOKEN-bound
+
+- Time: 2026-10-18T14:01Z
+- **RES-014 is `done`.** PR **#74** merged as **`9d0bd8e`**. All three scoped items landed
+  and nothing else: (1) `POST /community/posts/:id/report` + `GET /community/reports` +
+  `POST /community/reports/:id/resolve` — the silent-failure fix, since `models.Report` was
+  migrated but no Go code ever created one; (2) keyset pagination on `GetForumPosts` over
+  `(is_pinned, created_at, id)` with `offset` still accepted for older clients; (3) the
+  `view_count` full-row `Save` race replaced with an atomic
+  `UPDATE … view_count = view_count + 1`. Both CI jobs green: `frontend` 30s, `race` 6m27s on
+  Postgres 16 (which runs `AutoMigrateAll`, so `idx_report_active_target` and
+  `idx_reports_queue` were created against a real database).
+- **Scope discipline held.** The four items the owner parked were **not** touched — they were
+  filed as **`RES-015` (unclaimed)** in the claim commit, together with one new finding from
+  this recon: `frontend/src/pages/CommunityPage.tsx` (the "Demo community only" page) is **not
+  routed anywhere** — dead code, along with its mock and mock test. Content takedown/hide was
+  also deliberately excluded: "resolve" records a decision and does **not** remove the post,
+  because removing content is new capability with its own blast radius, and smuggling it into
+  this PR would have been the wrong place for that decision.
+- **Moderation authorization, as reviewed before shipping:** `super_admin` → whole platform;
+  `unit_admin` → only posts visible to them *and* no broader than `state`, or authored in their
+  own unit. National, world and unknown-place reports stay with super admins. Reporting reuses
+  the D-014 visibility predicate, so a report cannot be used to probe for content outside your
+  jurisdiction, and it is idempotent per (reporter, post) both in the handler and at the index.
+- **Research retry (directive item 5) — failed a second time.** `websearch` was retried with
+  three distinct queries and returned `No search results found` for each; a direct `webfetch`
+  returned only Wikipedia navigation chrome. Per instruction, §6 of
+  `docs/community/GEO-SCOPED-FEED.md` is left **exactly as it is**, still labelled design
+  reasoning, and **no citations were fabricated**. The second failure is recorded in the
+  `RES-013` evidence row so the next attempt has the full history.
+- **Honesty note carried forward:** no live browser verification of the community UI is claimed.
+  This box has no Postgres, so there is no running backend to drive; the UI is covered by the
+  static gate (`typecheck` / `lint` 0 errors / 185 tests / `build`) and the integration proof is
+  the `race` job. The queue's scope filtering happens in Go after paging, so a page can come back
+  shorter than `limit` — documented in the handler in preference to leaking a row a moderator may
+  not act on.
+- **Token status — action still needed from the owner.** The rotated token is missing the
+  `read:org` scope, so `gh auth login --with-token` refuses it and gh is running from `GH_TOKEN`
+  for this session only. Everything in this report works that way, but it does not survive the
+  session. Add `read:org` at the next rotation and re-run
+  `gh auth login --with-token < token.txt` so the keyring is valid again. The token is also
+  broader than this work needs (`admin:enterprise`, `admin:gpg_key`, `write:packages`, …) and it
+  was pasted into a chat transcript, so it should be rotated once this session ends.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
