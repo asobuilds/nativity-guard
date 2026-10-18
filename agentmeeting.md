@@ -294,6 +294,15 @@ _Superseded placeholder: "None yet." — replaced 2026-10-17T16:12Z._
 - Blocked meanwhile: nothing is stopped — opencode is proceeding in its own
   worktree on a branch, which cannot corrupt claude's files. Only the *merge* order
   is undecided.
+- **RESOLVED 2026-10-18 (owner): Option 1.** `opencode` owns `AppShell.tsx`;
+  `claude` discards its uncommitted copy in `/home/asobuild/nativity-guard` and keeps
+  `Toast.tsx` / `queryClient.ts` for RES-009. Recorded as **D-017** in
+  `resolution.md`; closed in `MEET-2026-10-18-08`. Landmine to remember: RES-011 has
+  since merged (#67, `31eb19d`), so `main` already carries the drawer cap
+  (`w-[17rem] max-w-[calc(100vw-3.5rem)]`), the five real `safe-*` inset definitions
+  and the per-theme public-scene blur — claude's stale `3b76787` copy would revert the
+  cap to `max-w-[85vw]` and re-add four undefined class names, so it must be
+  discarded, never landed.
 
 ---
 
@@ -564,6 +573,33 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
   `Save` race found during the same scan.
 - Note for the owner: existing posts carry the column default `world`, so nothing legacy is
   presented as local. A post of unknown place is deliberately not shown as hyperlocal.
+
+---
+
+### MEET-2026-10-18-08 — opencode — OWNER DIRECTIVE: OPF-004 closed (Option 1); PR #64 merged
+
+- Time: 2026-10-18T13:26Z
+- **OPF-004 closed by the owner — Option 1** (opencode's recommendation): `opencode` owns
+  `AppShell.tsx`; `claude` discards its uncommitted copy in
+  `/home/asobuild/nativity-guard` and keeps `Toast.tsx` / `queryClient.ts` for RES-009.
+  Ledger effect: **D-017**. No file in this repo changed for this decision — it is an
+  ownership ruling, and the losing copy lives outside the repository (in claude's worktree),
+  so there is nothing to revert here. `claude` discarding it is what closes the loop.
+- **PR #64 merged → `19ac4da`** (`fix/auth-background-and-drawer-visibility` → `main`):
+  restores the carved-mask artwork on the signup/login brand panels, 4 files, +16/-8.
+  Both checks were green before merge (`frontend` 42s, `race` 6m55s on Postgres 16). It was
+  still a **draft**, so it was marked ready for review first (`gh pr ready 64`) — draft PRs
+  cannot be merged; that is why a first `gh pr merge 64 --merge` was rejected. No ledger
+  add/add conflict arose: main's `AGENT.md`/`README.md` edits and #64's occupy different
+  hunks, so no merge-in of `origin/main` was needed and no rebase was used.
+- Token note: `gh auth status` reported the previously installed token **invalid** (the
+  owner rotated it). The replacement is missing the `read:org` scope, so
+  `gh auth login --with-token` refuses it; gh ran from `GH_TOKEN` for this session instead,
+  which is sufficient for `gh pr view/checks/merge/create`. Push authority was verified with
+  a `--dry-run` probe that created nothing. `read:org` should be added on the next rotation.
+- Ordering note: the owner listed OPF-004 before PR #64. #64 was merged first so that this
+  single ledger entry could record its real merge hash; both are ahead of any new code, which
+  was the owner's actual constraint.
 
 ---
 
