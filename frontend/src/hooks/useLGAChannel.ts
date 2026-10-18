@@ -26,6 +26,8 @@ interface ChannelResponse {
   channel: LGAChannel
   messages: LGAMessage[]
   count: number
+  /** Head admins only may post (decision D-015); everyone eligible may read. */
+  canPost: boolean
 }
 
 export function useLGAChannel() {
@@ -35,6 +37,48 @@ export function useLGAChannel() {
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
+}
+
+export interface LGAGroupMember {
+  id: string
+  unitId: string
+  unitName: string
+  joinedAt: string
+}
+
+export interface LGAGroupState {
+  group: { state: string; lga: string }
+  members: LGAGroupMember[]
+  count: number
+  /** Whether the caller's own unit has joined the convergence group. */
+  joined: boolean
+  canPost: boolean
+}
+
+/** The LGA convergence group roster (RES-012). */
+export function useLGAGroup() {
+  return useQuery({
+    queryKey: ['lga-group'],
+    queryFn: () => api.get<LGAGroupState>('/community/lga-group/members'),
+    staleTime: 30_000,
+  })
+}
+
+export function useLGAGroupActions() {
+  const qc = useQueryClient()
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['lga-group'] })
+    void qc.invalidateQueries({ queryKey: ['lga-channel'] })
+  }
+  const join = useMutation({
+    mutationFn: () => api.post('/community/lga-group/join'),
+    onSuccess: invalidate,
+  })
+  const leave = useMutation({
+    mutationFn: () => api.post('/community/lga-group/leave'),
+    onSuccess: invalidate,
+  })
+  return { join, leave }
 }
 
 export interface PostLGAInput {

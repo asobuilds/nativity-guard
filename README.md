@@ -98,7 +98,7 @@ Per-unit policy document declaring thresholds, quorum, seat bands, and term rule
 
 The live administration surfaces are organized around real backend capabilities rather than placeholder navigation. Super admins have platform oversight, user/role management, identity and unit verification, feedback/support, audit, analytics, operations, Community management, and unit records. Unit admins have live case review, transfers, roster/unit operations, Community, analytics, settings, governance, map, appeals, and feedback surfaces.
 
-Community mutations are enabled in production through `VITE_COMMUNITY_WRITES_ENABLED=true`. Authorization remains enforced server-side; the frontend flag is not a security boundary.
+Community reads and writes are live. The feed is scoped server-side to the caller's own place (village → LGA → state → country → world), and a reply is allowed only inside that scope, so geography and authorization are backend rules rather than frontend flags. The former `VITE_COMMUNITY_WRITES_ENABLED` gate has been retired.
 
 ---
 

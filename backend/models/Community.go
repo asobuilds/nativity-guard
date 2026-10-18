@@ -6,10 +6,32 @@ import (
 	"time"
 )
 
+// GeoPlace is the server-derived geographic address of community content.
+//
+// Names are never taken from the request (decision D-012): the client sends a
+// scope and, optionally, coordinates; the server resolves the place from the
+// author's verified unit or from the cached reverse geocoder. LGA names repeat
+// across states, so an LGA is only ever meaningful together with its state.
+//
+// Scope is one of: locality, lga, state, country, world (D-011). Rows written
+// before geography existed carry the column default "world", so a post of
+// unknown place is never presented as local.
+type GeoPlace struct {
+	Scope     string  `gorm:"type:varchar(16);not null;default:'world'" json:"scope"`
+	Locality  string  `gorm:"type:varchar(160)" json:"locality,omitempty"`
+	LGA       string  `gorm:"type:varchar(160)" json:"lga,omitempty"`
+	State     string  `gorm:"type:varchar(160)" json:"state,omitempty"`
+	Country   string  `gorm:"type:varchar(80);default:'Nigeria'" json:"country,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
+	Geohash   string  `gorm:"type:varchar(12)" json:"geohash,omitempty"`
+}
+
 // ForumPost represents a community forum post
 type ForumPost struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	UnitID      *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
+	GeoPlace    GeoPlace       `gorm:"embedded" json:"place"`
 	Title       string         `gorm:"not null" json:"title"`
 	Content     string         `gorm:"type:text;not null" json:"content"`
 	Category    string         `gorm:"default:general" json:"category"`

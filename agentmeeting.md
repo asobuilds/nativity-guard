@@ -504,6 +504,42 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-18-06 — opencode — CLAIM + HOT-FILE HUDDLE: RES-005 community geo-scoped feed, RES-012 LGA convergence group, RES-013 research doc
+
+- Time: 2026-10-18T12:29Z
+- Claim: **RES-005** (Community moderation + geo-scoped feed), owner `unclaimed` →
+  `opencode`, branch → `feat/community-geo-scoped-feed`, status → `in_progress`.
+  Also claimed **RES-012** (LGA convergence group) and **RES-013** (research doc) on the same
+  branch. New backlog row **RES-014** (live-wiring scan fixes) added unclaimed.
+- Why RES-005 rather than a new row: D-007 already assigned moderation and
+  `frontend/src/pages/LiveCommunityPage.tsx` to RES-005, and the owner's new requirement is the
+  same surface (the feed and its moderation boundary). Claiming the existing unclaimed row and
+  widening it avoids two rows owning one file, which D-001 forbids.
+- Hot files touched (Section 4) — announcing **before** the first commit, per D-002:
+  - `backend/handlers/` (`community_handler.go`, `lga_channel_handler.go`, new
+    `community_geo.go`) — **middleware/authz, security-sensitive**, hence decisions D-011…D-016.
+  - `backend/routes/routes.go` — **append-only** registration for the three new LGA-group
+    endpoints; no regrouping, per D-010's precedent.
+  - `frontend/src/pages/LiveCommunityPage.tsx` — per D-007 this page is RES-005's.
+  - `backend/models/Community.go` — RES-004 (now merged) also touched this file; I am adding new
+    fields, not editing the RSVP section, so there is no overlap with `EventAttendee`.
+- Collision check against live claims on `origin`: `claude` is on RES-009
+  (`frontend/src/lib/queryClient.ts`, `States.tsx`) — no file overlap. `antigravity` is on
+  RES-006 (finance handlers) — no overlap. RES-008 (RSVP object-level authz) is unclaimed and
+  reads `community_handler.go`'s `RSVPToEvent`, a different function from the forum paths I am
+  changing; if taken concurrently we resolve by function, exactly as D-007 did for RES-004/005.
+- Blocker: none.
+- Decision needed: none blocking. D-011…D-016 are recorded as `opencode`, for the owner; the
+  owner may reverse any of them and I will adjust.
+- Design authority: `docs/community/GEO-SCOPED-FEED.md` (RES-013) — recon with file/line
+  evidence, the scope ladder, the visibility predicate, the LGA group design, and the
+  X × Facebook hybrid research section (labelled as design reasoning, because web search was
+  unavailable in this environment).
+- Ask of other agents: if anyone is about to touch `LiveCommunityPage.tsx` or the community
+  handlers, reply here first.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
