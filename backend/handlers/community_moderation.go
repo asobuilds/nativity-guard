@@ -19,6 +19,11 @@ import (
 // target among several, so the value is namespaced rather than reusing "case".
 const reportTargetForumPost = "forum_post"
 
+// Notification type for a newly filed content report. A named constant keeps the
+// producer and any future consumer on one spelling, so future rows cannot drift
+// into a second string that the client does not recognise.
+const NotificationTypeReportCreated = "report_created"
+
 // Report lifecycle. `pending` is the queue; the other two are terminal and are
 // what a moderator chooses between.
 const (
@@ -194,7 +199,7 @@ func notifyReportModerators(post models.ForumPost, reporterID uuid.UUID) {
 			!canModeratePost(moderator, post, resolveViewerPlace(moderator, nil, nil)) {
 			continue
 		}
-		notifyUser(moderator.ID, "New content report",
+		notifyUser(moderator.ID, NotificationTypeReportCreated, "New content report",
 			"A post has been reported and is waiting in the moderation queue.")
 	}
 }

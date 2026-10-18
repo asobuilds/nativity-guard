@@ -117,6 +117,15 @@ func TestReportForumPost_NotifiesModerator(t *testing.T) {
 	if got := notificationCount(t, moderator.ID); got != 1 {
 		t.Errorf("a unit_admin who can moderate must be notified exactly once, got %d", got)
 	}
+	// The type must be the report notification, not the helper's old hard-coded
+	// "sos_update" — the client routes on it.
+	var moderatorNotification models.Notification
+	if err := config.DB.Where("user_id = ?", moderator.ID).First(&moderatorNotification).Error; err != nil {
+		t.Fatalf("load moderator notification: %v", err)
+	}
+	if moderatorNotification.Type != NotificationTypeReportCreated {
+		t.Errorf("notification type: got %q, want %q", moderatorNotification.Type, NotificationTypeReportCreated)
+	}
 	if got := notificationCount(t, superAdmin.ID); got != 1 {
 		t.Errorf("a super_admin must be notified exactly once, got %d", got)
 	}
