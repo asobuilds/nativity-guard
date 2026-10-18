@@ -92,6 +92,8 @@ func SetupTestDB() error {
 		&models.AuditLog{},
 		&models.SOSAlert{},
 		&models.SOSResponder{},
+		&models.CommunityEvent{},
+		&models.EventAttendee{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
 	}
