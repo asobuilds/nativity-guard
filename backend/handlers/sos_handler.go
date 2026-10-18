@@ -249,12 +249,12 @@ func saveMedicalInfo(userID uuid.UUID, info string) {
 }
 
 // Helper: Notify user
-func notifyUser(userID uuid.UUID, title, message string) {
+func notifyUser(userID uuid.UUID, notifType, title, message string) {
 	notification := models.Notification{
 		UserID:  userID,
 		Title:   title,
 		Message: message,
-		Type:    "sos_update",
+		Type:    notifType,
 		Status:  "unread",
 	}
 	config.DB.Create(&notification)
