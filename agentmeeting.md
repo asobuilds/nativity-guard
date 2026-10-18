@@ -765,6 +765,28 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
   approves before any code).
 - **Do not merge this PR** — the owner reads the recon + plan first.
 
+### MEET-2026-10-18-14 — opencode — CLAIM + HOT-FILE HUDDLE: RES-020 media attachments implementation
+
+- Time: 2026-10-18T21:45Z
+- Claim: **RES-020** (`in_progress` → `opencode`), branch → `feat/media-attachments-sos-report`,
+  status → `in_progress`. Implementation of the RES-017 plan: media links refcount, presign,
+  verify, attach for SOS and report. Code changes across backend handlers, models, routes,
+  and test files.
+- **Branch created from `origin/main`** at the WIP commit `1421703` ("WIP: RES-020 media attachments").
+- Hot files touched (Section 4): `resolution.md`, `agentmeeting.md` (ledger rows only); new
+  and modified backend files: `backend/handlers/media_links.go`, `backend/handlers/community_media_handler.go`,
+  `backend/handlers/sos_media_handler.go`, `backend/models/MediaLink.go`, `backend/routes/routes.go`,
+  `backend/config/migrate.go`, new test files: `backend/handlers/media_links_test.go`,
+  `backend/handlers/media_presign_sos_test.go`, `backend/handlers/media_send_sos_test.go`,
+  `backend/handlers/media_serve_sos_test.go`, `backend/handlers/media_presign_report_test.go`,
+  `backend/handlers/media_report_attach_test.go`, `backend/handlers/media_serve_report_test.go`,
+  `backend/handlers/media_filestorage_test.go`, `backend/handlers/media_dedup_test.go`.
+- Scope: implements the RES-017 plan §2-6 — two private categories (`sos_media`, `report_media`),
+  two presign endpoints, attach-then-verify flow, serve authz reuse of existing predicates
+  (`sosReadScope`, `postVisibleTo`+`canModeratePost`), content-addressed dedup with refcount guard.
+- Blockers: none. Owner approves — moving from recon to implementation.
+- **Do not merge this PR** — waiting on code complete and PR review.
+
 ---
 
 ### MEET-2026-10-18-13 — opencode — MERGE #77/#78, FILE RES-018, CLAIM RES-019 (moderation notification)
