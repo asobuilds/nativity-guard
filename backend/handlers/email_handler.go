@@ -2,9 +2,13 @@
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"mime"
+	"net/mail"
 	"net/smtp"
 	"os"
+	"strings"
 
 	"security-solution/services"
 )
@@ -31,54 +35,79 @@ func getEmailConfig() EmailConfig {
 	}
 }
 
+// SendEmail delivers email over authenticated TLS.
+// Port 465 uses implicit TLS; port 587 (and other STARTTLS ports) upgrades
+// the connection before SMTP authentication. Never send credentials in cleartext.
 func SendEmail(to, subject, body string) error {
-	config := getEmailConfig()
-	if config.Host == "" || config.User == "" || config.Password == "" {
-		return fmt.Errorf("SMTP configuration missing")
+	cfg := getEmailConfig()
+	host := strings.TrimSpace(cfg.Host)
+	port := strings.TrimSpace(cfg.Port)
+	if host == "" || port == "" || cfg.User == "" || cfg.Password == "" || cfg.From == "" {
+		return errors.New("SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM must be configured")
+	}
+
+	from, err := mail.ParseAddress(cfg.From)
+	if err != nil {
+		return fmt.Errorf("SMTP_FROM must contain a valid email address: %w", err)
+	}
+	recipient, err := mail.ParseAddress(to)
+	if err != nil {
+		return fmt.Errorf("recipient must contain a valid email address: %w", err)
+	}
+
+	addr := host + ":" + port
+	tlsConfig := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+	var client *smtp.Client
+	if port == "465" {
+		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("SMTP implicit TLS connection failed: %w", err)
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			conn.Close()
+			return err
+		}
+	} else {
+		client, err = smtp.Dial(addr)
+		if err != nil {
+			return fmt.Errorf("SMTP connection failed: %w", err)
+		}
+		// Port 587 expects STARTTLS, not an implicit TLS handshake.
+		if ok, _ := client.Extension("STARTTLS"); !ok {
+			client.Close()
+			return errors.New("SMTP server does not support required STARTTLS")
+		}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			client.Close()
+			return fmt.Errorf("SMTP STARTTLS failed: %w", err)
+		}
+	}
+	defer client.Close()
+
+	if err := client.Auth(smtp.PlainAuth("", cfg.User, cfg.Password, host)); err != nil {
+		return fmt.Errorf("SMTP authentication failed: %w", err)
+	}
+	if err := client.Mail(from.Address); err != nil {
+		return err
+	}
+	if err := client.Rcpt(recipient.Address); err != nil {
+		return err
 	}
 
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
-		config.From, to, subject, body)
-
-	conn, err := tls.Dial("tcp", config.Host+":"+config.Port, &tls.Config{
-		ServerName: config.Host,
-	})
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client, err := smtp.NewClient(conn, config.Host)
-	if err != nil {
-		return err
-	}
-	defer client.Quit()
-
-	auth := smtp.PlainAuth("", config.User, config.Password, config.Host)
-	if err = client.Auth(auth); err != nil {
-		return err
-	}
-
-	if err = client.Mail(config.From); err != nil {
-		return err
-	}
-	if err = client.Rcpt(to); err != nil {
-		return err
-	}
-
+		cfg.From, recipient.Address, mime.QEncoding.Encode("utf-8", subject), body)
 	writer, err := client.Data()
 	if err != nil {
 		return err
 	}
-	_, err = writer.Write([]byte(msg))
-	if err != nil {
+	if _, err := writer.Write([]byte(msg)); err != nil {
+		writer.Close()
 		return err
 	}
-	err = writer.Close()
-	if err != nil {
+	if err := writer.Close(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
