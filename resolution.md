@@ -53,7 +53,7 @@ All timestamps UTC ISO-8601. Status values:
 | RES-016 | Community | Community feature audit: Discussions, Announcements, Events — integration flow and phantom endpoints (recon only, no code) | `opencode` | `docs/community-feature-audit` | new `docs/community/COMMUNITY-FEATURE-AUDIT.md`, plus `resolution.md` / `agentmeeting.md` ledger rows only | `in_review` | 2026-10-18T16:13Z | #77 |
 | RES-017 | Community | Media attachments on report and SOS: existing infrastructure recon + implementation plan (recon only, no code) | `opencode` | `recon/media-attachments-report-sos` (stacked on `docs/community-feature-audit` / #77 — merge #77 first) | new `docs/community/MEDIA-ATTACHMENTS-PLAN.md`, plus `resolution.md` / `agentmeeting.md` ledger rows only | `in_review` | 2026-10-18T16:32Z | #78 |
 | RES-018 | Community | Announcements and Events geo-scope: product decision required | `unclaimed` | — | `resolution.md` (ledger row + decision brief only — **no code**) | `unclaimed` | — | — |
-| RES-019 | Community | Moderation notification on report creation | `opencode` | `fix/report-moderation-notification` | `backend/handlers/community_moderation.go`, new `backend/handlers/community_report_notification_test.go`, `backend/internal/testutil/setup.go` (test table list only) | `in_progress` | 2026-10-18T17:16Z | — |
+| RES-019 | Community | Moderation notification on report creation | `opencode` | `fix/report-moderation-notification` | `backend/handlers/community_moderation.go`, new `backend/handlers/community_report_notification_test.go`, `backend/internal/testutil/setup.go` (test table list only) | `in_review` | 2026-10-18T17:16Z | #79 |
 
 **Suggested split for the three agents** (a suggestion is not a claim — confirm
 in `agentmeeting.md` before starting):
