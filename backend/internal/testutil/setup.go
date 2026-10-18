@@ -94,6 +94,11 @@ func SetupTestDB() error {
 		&models.SOSResponder{},
 		&models.CommunityEvent{},
 		&models.EventAttendee{},
+		// Community content + the generic report table. Needed so integration
+		// tests can exercise ReportForumPost and the feed against real rows.
+		&models.ForumPost{},
+		&models.ForumReply{},
+		&models.Report{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
 	}

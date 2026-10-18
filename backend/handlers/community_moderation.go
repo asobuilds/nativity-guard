@@ -155,7 +155,48 @@ func ReportForumPost(c *gin.Context) {
 		return
 	}
 
+	// A report is only useful if a moderator learns about it. RES-014 made the
+	// queue work but left it pull-only (audit finding 1, §4.4); this closes that
+	// gap. The recipients are exactly the moderators who can action this report
+	// in the queue, so nobody is pinged for work they cannot open.
+	notifyReportModerators(post, user.ID)
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Report recorded", "reported": true})
+}
+
+// notifyReportModerators tells every moderator who can action this report that
+// one has arrived. The recipient set mirrors GetCommunityReports' authorization
+// exactly — super admins platform-wide, and unit admins only where
+// canModeratePost holds — so a moderator is never notified about a report
+// outside their jurisdiction and never silently left without one they can act
+// on. The reporter is never notified, even if they are themselves a moderator.
+//
+// It reuses the existing per-user notification helper (notifyUser, sos_handler.go)
+// rather than introducing a second notification path.
+func notifyReportModerators(post models.ForumPost, reporterID uuid.UUID) {
+	if config.DB == nil {
+		return
+	}
+
+	var moderators []models.User
+	if err := config.DB.
+		Where("role IN ?", []string{"unit_admin", "super_admin"}).
+		Find(&moderators).Error; err != nil {
+		return
+	}
+
+	for i := range moderators {
+		moderator := &moderators[i]
+		if moderator.ID == reporterID {
+			continue
+		}
+		if moderator.Role == "unit_admin" &&
+			!canModeratePost(moderator, post, resolveViewerPlace(moderator, nil, nil)) {
+			continue
+		}
+		notifyUser(moderator.ID, "New content report",
+			"A post has been reported and is waiting in the moderation queue.")
+	}
 }
 
 // canModeratePost narrows the queue *within* the moderator roles.
