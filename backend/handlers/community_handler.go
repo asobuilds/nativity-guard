@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -143,12 +145,74 @@ func CreateForumPost(c *gin.Context) {
 	})
 }
 
+// feedCursor is a keyset position in the feed. The feed is ordered
+// `is_pinned DESC, created_at DESC, id DESC`, so the cursor carries all three: a
+// created_at-only cursor would skip or repeat posts that share a timestamp, and
+// would break across the pinned/unpinned boundary.
+type feedCursor struct {
+	Pinned    bool
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+func encodeFeedCursor(cursor feedCursor) string {
+	raw := fmt.Sprintf("%t|%s|%s",
+		cursor.Pinned,
+		cursor.CreatedAt.UTC().Format(time.RFC3339Nano),
+		cursor.ID.String(),
+	)
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+// decodeFeedCursor returns ok=false for anything that is not a cursor this
+// handler produced, so a malformed value is a 400 rather than a silent page 1.
+func decodeFeedCursor(value string) (feedCursor, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(value))
+	if err != nil {
+		return feedCursor{}, false
+	}
+	parts := strings.SplitN(string(decoded), "|", 3)
+	if len(parts) != 3 {
+		return feedCursor{}, false
+	}
+	pinned, err := strconv.ParseBool(parts[0])
+	if err != nil {
+		return feedCursor{}, false
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, parts[1])
+	if err != nil {
+		return feedCursor{}, false
+	}
+	id, err := uuid.Parse(parts[2])
+	if err != nil {
+		return feedCursor{}, false
+	}
+	return feedCursor{Pinned: pinned, CreatedAt: createdAt, ID: id}, true
+}
+
+// feedCursorCondition is the SQL for "strictly after this row" under the feed's
+// ordering. `is_pinned` is a boolean and Postgres orders false < true, so DESC
+// puts true first and `<` on the tuple walks the feed forward.
+//
+// The existing idx_forum_posts_feed_order (status, is_pinned DESC, created_at
+// DESC) still serves this scan; the id tiebreak is a cheap residual filter rather
+// than a new index, because created_at collisions are rare.
+func feedCursorCondition(cursor feedCursor) (string, []any) {
+	return "(is_pinned < ? OR (is_pinned = ? AND (created_at < ? OR (created_at = ? AND id < ?))))",
+		[]any{cursor.Pinned, cursor.Pinned, cursor.CreatedAt, cursor.CreatedAt, cursor.ID}
+}
+
 // GetForumPosts returns the caller's location-scoped feed.
 //
 // `scope` widens how much of the *viewer's own* jurisdiction is returned
 // (default lga). It can never reach another place: every branch of the WHERE
 // clause pins the post's place to the viewer's resolved place (decision D-013).
 // Super admins moderate the whole platform and are not bounded.
+//
+// Paging is keyset: send back the `nextCursor` from the previous page as
+// `?cursor=`. `offset` is still accepted for older clients but is ignored when a
+// cursor is present. Offset paging is unstable under concurrent inserts and slows
+// down as the feed grows, which is why the cursor exists.
 func GetForumPosts(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -173,10 +237,22 @@ func GetForumPosts(c *gin.Context) {
 			limit = n
 		}
 	}
+
+	var cursor *feedCursor
+	if raw := strings.TrimSpace(c.Query("cursor")); raw != "" {
+		parsed, valid := decodeFeedCursor(raw)
+		if !valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cursor"})
+			return
+		}
+		cursor = &parsed
+	}
 	offset := 0
-	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			offset = n
+	if cursor == nil {
+		if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+			if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+				offset = n
+			}
 		}
 	}
 
@@ -198,16 +274,55 @@ func GetForumPosts(c *gin.Context) {
 		}
 	}
 
-	if err := query.Order("is_pinned DESC, created_at DESC").Limit(limit).Offset(offset).Find(&posts).Error; err != nil {
+	if cursor != nil {
+		condition, args := feedCursorCondition(*cursor)
+		query = query.Where(condition, args...)
+	}
+
+	if err := query.
+		Order("is_pinned DESC, created_at DESC, id DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&posts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch posts"})
 		return
 	}
 
+	// One extra query for the whole page: which of these posts the caller has
+	// already reported, so the button renders settled rather than lying.
+	postIDs := make([]uuid.UUID, 0, len(posts))
+	for _, post := range posts {
+		postIDs = append(postIDs, post.ID)
+	}
+	reported := reportedPostIDs(userObj.ID, postIDs)
+
 	results := make([]gin.H, 0, len(posts))
 	for _, post := range posts {
-		results = append(results, forumPostResponse(post, false))
+		row := forumPostResponse(post, false)
+		row["reportedByMe"] = reported[post.ID.String()]
+		row["isMine"] = post.AuthorID == userObj.ID
+		results = append(results, row)
 	}
-	c.JSON(http.StatusOK, gin.H{"posts": results, "scope": scope, "limit": limit, "offset": offset})
+
+	// Only offer a next page when this one was full; an empty cursor is the
+	// client's signal that the feed is exhausted.
+	var nextCursor string
+	if len(posts) == limit {
+		last := posts[len(posts)-1]
+		nextCursor = encodeFeedCursor(feedCursor{
+			Pinned:    last.IsPinned,
+			CreatedAt: last.CreatedAt,
+			ID:        last.ID,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"posts":      results,
+		"scope":      scope,
+		"limit":      limit,
+		"offset":     offset,
+		"nextCursor": nextCursor,
+	})
 }
 
 // GetForumPostByID gets a specific forum post
@@ -240,12 +355,21 @@ func GetForumPostByID(c *gin.Context) {
 		return
 	}
 
-	// Increment view count
-	post.ViewCount++
-	config.DB.Save(&post)
+	// Count the view atomically. The previous `post.ViewCount++` followed by a
+	// full-row `Save` was a read-modify-write lost update (and rewrote every
+	// column on a hot read path) — the same defect class as RES-004's RSVP bug.
+	if err := config.DB.Model(&models.ForumPost{}).
+		Where("id = ?", post.ID).
+		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err == nil {
+		post.ViewCount++
+	}
+
+	row := forumPostResponse(post, true)
+	row["reportedByMe"] = reportedPostIDs(userObj.ID, []uuid.UUID{post.ID})[post.ID.String()]
+	row["isMine"] = post.AuthorID == userObj.ID
 
 	c.JSON(http.StatusOK, gin.H{
-		"post": forumPostResponse(post, true),
+		"post": row,
 	})
 }
 

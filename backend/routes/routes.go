@@ -342,6 +342,13 @@ func SetupRoutes(router *gin.Engine) {
 			community.POST("/lga-group/join", middleware.AuthMiddleware(), handlers.JoinLGAGroup)
 			community.POST("/lga-group/leave", middleware.AuthMiddleware(), handlers.LeaveLGAGroup)
 			community.GET("/lga-group/members", middleware.AuthMiddleware(), handlers.GetLGAGroupMembers)
+
+			// Content reports and the moderation queue (RES-014). Reporting is
+			// open to any member who can see the post; the queue is unit/super
+			// admin only, narrowed per-post by canModeratePost.
+			community.POST("/posts/:id/report", middleware.AuthMiddleware(), handlers.ReportForumPost)
+			community.GET("/reports", middleware.AuthMiddleware(), handlers.GetCommunityReports)
+			community.POST("/reports/:id/resolve", middleware.AuthMiddleware(), handlers.ResolveCommunityReport)
 		}
 
 		audit := api.Group("/audit")
