@@ -18,6 +18,7 @@ func AutoMigrateAll() error {
 
 		&models.Feedback{},
 		&models.LGAMessage{},
+		&models.LGAGroupMember{},
 
 		&models.Case{},
 		&models.CaseAccountabilityEvent{},
@@ -138,6 +139,34 @@ func AutoMigrateAll() error {
 	// fixed by an approved data migration rather than silently.
 	if err := DB.Exec(
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendee_active ON event_attendees (event_id, user_id) WHERE deleted_at IS NULL`,
+	).Error; err != nil {
+		return err
+	}
+
+	// The community feed is filtered by the viewer's place (RES-005, decision
+	// D-013). One composite index serves every branch of the OR-window: the
+	// scope column selects the breadth and the place columns pin it to the
+	// viewer's own state/LGA/locality. Explicit, idempotent form so the index is
+	// never left to a per-column AutoMigrate guess.
+	if err := DB.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_forum_posts_scope_place
+		   ON forum_posts (status, scope, state, lga, locality)`,
+	).Error; err != nil {
+		return err
+	}
+	if err := DB.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_forum_posts_feed_order
+		   ON forum_posts (status, is_pinned DESC, created_at DESC)`,
+	).Error; err != nil {
+		return err
+	}
+
+	// LGA convergence group membership (RES-012, decision D-015): one live row
+	// per unit per LGA. Soft-deleted, so the uniqueness is partial, exactly like
+	// EventAttendee above.
+	if err := DB.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_lga_group_member_active
+		   ON lga_group_members (state, lga, unit_id) WHERE deleted_at IS NULL`,
 	).Error; err != nil {
 		return err
 	}

@@ -184,7 +184,7 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 - Backend and frontend are deployed on Render; PostgreSQL is hosted on Supabase.
 - Production domain: `nativityguard.com`.
-- Community reads and writes are live. Treat `VITE_COMMUNITY_WRITES_ENABLED` as a UI/build flag only; backend authorization and validation are mandatory.
+- Community reads and writes are live. The feed is scoped server-side to the caller's own place (locality → LGA → state → country → world) and replies are gated by that same visibility rule; the former `VITE_COMMUNITY_WRITES_ENABLED` gate is retired. Never trust a client-supplied place name — the server derives it (decisions D-011…D-016 in `resolution.md`).
 - Super-admin navigation must expose only real, usable capabilities. Do not reintroduce fake/Coming Soon fallbacks for implemented admin routes.
 - Unit analytics authorization is scoped: super admins may inspect any unit; unit admins may inspect only their own unit.
 - Super-admin user mutations already block self-role-change/self-suspension and validate role values.

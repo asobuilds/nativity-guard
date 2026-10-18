@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ func forumPostResponse(post models.ForumPost, includeReplies bool) gin.H {
 		"author": communityAuthor(post.Author), "createdAt": post.CreatedAt,
 		"isPinned": post.IsPinned, "isLocked": post.IsLocked,
 		"replyCount": post.ReplyCount, "viewCount": post.ViewCount,
+		"scope": post.GeoPlace.Scope, "place": geoPlaceResponse(post.GeoPlace),
 	}
 	if includeReplies {
 		replies := make([]gin.H, 0, len(post.Replies))
@@ -53,13 +55,21 @@ func communityEventResponse(item models.CommunityEvent) gin.H {
 		"createdAt": item.CreatedAt}
 }
 
-// CreateForumPost creates a new forum post
+// CreateForumPost creates a new forum post.
+//
+// The post's place is resolved server-side (decision D-012): the client chooses
+// an audience scope and may attach its current coordinates, but never place
+// names. Publishing to a scope the caller's place cannot express is rejected,
+// so an "LGA" post always carries a real LGA.
 func CreateForumPost(c *gin.Context) {
 	var input struct {
-		UnitID   string `json:"unitId"`
-		Title    string `json:"title" binding:"required"`
-		Content  string `json:"content" binding:"required"`
-		Category string `json:"category"`
+		UnitID    string   `json:"unitId"`
+		Title     string   `json:"title" binding:"required"`
+		Content   string   `json:"content" binding:"required"`
+		Category  string   `json:"category"`
+		Scope     string   `json:"scope"`
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -95,8 +105,26 @@ func CreateForumPost(c *gin.Context) {
 		input.Category = "general"
 	}
 
+	scope := strings.ToLower(strings.TrimSpace(input.Scope))
+	if scope == "" {
+		scope = defaultScopeFor(resolveViewerPlace(userObj, input.Latitude, input.Longitude))
+	}
+	if !validScope(scope) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
+	}
+
+	place := resolveViewerPlace(userObj, input.Latitude, input.Longitude)
+	if !scopeSatisfiedBy(scope, place) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "your location is not detailed enough to post to " + scope + "; share your location and try again",
+		})
+		return
+	}
+
 	post := models.ForumPost{
 		UnitID:   unitID,
+		GeoPlace: newPlace(scope, place, input.Latitude, input.Longitude),
 		Title:    input.Title,
 		Content:  input.Content,
 		Category: input.Category,
@@ -115,7 +143,12 @@ func CreateForumPost(c *gin.Context) {
 	})
 }
 
-// GetForumPosts gets all forum posts
+// GetForumPosts returns the caller's location-scoped feed.
+//
+// `scope` widens how much of the *viewer's own* jurisdiction is returned
+// (default lga). It can never reach another place: every branch of the WHERE
+// clause pins the post's place to the viewer's resolved place (decision D-013).
+// Super admins moderate the whole platform and are not bounded.
 func GetForumPosts(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -124,35 +157,57 @@ func GetForumPosts(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	var posts []models.ForumPost
-	query := config.DB.Preload("Author", func(db *gorm.DB) *gorm.DB { return db.Select("id", "first_name", "last_name") }).Where("status = ?", "published")
-
-	// Filter by role
-	if userObj.Role == "citizen" {
-		// Citizens see public posts (no unit assigned) and their own unit posts
-		if userObj.UnitID != nil {
-			query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-		} else {
-			query = query.Where("unit_id IS NULL")
-		}
-	} else if userObj.Role == "officer" && userObj.UnitID != nil {
-		// Officers see unit posts and public posts
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
-		// Admins see all posts in their unit
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-	} else if userObj.Role == "super_admin" {
-		// Super admin sees all
+	scope := strings.ToLower(strings.TrimSpace(c.Query("scope")))
+	if scope == "" {
+		scope = ScopeLGA
+	}
+	maxRank, ok := scopeRank(scope)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
 	}
 
-	if err := query.Order("is_pinned DESC, created_at DESC").Find(&posts).Error; err != nil {
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 50 {
+			limit = n
+		}
+	}
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			offset = n
+		}
+	}
+
+	var posts []models.ForumPost
+	query := config.DB.
+		Preload("Author", func(db *gorm.DB) *gorm.DB { return db.Select("id", "first_name", "last_name") }).
+		Where("status = ?", "published")
+
+	if userObj.Role != "super_admin" {
+		lat, lng := parseCoords(c)
+		place := resolveViewerPlace(userObj, lat, lng)
+		condition, args := scopeWindowCondition(place, maxRank)
+		if userObj.UnitID != nil {
+			// Keep the caller's own unit's posts in view in addition to the
+			// geographic window.
+			query = query.Where("(unit_id = ? OR "+condition+")", append([]any{*userObj.UnitID}, args...)...)
+		} else {
+			query = query.Where(condition, args...)
+		}
+	}
+
+	if err := query.Order("is_pinned DESC, created_at DESC").Limit(limit).Offset(offset).Find(&posts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch posts"})
 		return
 	}
 
 	results := make([]gin.H, 0, len(posts))
-	for _, post := range posts { results = append(results, forumPostResponse(post, false)) }
-	c.JSON(http.StatusOK, gin.H{"posts": results})
+	for _, post := range posts {
+		results = append(results, forumPostResponse(post, false))
+	}
+	c.JSON(http.StatusOK, gin.H{"posts": results, "scope": scope, "limit": limit, "offset": offset})
 }
 
 // GetForumPostByID gets a specific forum post
@@ -177,12 +232,12 @@ func GetForumPostByID(c *gin.Context) {
 		return
 	}
 
-	// Check access
-	if post.UnitID != nil && userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != *post.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this post"})
-			return
-		}
+	// Access: geography is the boundary (decision D-014). A unit-tagged post
+	// stays visible to its own unit; super admins see everything.
+	lat, lng := parseCoords(c)
+	if !postVisibleTo(userObj, post, lat, lng) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "This post is outside your area and is not open to you"})
+		return
 	}
 
 	// Increment view count
@@ -197,8 +252,10 @@ func GetForumPostByID(c *gin.Context) {
 // CreateForumReply creates a reply to a forum post
 func CreateForumReply(c *gin.Context) {
 	var input struct {
-		PostID  string `json:"postId" binding:"required"`
-		Content string `json:"content" binding:"required"`
+		PostID    string   `json:"postId" binding:"required"`
+		Content   string   `json:"content" binding:"required"`
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -230,12 +287,12 @@ func CreateForumReply(c *gin.Context) {
 		return
 	}
 
-	// Check access
-	if post.UnitID != nil && userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != *post.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to reply to this post"})
-			return
-		}
+	// Visibility and participation are the same boundary (decision D-014): you
+	// cannot reply to a post you could not open, so a Lagos resident cannot join
+	// a Benue village thread. This is what keeps the feed from becoming noise.
+	if !postVisibleTo(userObj, post, input.Latitude, input.Longitude) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "This discussion is outside your area"})
+		return
 	}
 
 	reply := models.ForumReply{

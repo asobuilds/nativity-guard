@@ -335,6 +335,13 @@ func SetupRoutes(router *gin.Engine) {
 			community.POST("/events", middleware.AuthMiddleware(), handlers.CreateCommunityEvent)
 			community.GET("/events", middleware.AuthMiddleware(), handlers.GetCommunityEvents)
 			community.POST("/events/:id/rsvp", middleware.AuthMiddleware(), handlers.RSVPToEvent)
+
+			// LGA convergence group (RES-012, decision D-015). Read is open to
+			// verified unit members of the LGA; posting stays on
+			// POST /lga/channel and is head-admin only.
+			community.POST("/lga-group/join", middleware.AuthMiddleware(), handlers.JoinLGAGroup)
+			community.POST("/lga-group/leave", middleware.AuthMiddleware(), handlers.LeaveLGAGroup)
+			community.GET("/lga-group/members", middleware.AuthMiddleware(), handlers.GetLGAGroupMembers)
 		}
 
 		audit := api.Group("/audit")

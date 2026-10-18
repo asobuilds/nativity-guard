@@ -7,6 +7,8 @@ import { ApiError } from '@/lib/apiClient'
 import {
   useLGAChannel,
   useLGAChannelActions,
+  useLGAGroup,
+  useLGAGroupActions,
   type LGAMessage,
 } from '@/hooks/useLGAChannel'
 
@@ -45,6 +47,8 @@ export function LGAChannelPanel() {
   const { notify } = useToast()
   const channel = useLGAChannel()
   const post = useLGAChannelActions()
+  const group = useLGAGroup()
+  const groupActions = useLGAGroupActions()
 
   const [category, setCategory] = useState<LGAMessage['category']>('general')
   const [priority, setPriority] = useState<LGAMessage['priority']>('normal')
@@ -89,12 +93,12 @@ export function LGAChannelPanel() {
     return (
       <div className="rounded-lg border border-warn/30 bg-warn/5 p-4 text-sm text-warn">
         The channel is not available to your account right now. Verified unit members of
-        the same LGA can read and post here.
+        the same LGA can read here, and their head admins can post.
       </div>
     )
   }
 
-  const { channel: meta, messages } = channel.data
+  const { channel: meta, messages, canPost } = channel.data
 
   return (
     <div className="space-y-4">
@@ -111,7 +115,41 @@ export function LGAChannelPanel() {
         </div>
       </div>
 
-      {/* Compose */}
+      {/* Convergence group membership (RES-012, decision D-015) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-panel border border-border bg-surface/60 p-4">
+        <div>
+          <p className="text-sm font-semibold text-ink">
+            {group.data ? `${group.data.count} unit${group.data.count === 1 ? '' : 's'} in this group` : 'Convergence group'}
+          </p>
+          <p className="text-xs text-ink-muted">
+            Every verified unit in {meta.lga} can read here. Only head admins can post.
+          </p>
+        </div>
+        {group.data ? (
+          group.data.joined ? (
+            <button
+              type="button"
+              onClick={() => groupActions.leave.mutate()}
+              disabled={groupActions.leave.isPending}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+            >
+              {groupActions.leave.isPending ? 'Leaving…' : 'Leave group'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => groupActions.join.mutate()}
+              disabled={groupActions.join.isPending}
+              className="rounded-lg bg-signal/15 px-3 py-1.5 text-xs font-semibold text-signal ring-1 ring-signal/30 transition-colors disabled:opacity-50"
+            >
+              {groupActions.join.isPending ? 'Joining…' : 'Join group'}
+            </button>
+          )
+        ) : null}
+      </div>
+
+      {/* Compose — head admins only (decision D-015) */}
+      {canPost ? (
       <div className="rounded-panel border border-border bg-surface/60 p-4">
         <h3 className="text-sm font-semibold text-ink">Post a notice</h3>
 
@@ -198,6 +236,11 @@ export function LGAChannelPanel() {
           </button>
         </div>
       </div>
+      ) : (
+        <p className="rounded-panel border border-dashed border-border px-4 py-6 text-center text-sm text-ink-muted">
+          Only head admins can post to the LGA group. Every verified unit in {meta.lga} can read the notices here.
+        </p>
+      )}
 
       {/* Feed */}
       {messages.length === 0 ? (
