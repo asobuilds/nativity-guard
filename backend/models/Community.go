@@ -79,6 +79,7 @@ func (ForumReply) TableName() string {
 type CommunityAnnouncement struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	UnitID      *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
+	GeoPlace    GeoPlace     `gorm:"embedded" json:"place"`
 	Title       string         `gorm:"not null" json:"title"`
 	Content     string         `gorm:"type:text;not null" json:"content"`
 	Type        string         `gorm:"default:general" json:"type"`
@@ -103,6 +104,7 @@ func (CommunityAnnouncement) TableName() string {
 type CommunityEvent struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	UnitID        *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
+	GeoPlace    GeoPlace     `gorm:"embedded" json:"place"`
 	Title         string         `gorm:"not null" json:"title"`
 	Description   string         `gorm:"type:text;not null" json:"description"`
 	Location      string         `json:"location"`

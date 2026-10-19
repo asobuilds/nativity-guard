@@ -401,7 +401,7 @@ func CreateForumReply(c *gin.Context) {
 	}
 
 	var post models.ForumPost
-	if err := config.DB.First(&post, "id = ?", postID).Error; err != nil {
+	if err := config.DB.First(&post, "id = ? AND status = ?", postID, "published").Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
 	}
@@ -431,11 +431,11 @@ func CreateForumReply(c *gin.Context) {
 		return
 	}
 
-	// Update reply count
-	post.ReplyCount++
-	now := time.Now()
-	post.LastReplyAt = &now
-	config.DB.Save(&post)
+	// Atomic reply count increment (no lost-update race)
+	config.DB.Model(&models.ForumPost{}).Where("id = ?", postID).Update("reply_count", gorm.Expr("reply_count + 1"))
+
+	// Atomic last reply at set
+	config.DB.Model(&models.ForumPost{}).Where("id = ?", postID).Update("last_reply_at", time.Now())
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Reply created successfully",
@@ -544,12 +544,25 @@ func GetCommunityAnnouncements(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	var announcements []models.CommunityAnnouncement
-	query := config.DB.Where("status = ?", "published")
+	// Resolve viewer place for geo scoping
+	place := resolveViewerPlace(userObj, nil, nil)
+	maxRank, _ := scopeRank("lga") // default scope
 
-	// Filter by role
+	// Build query with geo scope filter
+	query := config.DB.Where("status = ?", "published")
+	var announcements []models.CommunityAnnouncement
+	
+	// Super admins bypass geo filtering
+	if userObj.Role != "super_admin" {
+		// Apply scope window condition
+		condition, args := scopeWindowCondition(place, maxRank)
+		query = query.Where(condition, args...)
+	}
+
+	// Filter by role (fallback for those without location)
 	if userObj.Role == "citizen" {
 		if userObj.UnitID != nil {
+			// For citizens without location, still filter by unit as fallback
 			query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
 		} else {
 			query = query.Where("unit_id IS NULL")
@@ -684,12 +697,24 @@ func GetCommunityEvents(c *gin.Context) {
 		return
 	}
 	userObj := user.(*models.User)
+	// Resolve viewer place for geo scoping
+	place := resolveViewerPlace(userObj, nil, nil)
+	maxRank, _ := scopeRank("lga") // default scope
 
 	var events []models.CommunityEvent
 	query := config.DB.Where("status = ?", "upcoming")
 
+	// Super admins bypass geo filtering
+	if userObj.Role != "super_admin" {
+		// Apply scope window condition
+		condition, args := scopeWindowCondition(place, maxRank)
+		query = query.Where(condition, args...)
+	}
+
+	// Filter by role (fallback for those without location)
 	if userObj.Role == "citizen" {
 		if userObj.UnitID != nil {
+			// For citizens without location, still filter by unit as fallback
 			query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
 		} else {
 			query = query.Where("unit_id IS NULL")
