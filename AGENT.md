@@ -1,4 +1,4 @@
-﻿# AGENT.md — Nativity Guard
+# AGENT.md — Nativity Guard
 
 > Operating contract for any AI or human contributor working in this repository.
 
@@ -260,5 +260,11 @@ Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the 
 - **Unit analytics authorization**: Super admins inspect any unit; unit admins inspect only their own.
 - **Super-admin user mutation blocks**: Self-role-change/self-suspension blocked; role values validated.
 - **No fake/Coming Soon routes**: All admin routes must expose real backend capabilities.
+
+### Landing Page Guest Exploration & Action-Aware Auth (RES-022)
+
+- Public data hooks (`usePublicCases`, `usePublicLeaderboard`, `usePublicBlueprint`, `usePublicSupporters`) provide access to `/public/*` endpoints with instant fallback caches for cold backend resilience.
+- `usePendingAction` preserves guest drafts and target destinations across login/signup without storing sensitive credentials.
+- `ActionAuthModal` provides contextual action gating when official operations (SOS broadcast, incident report, unit enlistment, voting) are triggered.
 
 ---
