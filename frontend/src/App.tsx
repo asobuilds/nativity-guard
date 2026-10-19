@@ -28,6 +28,7 @@ const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m
 const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
 const AdminCaseQueuePage = lazy(() => import('@/pages/admin/AdminCaseQueuePage').then(m => ({ default: m.AdminCaseQueuePage })))
 const AdminCaseReviewPage = lazy(() => import('@/pages/admin/AdminCaseReviewPage').then(m => ({ default: m.AdminCaseReviewPage })))
+const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').then(m => ({ default: m.AdminReportsPage })))
 const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m => ({ default: m.TransfersPage })))
 const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
 const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
@@ -149,6 +150,7 @@ export function App() {
                   <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
                   <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/admin/reports" element={<RequireRole roles={ADMIN_ROLES}><AdminReportsPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
                   <Route path="/assistant" element={<AiAssistantPage />} />
                   <Route path="/lga" element={<LGAChannelPage />} />

@@ -272,6 +272,23 @@ func (s *FileStorageService) Head(relativePath string) (int64, string, error) {
 	return info.Size(), "", nil
 }
 
+// PresignGet returns a short-lived read URL for a private object.
+//
+// Only the R2 backend can mint one; local disk mode returns an error because a
+// filesystem path cannot carry its own authorization. Callers should treat an
+// error as "no playable URL" rather than as a missing object.
+func (s *FileStorageService) PresignGet(relativePath string, ttl time.Duration) (string, error) {
+	clean := sanitizeKey(relativePath)
+	if clean == "" {
+		return "", errors.New("invalid path")
+	}
+	r2 := s.remote()
+	if r2 == nil {
+		return "", errors.New("presigned reads require the R2 backend")
+	}
+	return r2.PresignGet(context.Background(), clean, ttl)
+}
+
 // FindByHash resolves a category plus bare hash to a full key, walking
 // <category>/<yyyy>/<mm>/<hash>.<ext>. Returns "" when nothing matches.
 func (s *FileStorageService) FindByHash(category string, hash string) (string, error) {
