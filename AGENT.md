@@ -29,6 +29,7 @@ You are **NOT** the product owner. You are **NOT** authorized to redesign the ar
 ## Security principles
 
 ### Core rule
+
 **Unit access is NOT case access.**
 
 An officer in a unit does **not** automatically gain access to every case in that unit. Sensitive case intelligence is available to:
@@ -40,6 +41,7 @@ An officer in a unit does **not** automatically gain access to every case in tha
 Support officers see a **limited** view of their assigned case only.
 
 ### Additional rules
+
 - Sensitive suspect tracking is never a generic officer capability.
 - Citizen-facing responses never expose officer identity, evidence internals, admin comments, or other suspects.
 - Presumed innocence: a citizen named as a suspect sees only case ID, category, status, and public-safe progress.
@@ -77,6 +79,7 @@ Pre-membership citizens are outside the unit hierarchy.
 ## Governance
 
 ### Elections
+
 - Term: 12 months
 - Staggered rotation: half the seats renew every 6 months
 - Term limit: 2 consecutive terms, then 6-month cooling-off
@@ -85,6 +88,7 @@ Pre-membership citizens are outside the unit hierarchy.
 - Vacancy fill: next-highest vote-getter from the last election
 
 ### Revocation
+
 - Regular admin removal: **10+ verified votes + Head Admin approval**
 - Head Admin removal: **majority of verified unit members**
 - One vote per member per cycle
@@ -92,6 +96,7 @@ Pre-membership citizens are outside the unit hierarchy.
 - Successful removal triggers cooling-off
 
 ### UnitAuth
+
 - Per-unit policy document: thresholds, quorum, seat bands, term rules, cooling-off
 - Every election and revocation cycle snapshots the policy version at open time
 - No retroactive rule changes
@@ -210,3 +215,50 @@ Preserve the existing carved-mask public background and all five user-selectable
 ### Auth visual regression check
 
 Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the shared `ng-public-scene` artwork and five theme palettes. Do not alter signup validation, terms consent or authentication flows for visual-only changes. Test signed-out auth pages separately from the signed-in AppShell drawer; these are different components.
+
+---
+
+## New: Media Attachment Rules (RES-020)
+
+### Refcount & Dedup
+
+- **MediaLink model**: unique index on `(object_key, parent_type, parent_id)`; `OnConflict: DoNothing` makes repeat attach idempotent
+- **Content-addressed dedup**: Identical bytes under the same category share one key across different parents. Deleting one parent must **not** remove the key if another parent still references it (MEDIA-ATTACHMENTS-PLAN.md §5.3)
+- **Two private storage categories**: `sos_media/` and `report_media/`
+- **Size caps**: Voice note ≤ 5 MB (reuses `MaxImageSize`); Video ≤ 20 MB (1/5 of evidence cap)
+- **MIME allowlist**: Audio: `audio/mpeg`, `audio/wav`, `audio/ogg`, `audio/webm`; Video: `video/mp4`, `video/webm`, `video/quicktime`
+
+### Presign Endpoints
+
+- `POST /sos/media/presign` — caller-scoped (the alert does not exist yet); gated by `requireMinorApproved`; body `{filename, contentType, sizeBytes, sha256}`; caps: video 20 MB, audio 5 MB
+- `POST /community/posts/:id/report/presign` — gated by `communityViewablePost`; same body shape; only a reporter who can already see the post may presign media for it
+
+### Serve Authorization
+
+- `sos_media` → require `?sosId=` + `sosReadScope(db, user)` check (from `handlers/sos_tracking_handler.go:74-87`)
+- `report_media` → require `?reportId=` + `postVisibleTo(user, post, nil, nil)` **or** `canModeratePost(user, post, place)`
+
+### SOS Media Attach
+
+- `SendSOSAlert` accepts optional `voiceNoteKey` / `videoKey`; the handler Head-verifies prefix+size+MIME before persisting on the `SOSAlert` row (mirrors `ConfirmEvidenceUpload` at `evidence_presign_handler.go:220-239`)
+
+### Report Media Attach
+
+- `ReportForumPost` accepts optional `voiceNoteKey` / `videoKey`; Head-verifies prefix+size+MIME before creating the `Report` row
+
+### Moderation & Notification (RES-019)
+
+- Existing `canModeratePost` / `isCommunityModerator` predicates unchanged
+- `community_report_notification` flow: report filed → moderator notified; only moderators who can act on the post receive notification
+
+### Regression Guards (Must Remain Prominent)
+
+- **Navigation regression**: Preserve carved-mask public background and all five user-selectable themes; mobile drawer at `lg` breakpoint with X, backdrop, Escape, navigation (PR #63 guard). Do not reintroduce fake/Coming Soon routes.
+- **Auth visual regression**: `LoginPage.tsx` and `SignupPage.tsx` desktop panels aligned with `ng-public-scene` artwork and five theme palettes. Do not alter signup validation, terms consent or authentication flows for visual-only changes. Test signed-out auth pages separately from the signed-in AppShell drawer.
+- **No client-supplied place names**: Server derives place from verified coordinates (locality → LGA → state → country → world). Decisions D-011…D-016 in `resolution.md`.
+- **Production state guards**: Every production-facing control must be wired to a real backend action or removed/clearly unavailable.
+- **Unit analytics authorization**: Super admins inspect any unit; unit admins inspect only their own.
+- **Super-admin user mutation blocks**: Self-role-change/self-suspension blocked; role values validated.
+- **No fake/Coming Soon routes**: All admin routes must expose real backend capabilities.
+
+---
