@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -320,4 +321,49 @@ func parseCoords(c *gin.Context) (lat, lng *float64) {
 		return nil, nil
 	}
 	return &latVal, &lngVal
+}
+
+// communityScopeRank reads the optional `scope` query parameter of a community
+// read and returns the breadth rank of the window the caller asked for. It
+// defaults to the LGA, the most reliable administrative unit for Nigeria, and
+// rejects a scope that is not on the ladder.
+func communityScopeRank(c *gin.Context) (int, bool) {
+	scope := strings.ToLower(strings.TrimSpace(c.Query("scope")))
+	if scope == "" {
+		scope = ScopeLGA
+	}
+	return scopeRank(scope)
+}
+
+// applyCommunityScopeFilter restricts a community read to the caller's own
+// place, widened no further than maxRank, plus the caller's own unit.
+//
+// The unit clause is an OR, never an AND. A unit's own rows stay visible to
+// it, and a geo-scoped row stays visible to everyone inside its window —
+// including a neighbouring unit in the same LGA, which is the whole point of
+// the LGA convergence group (D-015). ANDing the two would hide a geo-scoped
+// row from the very people it was addressed to.
+func applyCommunityScopeFilter(query *gorm.DB, user *models.User, place viewerPlace, maxRank int) *gorm.DB {
+	condition, args := scopeWindowCondition(place, maxRank)
+	if user != nil && user.UnitID != nil {
+		return query.Where("(unit_id = ? OR "+condition+")", append([]any{*user.UnitID}, args...)...)
+	}
+	return query.Where(condition, args...)
+}
+
+// eventVisibleToViewer mirrors the community read filter for a single event:
+// an event is visible when it sits inside the caller's geographic window or
+// belongs to the caller's own unit. Super admins moderate the whole platform
+// and are not bounded (decision D-014: visibility = participation).
+func eventVisibleToViewer(user *models.User, event models.CommunityEvent, lat, lng *float64) bool {
+	if user == nil {
+		return false
+	}
+	if user.Role == "super_admin" {
+		return true
+	}
+	if event.UnitID != nil && user.UnitID != nil && *user.UnitID == *event.UnitID {
+		return true
+	}
+	return placeVisibleToViewer(event.GeoPlace, resolveViewerPlace(user, lat, lng))
 }
