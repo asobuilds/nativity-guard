@@ -274,5 +274,9 @@ Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the 
 - `AiSafetySandboxSection` demonstrates the grounded Living Local Intelligence advisory model with verified conflict de-escalation, travel safety, and officer accreditation rules.
 - `GovernanceSection` visualizes the 4 cardinal rules (Two-Admin closure, Unit Access ≠ Case Access, Democratic Recall, Presumed Innocence) and dynamic unit electoral seat band calculator.
 - `FinancialTransparencySection` provides strict non-custodial transparency, platform open infrastructure donation details, and an append-only public supporter wall.
+- `LandingNavbar` provides fixed glass navigation, 5-theme switcher palette menu (`forest`, `midnight`, `daylight`, `ocean`, `stone`), and a responsive drawer (PR #63 guard).
+- `LandingHero` provides dynamic live metrics (Active Units, 774 LGA readiness, median response timeline), quick jump anchor navigation, and direct action triggers.
+- `LandingFooter` provides emergency hotlines (112, 199, 122), civic and legal navigation links, and anti-vigilante/non-custodial policies.
+- `LandingPage` assembles all 9 hubs with seamless `ActionAuthModal` coordination across anonymous and authenticated citizen flows.
 
 ---
