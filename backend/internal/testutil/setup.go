@@ -99,6 +99,9 @@ func SetupTestDB() error {
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.Report{},
+		// Attachment links (RES-020). Needed so the attach path and the
+		// refcount-guarded delete can be exercised against real rows.
+		&models.MediaLink{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
 	}

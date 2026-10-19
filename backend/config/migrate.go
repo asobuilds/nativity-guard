@@ -96,6 +96,7 @@ func AutoMigrateAll() error {
 
 		&models.ChatMessage{},
 		&models.Report{},
+		&models.MediaLink{},
 		&models.CaseReview{},
 		&models.CaseWeeklyUpdate{},
 		&models.UnitMembership{},

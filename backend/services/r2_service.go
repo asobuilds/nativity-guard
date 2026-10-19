@@ -47,6 +47,8 @@ var privateKeyPrefixes = []string{
 	"evidence/",
 	"gov_ids/",
 	"voice_notes/",
+	"sos_media/",
+	"report_media/",
 }
 
 // NewR2Service builds a client from the MEDIA_* environment variables.

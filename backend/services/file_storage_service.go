@@ -73,13 +73,15 @@ type StoredFile struct {
 
 // allowedCategoryDirs maps a logical category to a storage subfolder.
 var allowedCategoryDirs = map[string]string{
-	"avatar":     "avatars",
-	"cover":      "covers",
-	"evidence":   "evidence",
-	"gov_id":     "gov_ids",
-	"voice_note": "voice_notes",
-	"unit_logo":  "unit_logos",
-	"unit_cover": "unit_covers",
+	"avatar":       "avatars",
+	"cover":        "covers",
+	"evidence":     "evidence",
+	"gov_id":       "gov_ids",
+	"voice_note":   "voice_notes",
+	"unit_logo":    "unit_logos",
+	"unit_cover":   "unit_covers",
+	"sos_media":    "sos_media",
+	"report_media": "report_media",
 }
 
 // Save persists the uploaded file under <category-dir>/<yyyy>/<mm>/<hash>.<ext>
@@ -245,6 +247,29 @@ func (s *FileStorageService) Exists(relativePath string) bool {
 	full := filepath.Join(s.Root, filepath.FromSlash(clean))
 	_, err := os.Stat(full)
 	return err == nil
+}
+
+// Head returns the stored size and content type for a key, or an error when the
+// object is missing. It is the backend-agnostic form of R2Service.Head, so the
+// attachment re-verification works against R2 and the local-disk fallback. The
+// local backend cannot report a content type, so it returns ""; callers must
+// treat an empty type as "unknown", never as a mismatch.
+func (s *FileStorageService) Head(relativePath string) (int64, string, error) {
+	clean := sanitizeKey(relativePath)
+	if clean == "" {
+		return 0, "", errors.New("invalid path")
+	}
+
+	if r2 := s.remote(); r2 != nil {
+		return r2.Head(context.Background(), clean)
+	}
+
+	full := filepath.Join(s.Root, filepath.FromSlash(clean))
+	info, err := os.Stat(full)
+	if err != nil {
+		return 0, "", err
+	}
+	return info.Size(), "", nil
 }
 
 // FindByHash resolves a category plus bare hash to a full key, walking

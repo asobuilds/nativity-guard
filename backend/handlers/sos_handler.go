@@ -29,6 +29,12 @@ func SendSOSAlert(c *gin.Context) {
 		MedicalInfo       string   `json:"medicalInfo"`
 		Priority          string   `json:"priority"`
 		HideLocation      bool     `json:"hideLocation"`
+		// Optional attachments. Both must be private sos_media/ keys that the
+		// client obtained from POST /sos/media/presign; they are re-verified
+		// against the store before the alert is persisted, and one media_links
+		// row is written per key.
+		VoiceNoteKey string `json:"voiceNoteKey"`
+		VideoKey     string `json:"videoKey"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -54,6 +60,17 @@ func SendSOSAlert(c *gin.Context) {
 
 	geohash := utils.EncodeGeohash(input.Latitude, input.Longitude, 5)
 	anon := input.HideLocation || !userObj.LocationSharingEnabled
+
+	// Re-verify any declared attachments before the alert is persisted, so a bad
+	// key rejects the call instead of leaving an SOS pointing at nothing.
+	voiceNoteKey, ok := attachVerifiedMedia(c, input.VoiceNoteKey, sosMediaPrefix, voiceMediaMaxBytes)
+	if !ok {
+		return
+	}
+	videoKey, ok := attachVerifiedMedia(c, input.VideoKey, sosMediaPrefix, videoMediaMaxBytes)
+	if !ok {
+		return
+	}
 
 	// Best-effort jurisdiction lookup so head admins in the same
     // state/LGA can be notified at creation time.
@@ -95,6 +112,10 @@ func SendSOSAlert(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send SOS alert"})
 		return
 	}
+
+	// Record the attachment links now the alert has an id. Best-effort: the alert
+	// is already sent, so a link failure must not become a 500.
+	linkMedia(MediaParentSOS, sos.ID, voiceNoteKey, videoKey)
 
 	// Compliance audit for anonymous SOS.
 	if anon {
