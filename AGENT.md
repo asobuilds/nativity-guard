@@ -263,8 +263,10 @@ Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the 
 
 ### Landing Page Guest Exploration & Action-Aware Auth (RES-022)
 
-- Public data hooks (`usePublicCases`, `usePublicLeaderboard`, `usePublicBlueprint`, `usePublicSupporters`) provide access to `/public/*` endpoints with instant fallback caches for cold backend resilience.
+- Public data hooks (`usePublicCases`, `usePublicUnits`, `usePublicLeaderboard`, `usePublicBlueprint`, `usePublicSupporters`) provide access to `/public/*` endpoints with instant fallback caches for cold backend resilience.
 - `usePendingAction` preserves guest drafts and target destinations across login/signup without storing sensitive credentials.
 - `ActionAuthModal` provides contextual action gating when official operations (SOS broadcast, incident report, unit enlistment, voting) are triggered.
+- `PublicSafetyMapSection` allows interactive exploration of unit coverage circles, safe havens, and public cases with state/LGA filtering and location capture.
+- `CaseLifecycleSection` visualizes the 8-stage case lifecycle, live public case feed, and tracking reference lookup with privacy safeguards.
 
 ---
