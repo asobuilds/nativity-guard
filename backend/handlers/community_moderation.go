@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 
 	"security-solution/config"
 	"security-solution/models"
+	"security-solution/services"
 )
 
 // The content-report target type. `models.Report` is generic (TargetType is
@@ -330,7 +332,8 @@ func GetCommunityReports(c *gin.Context) {
 	lat, lng := parseCoords(c)
 	place := resolveViewerPlace(user, lat, lng)
 
-	results := make([]gin.H, 0, len(reports))
+	visible := make([]models.Report, 0, len(reports))
+	visibleIDs := make([]uuid.UUID, 0, len(reports))
 	for _, report := range reports {
 		id, err := uuid.Parse(report.TargetID)
 		if err != nil {
@@ -345,13 +348,43 @@ func GetCommunityReports(c *gin.Context) {
 		if !canModeratePost(user, post, place) {
 			continue
 		}
-		results = append(results, gin.H{
+		visible = append(visible, report)
+		visibleIDs = append(visibleIDs, report.ID)
+	}
+
+	// Attachments live in media_links keyed by the report; the Report row has no
+	// media columns. Load them in one query for the page, then turn each key into
+	// a short-lived read URL so a media element can play it without a bearer
+	// header.
+	linksByReport := make(map[uuid.UUID][]models.MediaLink, len(visible))
+	if len(visibleIDs) > 0 {
+		var links []models.MediaLink
+		if err := config.DB.
+			Where("parent_type = ? AND parent_id IN ?", MediaParentReport, visibleIDs).
+			Find(&links).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load report attachments"})
+			return
+		}
+		for _, link := range links {
+			linksByReport[link.ParentID] = append(linksByReport[link.ParentID], link)
+		}
+	}
+
+	storage := services.NewFileStorageService()
+	results := make([]gin.H, 0, len(visible))
+	for _, report := range visible {
+		id, _ := uuid.Parse(report.TargetID)
+		row := gin.H{
 			"id":        report.ID,
 			"reason":    report.Reason,
 			"status":    report.Status,
 			"createdAt": report.CreatedAt,
-			"post":      forumPostResponse(post, false),
-		})
+			"post":      forumPostResponse(posts[id], false),
+		}
+		for key, value := range reportMediaResponse(linksByReport[report.ID], storage) {
+			row[key] = value
+		}
+		results = append(results, row)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -361,6 +394,57 @@ func GetCommunityReports(c *gin.Context) {
 		"limit":   limit,
 		"offset":  offset,
 	})
+}
+
+// reportMediaResponse classifies a report's attachments into the voice and video
+// slots and mints a short-lived read URL for each.
+//
+// The object key alone cannot tell audio from video (.webm is used for both), so
+// the stored Content-Type is consulted first. The extension is only a fallback
+// for local-disk mode, which does not report a type.
+func reportMediaResponse(links []models.MediaLink, storage *services.FileStorageService) gin.H {
+	out := gin.H{}
+	for _, link := range links {
+		_, contentType, err := storage.Head(link.ObjectKey)
+		if err != nil {
+			continue
+		}
+		contentType = strings.ToLower(strings.TrimSpace(contentType))
+
+		isVideo := strings.HasPrefix(contentType, "video/")
+		if contentType == "" {
+			isVideo = hasVideoExtension(link.ObjectKey)
+		} else if !isVideo && !strings.HasPrefix(contentType, "audio/") {
+			continue
+		}
+
+		url, err := storage.PresignGet(link.ObjectKey, privateReadTTL)
+		if err != nil {
+			continue
+		}
+
+		slot := "voiceNote"
+		if isVideo {
+			slot = "video"
+		}
+		if _, exists := out[slot+"Key"]; exists {
+			continue
+		}
+		out[slot+"Key"] = link.ObjectKey
+		out[slot+"Url"] = url
+	}
+	return out
+}
+
+// hasVideoExtension is the local-disk fallback classifier. A voice note recorded
+// as .webm lands in the video slot here; it still plays, only the element differs.
+func hasVideoExtension(key string) bool {
+	switch strings.ToLower(path.Ext(key)) {
+	case ".mp4", ".mov", ".webm", ".qt":
+		return true
+	default:
+		return false
+	}
 }
 
 // ResolveCommunityReport — POST /community/reports/:id/resolve

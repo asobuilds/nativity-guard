@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
-import { api, API_BASE, ApiError } from '@/lib/apiClient'
+import { api, ApiError } from '@/lib/apiClient'
 import { relativeTime } from '@/lib/format'
 
 interface ReportPost {
@@ -15,9 +15,10 @@ interface ReportPost {
   author?: { name: string }
   scope?: string
   isLocked?: boolean
-  /** Present when the API exposes the report's attachments on the post. */
   voiceNoteKey?: string
   videoKey?: string
+  voiceNoteUrl?: string
+  videoUrl?: string
 }
 
 interface ModerationReport {
@@ -26,9 +27,12 @@ interface ModerationReport {
   status: string
   createdAt: string
   post: ReportPost
-  /** Present when the API exposes the report's attachments directly. */
   voiceNoteKey?: string
   videoKey?: string
+  /** Short-lived read URL minted by the backend for the attached voice note. */
+  voiceNoteUrl?: string
+  /** Short-lived read URL minted by the backend for the attached video. */
+  videoUrl?: string
 }
 
 interface ReportsResponse {
@@ -38,46 +42,25 @@ interface ReportsResponse {
 
 type ResolveStatus = 'dismissed' | 'reviewed'
 
-/**
- * Build the private media URL the file handler accepts.
- *
- * Stored keys are `<category>/<yyyy>/<mm>/<hash>.<ext>`, while
- * `GET /files/:category/:hash` resolves the yyyy/mm levels itself and enforces
- * the report access rule via `?reportId=`. The route therefore takes the bare
- * hash, not the full key.
- */
-function reportMediaSrc(key: string, reportId: string): string {
-  const parts = key.split('/').filter(Boolean)
-  const category = parts[0] ?? 'report_media'
-  const filename = parts[parts.length - 1] ?? ''
-  const hash = filename.replace(/\.[^.]+$/, '')
-  return `${API_BASE}/files/${encodeURIComponent(category)}/${encodeURIComponent(hash)}?reportId=${encodeURIComponent(reportId)}`
-}
-
 function ReportMedia({ report }: { report: ModerationReport }) {
-  const voiceKey = report.voiceNoteKey ?? report.post.voiceNoteKey
-  const videoKey = report.videoKey ?? report.post.videoKey
-  if (!voiceKey && !videoKey) return null
+  const voiceUrl = report.voiceNoteUrl ?? report.post.voiceNoteUrl
+  const videoUrl = report.videoUrl ?? report.post.videoUrl
+  if (!voiceUrl && !videoUrl) return null
 
   return (
     <div className="space-y-2">
       <p className="text-xs font-medium text-ink-muted">Attached media</p>
-      {voiceKey ? (
-        <audio
-          controls
-          preload="metadata"
-          src={reportMediaSrc(voiceKey, report.id)}
-          className="w-full"
-        >
+      {voiceUrl ? (
+        <audio controls preload="metadata" src={voiceUrl} className="w-full">
           Your browser does not support audio playback.
         </audio>
       ) : null}
-      {videoKey ? (
+      {videoUrl ? (
         <video
           controls
           preload="metadata"
           playsInline
-          src={reportMediaSrc(videoKey, report.id)}
+          src={videoUrl}
           className="max-h-72 w-full rounded-lg border border-border bg-black"
         >
           Your browser does not support video playback.
