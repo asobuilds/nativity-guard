@@ -140,6 +140,10 @@ export interface SendSosInput {
    * context from displays the public can reach (see `POST /sos`).
    */
   hideLocation?: boolean
+  /** Private `sos_media/` key from `POST /sos/media/presign`. */
+  voiceNoteKey?: string
+  /** Private `sos_media/` key from `POST /sos/media/presign`. */
+  videoKey?: string
 }
 
 export interface Case {
