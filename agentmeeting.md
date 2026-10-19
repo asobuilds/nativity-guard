@@ -844,6 +844,60 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-19-01 — opencode — CLAIM + HOT-FILE HUDDLE: RES-018 announcements & events geo-scope (option (a))
+
+- Time: 2026-10-19T21:36Z
+- Feature: RES-018
+- Branch: `feat/res-018-geo-announcements-events` (branched from `origin/main` at `424aa97`)
+- Claiming / reporting: claimed
+- Files: `backend/handlers/community_handler.go`, `backend/handlers/community_geo.go`,
+  `backend/handlers/res018_test.go` (new), `backend/handlers/community_geo_test.go`,
+  `frontend/src/pages/LiveCommunityPage.tsx`, `resolution.md`, `agentmeeting.md`
+- Summary: **The owner chose option (a)** of the RES-018 brief and directed the
+  implementation. Recon first (seven gaps, all real): (1) **neither create
+  handler ever wrote a `GeoPlace`** — `CreateCommunityAnnouncement` and
+  `CreateCommunityEvent` built their models with no place, so every row fell
+  back to the column default `world` and both features were world-wide in
+  practice; (2) neither accepted `scope`/`latitude`/`longitude` nor validated
+  the scope against the author's place; (3) the read handlers **ANDed** the
+  geographic window with the legacy `unit_id` filter, so a geo-scoped
+  announcement was hidden from the very people it addressed — the D-015
+  contradiction the brief describes; (4) the read handlers called
+  `resolveViewerPlace(user, nil, nil)`, so a citizen with a browser fix but no
+  unit resolved to the zero place; (5) no `scope` query parameter;
+  (6) `RSVPToEvent` had **no geographic gate at all**, so geo-scoping the event
+  list was cosmetic — a citizen could still register for an event in another
+  place; (7) neither response carried the place and neither composer had a
+  scope picker. All seven are closed in this branch: writes persist a real,
+  server-derived place (D-012); reads take the feed's `scope`/`lat`/`lng` and
+  **OR** the caller's unit with the caller's place; `RSVPToEvent` answers 403
+  for an event outside the caller's place (D-014).
+- Hot files touched (Section 4): the **Middleware/authz** row
+  (`backend/handlers/`) and the **Coordination** row (`resolution.md`,
+  `agentmeeting.md`). The handler change **does** move an authorization
+  boundary — the read filter and the new RSVP gate — so it is covered by the
+  existing decision rows D-011 to D-015 rather than a new one; no route
+  registration changes (`backend/routes/routes.go` untouched), and the
+  **Routing** row is engaged only for `frontend/src/pages/LiveCommunityPage.tsx`,
+  which gains form fields and query parameters but no new route. The App-shell,
+  Theming and Shared-docs rows are not engaged.
+- Collision check against live claims on `origin`: `claude` is on RES-009
+  (`frontend/src/lib/queryClient.ts`, `States.tsx`) — no file overlap.
+  `antigravity` is on RES-006 (finance handlers) — no overlap. RES-008
+  (event RSVP object-level authorization: cross-unit and non-upcoming) is
+  `unclaimed`; this branch adds the **geographic** gate only and leaves the
+  cross-unit and non-upcoming checks untouched, so RES-008 remains open for
+  whoever claims it.
+- Ask of other agents: none.
+- Decision needed: **no** — the owner has decided (a) and ruled on the three
+  open questions: the unit clause is **ORed** with the place (visibility
+  expands, no data changes), the RSVP geo gate is **in**, and the event scope
+  defaults to **LGA** like posts.
+- Blockers: none.
+- Update 2026-10-19T21:58Z: PR **#95** opened (https://github.com/asobuilds/nativity-guard/pull/95) from `feat/res-018-geo-announcements-events` (commit `b526886`); the RES-018 board row is `in_review`. Static gate green: `go build ./...`, `go vet ./...`, `go test ./...`, `go vet -tags integration ./...` exit 0; `npm run typecheck`, `npm run lint` (0 errors / 3 pre-existing warnings), `npm run build`, `npm test` 21 files / 190 passed. The integration tests run in CI `integration-race.yml` against `postgres:16` — this box has no Postgres, so no runtime claim is made for them.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still

@@ -30,17 +30,32 @@ type Post = {
   replies?: Reply[]
 }
 type Reply = { id: string; content: string; author: { name: string }; createdAt: string }
-type Announcement = { id: string; title: string; content: string; publishedAt: string }
-type Event = { id: string; title: string; description: string; location: string; eventDate: string; attendeeCount: number }
+type Announcement = { id: string; title: string; content: string; publishedAt: string; scope?: string; place?: Place }
+type Event = { id: string; title: string; description: string; location: string; eventDate: string; attendeeCount: number; scope?: string; place?: Place }
 type FeedPage = { posts: Post[]; nextCursor?: string }
 type ModerationReport = { id: string; reason: string; status: string; createdAt: string; post: Post }
 
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : 'Could not save. Please check your connection and retry.'
 
+/**
+ * The read window for a community list: how wide inside the caller's own area
+ * to look, plus the caller's coordinates so a citizen — who has no unit — can
+ * still resolve a place. The server widens only within that place, never past
+ * it.
+ */
+function areaParams(scope: CommunityScope, latitude: number | null, longitude: number | null): string {
+  const params = new URLSearchParams({ scope })
+  if (latitude != null && longitude != null) {
+    params.set('lat', String(latitude))
+    params.set('lng', String(longitude))
+  }
+  return params.toString()
+}
+
 /** A short, human label for where a post is addressed, e.g. "Ikeja LGA". */
-function placeLabel(post: Post): string {
-  const place = post.place
-  const scope = (post.scope ?? place?.scope ?? 'world') as CommunityScope
+function placeLabel(item: { scope?: string; place?: Place }): string {
+  const place = item.place
+  const scope = (item.scope ?? place?.scope ?? 'world') as CommunityScope
   switch (scope) {
     case 'locality':
       return place?.locality ? `${place.locality} village` : scopeLabel('locality')
@@ -53,6 +68,21 @@ function placeLabel(post: Post): string {
     default:
       return scopeLabel('world')
   }
+}
+
+/**
+ * The "how wide inside your own area to look" control, shared by the three
+ * community lists. It can only widen the caller's own area — the server pins
+ * the boundary — so it is safe to offer every rung of the ladder.
+ */
+function AreaFilter({ label, scope, onChange, hasFix }: { label: string; scope: CommunityScope; onChange: (scope: CommunityScope) => void; hasFix: boolean }) {
+  return (
+    <Card className="space-y-2 p-4">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <ScopeSelector value={scope} onChange={onChange} label="Feed area" />
+      <p className="text-xs text-ink-faint">{hasFix ? 'Using your current location.' : 'Enable location so content near you can be matched; without it you only see national and world items.'}</p>
+    </Card>
+  )
 }
 
 /**
@@ -156,6 +186,8 @@ export function LiveCommunityPage() {
   const [tab, setTab] = useState<Tab>('forum')
   const [scope, setScope] = useState<CommunityScope>('lga')
   const [composeScope, setComposeScope] = useState<CommunityScope>('lga')
+  const [announcementScope, setAnnouncementScope] = useState<CommunityScope>('lga')
+  const [eventScope, setEventScope] = useState<CommunityScope>('lga')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -192,8 +224,16 @@ export function LiveCommunityPage() {
     queryFn: () => api.get<{ post: Post }>(`/community/posts/${selectedId}${coordQuery ? `?${coordQuery}` : ''}`),
     enabled: tab === 'forum' && !!selectedId,
   })
-  const announcements = useQuery({ queryKey: ['community', 'announcements'], queryFn: () => api.get<{ announcements: Announcement[] }>('/community/announcements'), enabled: tab === 'announcements' })
-  const events = useQuery({ queryKey: ['community', 'events'], queryFn: () => api.get<{ events: Event[] }>('/community/events'), enabled: tab === 'events' })
+  const announcements = useQuery({
+    queryKey: ['community', 'announcements', scope, coordQuery],
+    queryFn: () => api.get<{ announcements: Announcement[] }>(`/community/announcements?${areaParams(scope, geo.latitude, geo.longitude)}`),
+    enabled: tab === 'announcements',
+  })
+  const events = useQuery({
+    queryKey: ['community', 'events', scope, coordQuery],
+    queryFn: () => api.get<{ events: Event[] }>(`/community/events?${areaParams(scope, geo.latitude, geo.longitude)}`),
+    enabled: tab === 'events',
+  })
   const reports = useQuery({
     queryKey: ['community', 'reports'],
     queryFn: () => api.get<{ reports: ModerationReport[]; count: number }>('/community/reports?status=pending'),
@@ -202,9 +242,9 @@ export function LiveCommunityPage() {
 
   const createPost = useMutation({ mutationFn: () => api.post('/community/posts', { title: title.trim(), content: content.trim(), scope: composeScope, ...coordBody }), onSuccess: () => { setTitle(''); setContent(''); void client.invalidateQueries({ queryKey: ['community', 'posts'] }) } })
   const createReply = useMutation({ mutationFn: () => api.post('/community/replies', { postId: selectedId, content: reply.trim(), ...coordBody }), onSuccess: () => { setReply(''); void client.invalidateQueries({ queryKey: ['community', 'post', selectedId] }); void client.invalidateQueries({ queryKey: ['community', 'posts'] }) } })
-  const createAnnouncement = useMutation({ mutationFn: () => api.post('/community/announcements', { title: title.trim(), content: content.trim() }), onSuccess: () => { setTitle(''); setContent(''); void client.invalidateQueries({ queryKey: ['community', 'announcements'] }) } })
-  const createEvent = useMutation({ mutationFn: () => api.post('/community/events', { title: title.trim(), description: eventDescription.trim(), location: eventLocation.trim(), eventDate: new Date(eventDate).toISOString(), endDate: new Date(eventEndDate).toISOString(), type: 'meeting' }), onSuccess: () => { setTitle(''); setEventDescription(''); setEventLocation(''); setEventDate(''); setEventEndDate(''); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
-  const rsvp = useMutation({ mutationFn: (id: string) => api.post(`/community/events/${id}/rsvp`, {}), onSuccess: (_, id) => { setRsvped(current => [...current, id]); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
+  const createAnnouncement = useMutation({ mutationFn: () => api.post('/community/announcements', { title: title.trim(), content: content.trim(), scope: announcementScope, ...coordBody }), onSuccess: () => { setTitle(''); setContent(''); void client.invalidateQueries({ queryKey: ['community', 'announcements'] }) } })
+  const createEvent = useMutation({ mutationFn: () => api.post('/community/events', { title: title.trim(), description: eventDescription.trim(), location: eventLocation.trim(), eventDate: new Date(eventDate).toISOString(), endDate: new Date(eventEndDate).toISOString(), type: 'meeting', scope: eventScope, ...coordBody }), onSuccess: () => { setTitle(''); setEventDescription(''); setEventLocation(''); setEventDate(''); setEventEndDate(''); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
+  const rsvp = useMutation({ mutationFn: (id: string) => api.post(`/community/events/${id}/rsvp${coordQuery ? `?${coordQuery}` : ''}`, {}), onSuccess: (_, id) => { setRsvped(current => [...current, id]); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
   const reportPost = useMutation({
     mutationFn: (input: { postId: string; reason: string; voiceNoteKey?: string }) =>
       api.post(`/community/posts/${input.postId}/report`, {
@@ -236,11 +276,7 @@ export function LiveCommunityPage() {
     <nav aria-label="Community sections" className="flex flex-wrap gap-2">{tabs.map(item => <Button key={item} size="sm" variant={tab === item ? 'primary' : 'secondary'} aria-pressed={tab === item} onClick={() => { setTab(item); setSelectedId(null); setTitle(''); setContent('') }}>{item === 'forum' ? 'Discussions' : item[0].toUpperCase() + item.slice(1)}</Button>)}</nav>
 
     {tab === 'forum' && <section aria-label="Community discussions" className="space-y-4">
-      <Card className="space-y-2 p-4">
-        <p className="text-xs font-medium text-ink-muted">Show discussions from</p>
-        <ScopeSelector value={scope} onChange={setScope} label="Feed area" />
-        <p className="text-xs text-ink-faint">{hasFix ? 'Using your current location.' : 'Enable location so posts near you can be matched; without it you only see national and world discussions.'}</p>
-      </Card>
+      <AreaFilter label="Show discussions from" scope={scope} onChange={setScope} hasFix={hasFix} />
 
       <Card className="p-4">
         <form className="space-y-3" onSubmit={event => submit(event, createPost)}>
@@ -297,9 +333,17 @@ export function LiveCommunityPage() {
             : <Card><EmptyState title="No discussions in this area yet" description="Try widening the area above, or start the first one." /></Card>}
     </section>}
 
-    {tab === 'announcements' && <section aria-label="Announcements" className="space-y-4">{canPublish && <Card className="p-4"><form className="space-y-3" onSubmit={event => submit(event, createAnnouncement)}><h2 className="font-semibold text-ink">Publish announcement</h2><Field label="Title" required>{props => <Input {...props} required maxLength={120} value={title} onChange={e => setTitle(e.target.value)} />}</Field><Field label="Message" required>{props => <Textarea {...props} required maxLength={2000} value={content} onChange={e => setContent(e.target.value)} />}</Field><Button type="submit" variant="primary" disabled={!title.trim() || !content.trim()} loading={createAnnouncement.isPending}>Publish</Button>{createAnnouncement.isError && <p role="alert" className="text-sm text-emergency">{errorText(createAnnouncement.error)}</p>}</form></Card>}{announcements.isLoading ? <Skeleton className="h-24 w-full" /> : announcements.isError ? <Card><ErrorState title="Could not load announcements" description="Try again." onRetry={() => void announcements.refetch()} /></Card> : announcements.data?.announcements.length ? <ul className="space-y-3">{announcements.data.announcements.map(item => <li key={item.id}><Card className="p-4"><h2 className="font-semibold text-ink">{item.title}</h2><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{item.content}</p><p className="text-xs text-ink-faint">{relativeTime(item.publishedAt)}</p></Card></li>)}</ul> : <Card><EmptyState title="No announcements" description="Nothing has been posted." /></Card>}</section>}
+    {tab === 'announcements' && <section aria-label="Announcements" className="space-y-4">
+      <AreaFilter label="Show announcements from" scope={scope} onChange={setScope} hasFix={hasFix} />
+      {canPublish && <Card className="p-4"><form className="space-y-3" onSubmit={event => submit(event, createAnnouncement)}><h2 className="font-semibold text-ink">Publish announcement</h2><Field label="Title" required>{props => <Input {...props} required maxLength={120} value={title} onChange={e => setTitle(e.target.value)} />}</Field><Field label="Message" required>{props => <Textarea {...props} required maxLength={2000} value={content} onChange={e => setContent(e.target.value)} />}</Field><div className="space-y-2"><p className="text-xs font-medium text-ink-muted">Who can see this</p><ScopeSelector value={announcementScope} onChange={setAnnouncementScope} label="Announcement audience" /><p className="text-xs text-ink-faint">Only people in the chosen area can read this. Publishing to an area needs a location — share yours if publishing fails.</p></div><Button type="submit" variant="primary" disabled={!title.trim() || !content.trim()} loading={createAnnouncement.isPending}>Publish</Button>{createAnnouncement.isError && <p role="alert" className="text-sm text-emergency">{errorText(createAnnouncement.error)}</p>}</form></Card>}
+      {announcements.isLoading ? <Skeleton className="h-24 w-full" /> : announcements.isError ? <Card><ErrorState title="Could not load announcements" description="Try again." onRetry={() => void announcements.refetch()} /></Card> : announcements.data?.announcements.length ? <ul className="space-y-3">{announcements.data.announcements.map(item => <li key={item.id}><Card className="p-4"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-ink">{item.title}</h2><span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted ring-1 ring-border">{placeLabel(item)}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{item.content}</p><p className="text-xs text-ink-faint">{relativeTime(item.publishedAt)}</p></Card></li>)}</ul> : <Card><EmptyState title="No announcements" description="Nothing has been posted in this area yet." /></Card>}
+    </section>}
 
-    {tab === 'events' && <section aria-label="Events" className="space-y-4">{canPublish && <Card className="p-4"><form className="space-y-3" onSubmit={event => submit(event, createEvent)}><h2 className="font-semibold text-ink">Create event</h2><Field label="Title" required>{props => <Input {...props} required value={title} onChange={e => setTitle(e.target.value)} />}</Field><Field label="Description" required>{props => <Textarea {...props} required value={eventDescription} onChange={e => setEventDescription(e.target.value)} />}</Field><Field label="Location" required>{props => <Input {...props} required value={eventLocation} onChange={e => setEventLocation(e.target.value)} />}</Field><Field label="Start time" required>{props => <Input {...props} required type="datetime-local" value={eventDate} onChange={e => setEventDate(e.target.value)} />}</Field><Field label="End time" required error={eventEndDate && eventDate && new Date(eventEndDate) <= new Date(eventDate) ? 'End time must be after the start.' : undefined}>{props => <Input {...props} required type="datetime-local" min={eventDate || undefined} value={eventEndDate} onChange={e => setEventEndDate(e.target.value)} />}</Field><Button type="submit" variant="primary" disabled={!title.trim() || !eventDescription.trim() || !eventLocation.trim() || !eventDate || !eventEndDate || new Date(eventEndDate) <= new Date(eventDate)} loading={createEvent.isPending}>Create event</Button>{createEvent.isError && <p role="alert" className="text-sm text-emergency">{errorText(createEvent.error)}</p>}</form></Card>}{events.isLoading ? <Skeleton className="h-24 w-full" /> : events.isError ? <Card><ErrorState title="Could not load events" description="Try again." onRetry={() => void events.refetch()} /></Card> : events.data?.events.length ? <ul className="space-y-3">{events.data.events.map(item => <li key={item.id}><Card className="space-y-2 p-4"><h2 className="font-semibold text-ink">{item.title}</h2><p className="text-sm text-ink-muted">{item.description}</p><p className="text-xs text-ink-faint">{item.location} · {formatDateTime(item.eventDate)} · {item.attendeeCount} attending</p><Button size="sm" disabled={rsvped.includes(item.id)} loading={rsvp.isPending && rsvp.variables === item.id} onClick={() => rsvp.mutate(item.id)}>{rsvped.includes(item.id) ? 'RSVP recorded' : 'RSVP'}</Button>{rsvp.isError && rsvp.variables === item.id && <p role="alert" className="text-sm text-emergency">{errorText(rsvp.error)}</p>}</Card></li>)}</ul> : <Card><EmptyState title="No upcoming events" description="Check back later." /></Card>}</section>}
+    {tab === 'events' && <section aria-label="Events" className="space-y-4">
+      <AreaFilter label="Show events from" scope={scope} onChange={setScope} hasFix={hasFix} />
+      {canPublish && <Card className="p-4"><form className="space-y-3" onSubmit={event => submit(event, createEvent)}><h2 className="font-semibold text-ink">Create event</h2><Field label="Title" required>{props => <Input {...props} required value={title} onChange={e => setTitle(e.target.value)} />}</Field><Field label="Description" required>{props => <Textarea {...props} required value={eventDescription} onChange={e => setEventDescription(e.target.value)} />}</Field><Field label="Location" required>{props => <Input {...props} required value={eventLocation} onChange={e => setEventLocation(e.target.value)} />}</Field><Field label="Start time" required>{props => <Input {...props} required type="datetime-local" value={eventDate} onChange={e => setEventDate(e.target.value)} />}</Field><Field label="End time" required error={eventEndDate && eventDate && new Date(eventEndDate) <= new Date(eventDate) ? 'End time must be after the start.' : undefined}>{props => <Input {...props} required type="datetime-local" min={eventDate || undefined} value={eventEndDate} onChange={e => setEventEndDate(e.target.value)} />}</Field><div className="space-y-2"><p className="text-xs font-medium text-ink-muted">Who can see this</p><ScopeSelector value={eventScope} onChange={setEventScope} label="Event audience" /><p className="text-xs text-ink-faint">Only people in the chosen area can read and join this event. Publishing to an area needs a location — share yours if publishing fails.</p></div><Button type="submit" variant="primary" disabled={!title.trim() || !eventDescription.trim() || !eventLocation.trim() || !eventDate || !eventEndDate || new Date(eventEndDate) <= new Date(eventDate)} loading={createEvent.isPending}>Create event</Button>{createEvent.isError && <p role="alert" className="text-sm text-emergency">{errorText(createEvent.error)}</p>}</form></Card>}
+      {events.isLoading ? <Skeleton className="h-24 w-full" /> : events.isError ? <Card><ErrorState title="Could not load events" description="Try again." onRetry={() => void events.refetch()} /></Card> : events.data?.events.length ? <ul className="space-y-3">{events.data.events.map(item => <li key={item.id}><Card className="space-y-2 p-4"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-ink">{item.title}</h2><span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted ring-1 ring-border">{placeLabel(item)}</span></div><p className="text-sm text-ink-muted">{item.description}</p><p className="text-xs text-ink-faint">{item.location} · {formatDateTime(item.eventDate)} · {item.attendeeCount} attending</p><Button size="sm" disabled={rsvped.includes(item.id)} loading={rsvp.isPending && rsvp.variables === item.id} onClick={() => rsvp.mutate(item.id)}>{rsvped.includes(item.id) ? 'RSVP recorded' : 'RSVP'}</Button>{rsvp.isError && rsvp.variables === item.id && <p role="alert" className="text-sm text-emergency">{errorText(rsvp.error)}</p>}</Card></li>)}</ul> : <Card><EmptyState title="No upcoming events" description="Check back later, or widen the area above." /></Card>}
+    </section>}
 
     {tab === 'moderation' && <section aria-label="Moderation queue" className="space-y-4">
       <Card className="p-4">

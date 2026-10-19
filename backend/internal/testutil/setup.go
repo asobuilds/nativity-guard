@@ -98,6 +98,7 @@ func SetupTestDB() error {
 		// tests can exercise ReportForumPost and the feed against real rows.
 		&models.ForumPost{},
 		&models.ForumReply{},
+		&models.CommunityAnnouncement{},
 		&models.Report{},
 		// Attachment links (RES-020). Needed so the attach path and the
 		// refcount-guarded delete can be exercised against real rows.

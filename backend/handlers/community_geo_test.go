@@ -209,3 +209,31 @@ func TestPostVisibleTo(t *testing.T) {
 		t.Error("a super admin moderates the whole platform")
 	}
 }
+
+// TestEventVisibleToViewer pins the RSVP gate (decision D-014): an event you
+// cannot see, you cannot join. A world event is open to everyone, a scoped
+// event is not open to a caller with no resolvable place, and a super admin is
+// not bounded by geography.
+func TestEventVisibleToViewer(t *testing.T) {
+	unit := uuid.New()
+
+	worldEvent := models.CommunityEvent{GeoPlace: models.GeoPlace{Scope: ScopeWorld}}
+	scopedEvent := models.CommunityEvent{GeoPlace: models.GeoPlace{Scope: ScopeLGA, State: "Lagos", LGA: "Ikeja"}}
+	ownUnitEvent := models.CommunityEvent{UnitID: &unit, GeoPlace: models.GeoPlace{Scope: ScopeLGA, State: "Lagos", LGA: "Ikeja"}}
+
+	if !eventVisibleToViewer(&models.User{Role: "citizen"}, worldEvent, nil, nil) {
+		t.Error("a world event must be visible to every caller")
+	}
+	if eventVisibleToViewer(&models.User{Role: "citizen"}, scopedEvent, nil, nil) {
+		t.Error("a caller with no resolvable place must not join an LGA event")
+	}
+	if !eventVisibleToViewer(&models.User{Role: "unit_admin", UnitID: &unit}, ownUnitEvent, nil, nil) {
+		t.Error("a member must be able to join their own unit's event")
+	}
+	if !eventVisibleToViewer(&models.User{Role: "super_admin"}, scopedEvent, nil, nil) {
+		t.Error("a super admin is not bounded by geography")
+	}
+	if eventVisibleToViewer(nil, worldEvent, nil, nil) {
+		t.Error("a caller with no session must see nothing")
+	}
+}

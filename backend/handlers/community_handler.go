@@ -46,7 +46,8 @@ func forumPostResponse(post models.ForumPost, includeReplies bool) gin.H {
 func communityAnnouncementResponse(item models.CommunityAnnouncement) gin.H {
 	return gin.H{"id": item.ID, "unitId": item.UnitID, "title": item.Title,
 		"content": item.Content, "type": item.Type, "priority": item.Priority,
-		"createdAt": item.CreatedAt, "publishedAt": item.PublishedAt, "expiresAt": item.ExpiresAt}
+		"createdAt": item.CreatedAt, "publishedAt": item.PublishedAt, "expiresAt": item.ExpiresAt,
+		"scope": item.GeoPlace.Scope, "place": geoPlaceResponse(item.GeoPlace)}
 }
 
 func communityEventResponse(item models.CommunityEvent) gin.H {
@@ -54,7 +55,8 @@ func communityEventResponse(item models.CommunityEvent) gin.H {
 		"description": item.Description, "location": item.Location,
 		"eventDate": item.EventDate, "endDate": item.EndDate, "type": item.Type,
 		"attendeeCount": item.AttendeeCount, "maxAttendees": item.MaxAttendees,
-		"createdAt": item.CreatedAt}
+		"createdAt": item.CreatedAt,
+		"scope": item.GeoPlace.Scope, "place": geoPlaceResponse(item.GeoPlace)}
 }
 
 // CreateForumPost creates a new forum post.
@@ -444,14 +446,22 @@ func CreateForumReply(c *gin.Context) {
 }
 
 // CreateCommunityAnnouncement creates a community announcement
+//
+// The announcement's audience is resolved server-side (decision D-012): the
+// client chooses a scope and may attach its current coordinates, but never
+// place names. Publishing to a scope the author's place cannot express is
+// rejected, so an "LGA" announcement always carries a real LGA.
 func CreateCommunityAnnouncement(c *gin.Context) {
 	var input struct {
-		UnitID    string `json:"unitId"`
-		Title     string `json:"title" binding:"required"`
-		Content   string `json:"content" binding:"required"`
-		Type      string `json:"type"`
-		Priority  string `json:"priority"`
-		ExpiresAt string `json:"expiresAt"`
+		UnitID    string   `json:"unitId"`
+		Title     string   `json:"title" binding:"required"`
+		Content   string   `json:"content" binding:"required"`
+		Type      string   `json:"type"`
+		Priority  string   `json:"priority"`
+		ExpiresAt string   `json:"expiresAt"`
+		Scope     string   `json:"scope"`
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -512,8 +522,25 @@ func CreateCommunityAnnouncement(c *gin.Context) {
 		input.Priority = "normal"
 	}
 
+	place := resolveViewerPlace(userObj, input.Latitude, input.Longitude)
+	scope := strings.ToLower(strings.TrimSpace(input.Scope))
+	if scope == "" {
+		scope = defaultScopeFor(place)
+	}
+	if !validScope(scope) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
+	}
+	if !scopeSatisfiedBy(scope, place) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "your location is not detailed enough to publish to " + scope + "; share your location and try again",
+		})
+		return
+	}
+
 	announcement := models.CommunityAnnouncement{
 		UnitID:      unitID,
+		GeoPlace:    newPlace(scope, place, input.Latitude, input.Longitude),
 		Title:       input.Title,
 		Content:     input.Content,
 		Type:        input.Type,
@@ -536,6 +563,13 @@ func CreateCommunityAnnouncement(c *gin.Context) {
 }
 
 // GetCommunityAnnouncements gets community announcements
+//
+// `scope` widens how much of the *viewer's own* jurisdiction is returned
+// (default lga), exactly as it does for the discussion feed, and `lat`/`lng`
+// let a citizen without a unit resolve a place from the browser. The filter is
+// the viewer's place OR the viewer's own unit: a unit's own announcements stay
+// visible to it, and a geo-scoped announcement reaches the neighbouring units
+// in the same LGA, which is the point of the LGA convergence group (D-015).
 func GetCommunityAnnouncements(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -544,33 +578,23 @@ func GetCommunityAnnouncements(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
+	maxRank, ok := communityScopeRank(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
+	}
+
 	// Resolve viewer place for geo scoping
-	place := resolveViewerPlace(userObj, nil, nil)
-	maxRank, _ := scopeRank("lga") // default scope
+	lat, lng := parseCoords(c)
+	place := resolveViewerPlace(userObj, lat, lng)
 
 	// Build query with geo scope filter
 	query := config.DB.Where("status = ?", "published")
 	var announcements []models.CommunityAnnouncement
-	
+
 	// Super admins bypass geo filtering
 	if userObj.Role != "super_admin" {
-		// Apply scope window condition
-		condition, args := scopeWindowCondition(place, maxRank)
-		query = query.Where(condition, args...)
-	}
-
-	// Filter by role (fallback for those without location)
-	if userObj.Role == "citizen" {
-		if userObj.UnitID != nil {
-			// For citizens without location, still filter by unit as fallback
-			query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-		} else {
-			query = query.Where("unit_id IS NULL")
-		}
-	} else if userObj.Role == "officer" && userObj.UnitID != nil {
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
+		query = applyCommunityScopeFilter(query, userObj, place, maxRank)
 	}
 
 	if err := query.Order("priority DESC, created_at DESC").Find(&announcements).Error; err != nil {
@@ -584,18 +608,24 @@ func GetCommunityAnnouncements(c *gin.Context) {
 }
 
 // CreateCommunityEvent creates a community event
+//
+// The event's audience is resolved server-side (decision D-012): the client
+// chooses a scope and may attach coordinates, but never place names. The
+// coordinates are the event's point as well as the hint for the place, so an
+// "LGA" event always carries a real LGA.
 func CreateCommunityEvent(c *gin.Context) {
 	var input struct {
-		UnitID       string  `json:"unitId"`
-		Title        string  `json:"title" binding:"required"`
-		Description  string  `json:"description" binding:"required"`
-		Location     string  `json:"location" binding:"required"`
-		Latitude     float64 `json:"latitude"`
-		Longitude    float64 `json:"longitude"`
-		EventDate    string  `json:"eventDate" binding:"required"`
-		EndDate      string  `json:"endDate" binding:"required"`
-		Type         string  `json:"type" binding:"required"`
-		MaxAttendees int     `json:"maxAttendees"`
+		UnitID       string   `json:"unitId"`
+		Title        string   `json:"title" binding:"required"`
+		Description  string   `json:"description" binding:"required"`
+		Location     string   `json:"location" binding:"required"`
+		Latitude     *float64 `json:"latitude"`
+		Longitude    *float64 `json:"longitude"`
+		EventDate    string   `json:"eventDate" binding:"required"`
+		EndDate      string   `json:"endDate" binding:"required"`
+		Type         string   `json:"type" binding:"required"`
+		MaxAttendees int      `json:"maxAttendees"`
+		Scope        string   `json:"scope"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -663,13 +693,35 @@ func CreateCommunityEvent(c *gin.Context) {
 		input.Type = "meeting"
 	}
 
+	place := resolveViewerPlace(userObj, input.Latitude, input.Longitude)
+	scope := strings.ToLower(strings.TrimSpace(input.Scope))
+	if scope == "" {
+		scope = defaultScopeFor(place)
+	}
+	if !validScope(scope) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
+	}
+	if !scopeSatisfiedBy(scope, place) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "your location is not detailed enough to publish to " + scope + "; share your location and try again",
+		})
+		return
+	}
+
+	var lat, lng float64
+	if input.Latitude != nil && input.Longitude != nil {
+		lat, lng = *input.Latitude, *input.Longitude
+	}
+
 	event := models.CommunityEvent{
 		UnitID:       unitID,
+		GeoPlace:     newPlace(scope, place, input.Latitude, input.Longitude),
 		Title:        input.Title,
 		Description:  input.Description,
 		Location:     input.Location,
-		Latitude:     input.Latitude,
-		Longitude:    input.Longitude,
+		Latitude:     lat,
+		Longitude:    lng,
 		EventDate:    eventDate,
 		EndDate:      endDate,
 		Type:         input.Type,
@@ -690,6 +742,12 @@ func CreateCommunityEvent(c *gin.Context) {
 }
 
 // GetCommunityEvents gets community events
+//
+// `scope` widens how much of the *viewer's own* jurisdiction is returned
+// (default lga), exactly as it does for the discussion feed, and `lat`/`lng`
+// let a citizen without a unit resolve a place from the browser. The filter is
+// the viewer's place OR the viewer's own unit, so a geo-scoped event reaches
+// the neighbouring units in the same LGA (D-015).
 func GetCommunityEvents(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -697,32 +755,23 @@ func GetCommunityEvents(c *gin.Context) {
 		return
 	}
 	userObj := user.(*models.User)
+
+	maxRank, ok := communityScopeRank(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scope must be one of: locality, lga, state, country, world"})
+		return
+	}
+
 	// Resolve viewer place for geo scoping
-	place := resolveViewerPlace(userObj, nil, nil)
-	maxRank, _ := scopeRank("lga") // default scope
+	lat, lng := parseCoords(c)
+	place := resolveViewerPlace(userObj, lat, lng)
 
 	var events []models.CommunityEvent
 	query := config.DB.Where("status = ?", "upcoming")
 
 	// Super admins bypass geo filtering
 	if userObj.Role != "super_admin" {
-		// Apply scope window condition
-		condition, args := scopeWindowCondition(place, maxRank)
-		query = query.Where(condition, args...)
-	}
-
-	// Filter by role (fallback for those without location)
-	if userObj.Role == "citizen" {
-		if userObj.UnitID != nil {
-			// For citizens without location, still filter by unit as fallback
-			query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-		} else {
-			query = query.Where("unit_id IS NULL")
-		}
-	} else if userObj.Role == "officer" && userObj.UnitID != nil {
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
-	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
-		query = query.Where("unit_id IS NULL OR unit_id = ?", userObj.UnitID)
+		query = applyCommunityScopeFilter(query, userObj, place, maxRank)
 	}
 
 	if err := query.Order("event_date ASC").Find(&events).Error; err != nil {
@@ -736,6 +785,11 @@ func GetCommunityEvents(c *gin.Context) {
 }
 
 // RSVPToEvent RSVP to an event
+//
+// An event you cannot see, you cannot join: the same place predicate that
+// gates the feed gates the RSVP (decision D-014). Without this, geo-scoping
+// the event list would be cosmetic — a citizen could still register for an
+// event outside their area.
 func RSVPToEvent(c *gin.Context) {
 	eventID := c.Param("id")
 	id, err := uuid.Parse(eventID)
@@ -751,12 +805,16 @@ func RSVPToEvent(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
+	// The caller's own position, if the client offered one.
+	lat, lng := parseCoords(c)
+
 	// Distinguish the failure modes inside the transaction from the HTTP
 	// mapping outside it, so a validation failure never surfaces as a 500.
 	var (
-		errEventNotFound = errors.New("event not found")
-		errAlreadyRSVPed = errors.New("already rsvped")
-		errEventFull     = errors.New("event full")
+		errEventNotFound   = errors.New("event not found")
+		errAlreadyRSVPed   = errors.New("already rsvped")
+		errEventFull       = errors.New("event full")
+		errEventOutOfPlace = errors.New("event outside your area")
 	)
 
 	var event models.CommunityEvent
@@ -772,6 +830,12 @@ func RSVPToEvent(c *gin.Context) {
 				return errEventNotFound
 			}
 			return err
+		}
+
+		// The event must be inside the caller's area, or belong to their own
+		// unit. A world-scoped event is open to everyone.
+		if !eventVisibleToViewer(userObj, event, lat, lng) {
+			return errEventOutOfPlace
 		}
 
 		// Derive the live attendee count instead of trusting the denormalised
@@ -823,6 +887,8 @@ func RSVPToEvent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "RSVP successful"})
 	case errors.Is(txErr, errEventNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+	case errors.Is(txErr, errEventOutOfPlace):
+		c.JSON(http.StatusForbidden, gin.H{"error": "This event is outside your area"})
 	case errors.Is(txErr, errAlreadyRSVPed):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "You have already RSVP'd to this event"})
 	case errors.Is(txErr, errEventFull):
