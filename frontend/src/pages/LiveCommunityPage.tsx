@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Field, Input, Textarea } from '@/components/ui/Field'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { ScopeSelector, scopeLabel, type CommunityScope } from '@/components/community/ScopeSelector'
+import { MediaRecorderField } from '@/components/media/MediaRecorderField'
 import { api, ApiError } from '@/lib/apiClient'
 import { formatDateTime, relativeTime } from '@/lib/format'
 import { useLocation } from '@/hooks/useLocation'
@@ -61,13 +62,78 @@ function placeLabel(post: Post): string {
  * same scope rule as the feed), and reporting is idempotent, so the settled state
  * is a plain label rather than a disabled button that invites a retry.
  */
-function PostReportAction({ post, pending, onReport }: { post: Post; pending: boolean; onReport: (id: string) => void }) {
+function PostReportAction({
+  post,
+  pending,
+  onReport,
+}: {
+  post: Post
+  pending: boolean
+  onReport: (input: { reason: string; voiceNoteKey?: string }) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [voiceNoteKey, setVoiceNoteKey] = useState('')
+
   if (post.isMine) return null
   if (post.reportedByMe) return <span className="text-xs text-ink-faint">Reported — awaiting review</span>
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="ghost" disabled={pending} onClick={() => setOpen(true)}>
+        Report content
+      </Button>
+    )
+  }
+
   return (
-    <Button size="sm" variant="ghost" disabled={pending} onClick={() => onReport(post.id)}>
-      Report content
-    </Button>
+    <div className="space-y-3 rounded-lg border border-border-hi bg-surface-hi/50 p-3">
+      <Field label="Why are you reporting this?">
+        {props => (
+          <Textarea
+            {...props}
+            maxLength={2000}
+            value={reason}
+            onChange={event => setReason(event.target.value)}
+            placeholder="Tell moderators what is wrong with this post"
+          />
+        )}
+      </Field>
+      <MediaRecorderField
+        mode="voice"
+        presignPath={`/community/posts/${post.id}/report/presign`}
+        onCaptured={setVoiceNoteKey}
+        label="Voice note (optional)"
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={pending || (!reason.trim() && !voiceNoteKey)}
+          loading={pending}
+          onClick={() =>
+            onReport({
+              reason: reason.trim(),
+              ...(voiceNoteKey ? { voiceNoteKey } : {}),
+            })
+          }
+        >
+          Submit report
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={() => {
+            setReason('')
+            setVoiceNoteKey('')
+            setOpen(false)
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -140,7 +206,11 @@ export function LiveCommunityPage() {
   const createEvent = useMutation({ mutationFn: () => api.post('/community/events', { title: title.trim(), description: eventDescription.trim(), location: eventLocation.trim(), eventDate: new Date(eventDate).toISOString(), endDate: new Date(eventEndDate).toISOString(), type: 'meeting' }), onSuccess: () => { setTitle(''); setEventDescription(''); setEventLocation(''); setEventDate(''); setEventEndDate(''); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
   const rsvp = useMutation({ mutationFn: (id: string) => api.post(`/community/events/${id}/rsvp`, {}), onSuccess: (_, id) => { setRsvped(current => [...current, id]); void client.invalidateQueries({ queryKey: ['community', 'events'] }) } })
   const reportPost = useMutation({
-    mutationFn: (postId: string) => api.post(`/community/posts/${postId}/report`, {}),
+    mutationFn: (input: { postId: string; reason: string; voiceNoteKey?: string }) =>
+      api.post(`/community/posts/${input.postId}/report`, {
+        reason: input.reason,
+        ...(input.voiceNoteKey ? { voiceNoteKey: input.voiceNoteKey } : {}),
+      }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['community', 'posts'] })
       void client.invalidateQueries({ queryKey: ['community', 'post'] })
@@ -200,7 +270,7 @@ export function LiveCommunityPage() {
               </div>
               <p className="text-xs text-ink-faint">{detail.data.post.author?.name ?? 'Community member'} · {relativeTime(detail.data.post.createdAt)}</p>
               <p className="whitespace-pre-wrap text-sm text-ink-muted">{detail.data.post.content}</p>
-              <PostReportAction post={detail.data.post} pending={reportPost.isPending} onReport={id => reportPost.mutate(id)} />
+              <PostReportAction post={detail.data.post} pending={reportPost.isPending} onReport={input => reportPost.mutate({ postId: detail.data.post.id, ...input })} />
               {reportPost.isError && <p role="alert" className="text-sm text-emergency">{errorText(reportPost.error)}</p>}
               <h3 className="border-t border-border pt-3 text-sm font-semibold text-ink">Replies</h3>
               {detail.data.post.replies?.length
@@ -220,7 +290,7 @@ export function LiveCommunityPage() {
           ? <Card><ErrorState title="Could not load discussions" description="Try again." onRetry={() => void posts.refetch()} /></Card>
           : feed.length
             ? <div className="space-y-3">
-              <ul className="space-y-3">{feed.map(post => <li key={post.id}><Card className="p-4"><button className="w-full text-left" onClick={() => setSelectedId(post.id)}><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-ink">{post.title}</h2><span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted ring-1 ring-border">{placeLabel(post)}</span></div><p className="text-xs text-ink-faint">{post.author?.name ?? 'Community member'} · {relativeTime(post.createdAt)} · {post.replyCount} replies</p><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{post.content}</p><span className="mt-2 inline-block text-sm text-signal">Read discussion</span></button>{!post.isMine && <div className="mt-3 border-t border-border pt-2"><PostReportAction post={post} pending={reportPost.isPending} onReport={id => reportPost.mutate(id)} /></div>}</Card></li>)}</ul>
+              <ul className="space-y-3">{feed.map(post => <li key={post.id}><Card className="p-4"><button className="w-full text-left" onClick={() => setSelectedId(post.id)}><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-ink">{post.title}</h2><span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted ring-1 ring-border">{placeLabel(post)}</span></div><p className="text-xs text-ink-faint">{post.author?.name ?? 'Community member'} · {relativeTime(post.createdAt)} · {post.replyCount} replies</p><p className="mt-2 whitespace-pre-wrap text-sm text-ink-muted">{post.content}</p><span className="mt-2 inline-block text-sm text-signal">Read discussion</span></button>{!post.isMine && <div className="mt-3 border-t border-border pt-2"><PostReportAction post={post} pending={reportPost.isPending} onReport={input => reportPost.mutate({ postId: post.id, ...input })} /></div>}</Card></li>)}</ul>
               {posts.hasNextPage && <Button variant="secondary" loading={posts.isFetchingNextPage} onClick={() => void posts.fetchNextPage()}>Load older discussions</Button>}
               {reportPost.isError && <p role="alert" className="text-sm text-emergency">{errorText(reportPost.error)}</p>}
             </div>

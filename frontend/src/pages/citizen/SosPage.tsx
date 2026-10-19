@@ -11,6 +11,7 @@ import { useUnits } from '@/hooks/useUnits'
 import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
 import { MapView } from '@/components/map/MapView'
+import { MediaRecorderField } from '@/components/media/MediaRecorderField'
 import { SosTracker } from '@/components/sos/SosTracker'
 import { ApiError } from '@/lib/apiClient'
 import { formatDateTime } from '@/lib/format'
@@ -32,6 +33,9 @@ export function SosPage() {
   const [lng, setLng] = useState('')
   const [contacts, setContacts] = useState('')
   const [medical, setMedical] = useState('')
+  const [voiceNoteKey, setVoiceNoteKey] = useState('')
+  const [videoKey, setVideoKey] = useState('')
+  const [mediaResetKey, setMediaResetKey] = useState(0)
   const [priority, setPriority] = useState<'high' | 'critical'>('high')
   const [unitId, setUnitId] = useState('')
   const [hideLocation, setHideLocation] = useState(false)
@@ -106,12 +110,17 @@ export function SosPage() {
         ...(unitId ? { unitId } : {}),
         ...(contacts.trim() ? { emergencyContacts: contacts.split(",").map(function(s){ return s.trim(); }).filter(Boolean) } : {}),
         ...(medical.trim() ? { medicalInfo: medical.trim() } : {}),
+        ...(voiceNoteKey ? { voiceNoteKey } : {}),
+        ...(videoKey ? { videoKey } : {}),
         ...(hideLocation ? { hideLocation: true } : {}),
       })
       setReceipt({ trackingId: resp.sos.id, status: resp.sos.status })
       setConfirming(false)
       setContacts('')
       setMedical('')
+      setVoiceNoteKey('')
+      setVideoKey('')
+      setMediaResetKey((current) => current + 1)
     } catch (err) {
       console.error('[SOS] send failed:', err)
     }
@@ -242,6 +251,21 @@ export function SosPage() {
         <label className="block text-xs text-ink-muted">Medical information to share with responders (optional)
           <Textarea value={medical} maxLength={500} onChange={(e) => setMedical(e.target.value)} placeholder="Only what responders need to know" />
         </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <MediaRecorderField
+            key={`sos-voice-${mediaResetKey}`}
+            mode="voice"
+            presignPath="/sos/media/presign"
+            onCaptured={setVoiceNoteKey}
+          />
+          <MediaRecorderField
+            key={`sos-video-${mediaResetKey}`}
+            mode="video"
+            presignPath="/sos/media/presign"
+            onCaptured={setVideoKey}
+          />
+        </div>
 
         <label
           htmlFor="sos-hide-location"
