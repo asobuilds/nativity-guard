@@ -898,6 +898,67 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-19-02 — opencode — CLAIM + HOT-FILE HUDDLE: RES-022 real media integration tests (RES-020 placeholders)
+- Time: 2026-10-19T22:45:00Z
+- Feature: RES-022
+- Branch: `fix/res-022-real-media-tests` (branched from `origin/main` at `9746805`)
+- Claiming / reporting: claimed
+- Files: `backend/handlers/media_dedup_test.go`, `backend/handlers/media_filestorage_test.go`,
+  `backend/handlers/media_links_test.go`, `backend/handlers/media_presign_report_test.go`,
+  `backend/handlers/media_presign_sos_test.go`, `backend/handlers/media_report_attach_test.go`,
+  `backend/handlers/media_send_sos_test.go`, `backend/handlers/media_serve_report_test.go`,
+  `backend/handlers/media_serve_sos_test.go`, new `backend/handlers/media_test_helpers_test.go`,
+  `resolution.md`, `agentmeeting.md`
+- Summary: RES-020 shipped the media attach/serve code with **nine placeholder
+  test files** — every one of them a function that asserted nothing. This row
+  replaces all nine with real tests against the real handlers. Nothing in
+  `backend/handlers/media_links.go`, `backend/handlers/community_media_handler.go`,
+  `backend/handlers/sos_media_handler.go`, `backend/handlers/sos_handler.go`,
+  `backend/handlers/community_moderation.go` or `backend/handlers/file_serve_handler.go`
+  is changed: **tests only**. What the tests pin: (1) the presign gates —
+  `requireMinorApproved` (a minor without a guardian exception is refused) and
+  the audio/video MIME allowlist, the 5 MB voice cap and the 20 MB video cap;
+  (2) the **D-014 visibility gate** on the report presign — a caller cannot
+  presign media for a post they cannot open, so the presign cannot be used to
+  probe content outside their area; (3) the attach paths — an SOS alert and a
+  community report accept only a private `sos_media/` / `report_media/` key that
+  still exists in the store, and the `media_links` row points at the new parent
+  (a key from the wrong prefix, or a key that is not in the store, is refused
+  and **no row is written**); (4) the serve authorization — `sos_media/` needs
+  an `sosId` that passes `sosReadScope` (the owner reads it, an unrelated
+  caller gets 404) and `report_media/` needs a `reportId` whose post is visible
+  **or** that the caller can moderate (the reporter and the unit admin read
+  it, a bystander gets 403); (5) the **§5.3 refcount rule** — the store is
+  content-addressed, so identical bytes share one object across parents, and
+  deleting one parent's link must not delete the object while another parent
+  still references it; (6) the storage layer — `sos_media` and `report_media`
+  are registered categories and are private keys, never public CDN URLs.
+- Test design: the files stay **outside** the `integration` build tag, because
+  the handlers package only wires `config.DB` inside the integration-tagged
+  `TestMain`. Every test that needs a database calls `skipWithoutDB` first
+  (`config.DB == nil` → skip), so `go test ./handlers/` is green on a laptop
+  and `go test -tags integration ./handlers/` is meaningful in CI. Storage is
+  exercised against the **local-disk backend** rooted in a temp dir
+  (`STORAGE_ROOT`), with the R2 environment cleared, so a machine with R2
+  configured cannot send these tests to the network and no bytes leave the
+  box.
+- Hot files touched (Section 4): the **Coordination** row (`resolution.md`,
+  `agentmeeting.md`). `backend/handlers/` is listed in the Middleware/authz
+  row, but this branch adds **no** authorization boundary — it only exercises
+  the boundaries RES-020 already shipped — so no decision row is engaged. The
+  Routing, App-shell and Theming rows are not engaged.
+- Collision check against live claims on `origin`: `claude` is on RES-009
+  (frontend `queryClient.ts` / `States.tsx`) and RES-002/RES-003 (backend
+  authz handlers) — no file overlap. `antigravity` is on RES-006 (finance
+  handlers) — no overlap. RES-008 stays `unclaimed` and untouched.
+- Ask of other agents: none.
+- Decision needed: no
+- Blockers: none.
+- Update 2026-10-19T23:05Z: PR **#96** opened (https://github.com/asobuilds/nativity-guard/pull/96) from `fix/res-022-real-media-tests` (commit `a495f57`); the RES-022 board row is `in_review` and the evidence log has its row. Static gate green: `go build ./...`, `go vet ./...`, `go vet -tags integration ./...`, `go test ./...` exit 0. **Runtime proof on this box** (a Postgres 16 container, `fsync=off`): `go test -tags integration -race -count=1 -timeout 30m ./handlers/ -v` → `ok security-solution/handlers 275.827s`, 0 failures, race detector clean — all nine media tests pass **inside the full-suite run**, not only in isolation. Untagged run without a database: the DB-free tests pass and the DB-backed ones skip. **Not claimed:** no R2 round trip — the local-disk backend cannot presign a PUT URL, so the presign success path is proven only as far as the storage step (503), and the signed-URL path is left to CI.
+- Update 2026-10-19T23:20Z: CI green on PR **#96** — `race` PASS 6m8s (the whole integration suite, race detector, `postgres:16`) and `frontend` PASS 47s. The RES-022 board row is `done`; the merge hash is added in the follow-up ledger commit.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still
