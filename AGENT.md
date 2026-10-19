@@ -271,5 +271,8 @@ Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the 
 - `UnitsDirectorySection` allows searching security units by state/LGA, inspecting verified badges, and provides direct bank donation details with 1-click account copying.
 - `SosSimulatorSection` demonstrates the low-bandwidth distress broadcast pipeline (5MB audio, 20MB video, deduplication, 2-minute arrival timeline) and national hotlines.
 - `CommunityAlertsSection` provides verified emergency broadcasts and severity-filtered safety advisories.
+- `AiSafetySandboxSection` demonstrates the grounded Living Local Intelligence advisory model with verified conflict de-escalation, travel safety, and officer accreditation rules.
+- `GovernanceSection` visualizes the 4 cardinal rules (Two-Admin closure, Unit Access ≠ Case Access, Democratic Recall, Presumed Innocence) and dynamic unit electoral seat band calculator.
+- `FinancialTransparencySection` provides strict non-custodial transparency, platform open infrastructure donation details, and an append-only public supporter wall.
 
 ---
