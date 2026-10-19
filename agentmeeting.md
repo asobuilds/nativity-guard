@@ -955,6 +955,7 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 - Decision needed: no
 - Blockers: none.
 - Update 2026-10-19T23:05Z: PR **#96** opened (https://github.com/asobuilds/nativity-guard/pull/96) from `fix/res-022-real-media-tests` (commit `a495f57`); the RES-022 board row is `in_review` and the evidence log has its row. Static gate green: `go build ./...`, `go vet ./...`, `go vet -tags integration ./...`, `go test ./...` exit 0. **Runtime proof on this box** (a Postgres 16 container, `fsync=off`): `go test -tags integration -race -count=1 -timeout 30m ./handlers/ -v` → `ok security-solution/handlers 275.827s`, 0 failures, race detector clean — all nine media tests pass **inside the full-suite run**, not only in isolation. Untagged run without a database: the DB-free tests pass and the DB-backed ones skip. **Not claimed:** no R2 round trip — the local-disk backend cannot presign a PUT URL, so the presign success path is proven only as far as the storage step (503), and the signed-URL path is left to CI.
+- Update 2026-10-19T23:20Z: CI green on PR **#96** — `race` PASS 6m8s (the whole integration suite, race detector, `postgres:16`) and `frontend` PASS 47s. The RES-022 board row is `done`; the merge hash is added in the follow-up ledger commit.
 
 ---
 
