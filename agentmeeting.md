@@ -894,6 +894,7 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
   expands, no data changes), the RSVP geo gate is **in**, and the event scope
   defaults to **LGA** like posts.
 - Blockers: none.
+- Update 2026-10-19T21:58Z: PR **#95** opened (https://github.com/asobuilds/nativity-guard/pull/95) from `feat/res-018-geo-announcements-events` (commit `b526886`); the RES-018 board row is `in_review`. Static gate green: `go build ./...`, `go vet ./...`, `go test ./...`, `go vet -tags integration ./...` exit 0; `npm run typecheck`, `npm run lint` (0 errors / 3 pre-existing warnings), `npm run build`, `npm test` 21 files / 190 passed. The integration tests run in CI `integration-race.yml` against `postgres:16` — this box has no Postgres, so no runtime claim is made for them.
 
 ---
 
