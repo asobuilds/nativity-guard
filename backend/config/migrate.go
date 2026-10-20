@@ -41,6 +41,7 @@ func AutoMigrateAll() error {
 		&models.PushToken{},
 
 		&models.AIAnalysis{},
+		&models.LocalIntelligence{},
 		&models.Alert{},
 		&models.Announcement{},
 		&models.News{},

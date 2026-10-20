@@ -141,6 +141,8 @@ func CreateForumPost(c *gin.Context) {
 		return
 	}
 
+	extractAndStoreLocalIntelligence("post", post.ID.String(), post.Title+"\n"+post.Content, post.GeoPlace.State, post.GeoPlace.LGA)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Post created successfully",
 		"post":    forumPostResponse(post, false),

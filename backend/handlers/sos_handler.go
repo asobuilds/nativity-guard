@@ -117,6 +117,8 @@ func SendSOSAlert(c *gin.Context) {
 	// is already sent, so a link failure must not become a 500.
 	linkMedia(MediaParentSOS, sos.ID, voiceNoteKey, videoKey)
 
+	extractAndStoreLocalIntelligence("sos", sos.ID.String(), sos.Description, sos.JurisdictionState, sos.JurisdictionLGA)
+
 	// Compliance audit for anonymous SOS.
 	if anon {
 		auditSvc := services.NewAuditService()

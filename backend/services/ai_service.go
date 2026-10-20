@@ -426,3 +426,46 @@ Focus on key facts, status, and critical action items.`},
 		{Role: "user", Content: "Summarize this case concisely:\n" + caseData},
 	})
 }
+
+type LocalIntelExtraction struct {
+	Fact       string `json:"fact"`
+	Category   string `json:"category"`
+	Confidence string `json:"confidence"`
+	State      string `json:"state"`
+	LGA        string `json:"lga"`
+}
+
+// ExtractLocalIntelligence extracts a structured factual intelligence summary from report/alert text.
+func (s *AIService) ExtractLocalIntelligence(text string) (*LocalIntelExtraction, error) {
+	resp, err := s.Chat([]ChatMessage{
+		{Role: "system", Content: `You are an intelligence extraction engine for Nativity Guard.
+Analyze the provided report or alert text and extract:
+1. "fact": A concise single-sentence objective statement of the verified fact or incident (e.g., "Road blocked near Ikeja roundabout").
+2. "category": One of [road_block, hazard, security_incident, advisory, general].
+3. "confidence": One of [high, medium, low].
+4. "state": Nigerian state if mentioned or determinable, otherwise empty string.
+5. "lga": Local Government Area if mentioned or determinable, otherwise empty string.
+
+Return STRICT valid JSON with keys: fact, category, confidence, state, lga. No markdown code blocks, just JSON.`},
+		{Role: "user", Content: text},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cleaned := strings.TrimSpace(resp)
+	cleaned = strings.TrimPrefix(cleaned, "```json")
+	cleaned = strings.TrimPrefix(cleaned, "```")
+	cleaned = strings.TrimSuffix(cleaned, "```")
+	cleaned = strings.TrimSpace(cleaned)
+
+	var result LocalIntelExtraction
+	if err := json.Unmarshal([]byte(cleaned), &result); err != nil {
+		return &LocalIntelExtraction{
+			Fact:       text,
+			Category:   "general",
+			Confidence: "medium",
+		}, nil
+	}
+	return &result, nil
+}
