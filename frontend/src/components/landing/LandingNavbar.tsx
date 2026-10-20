@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import {
   Menu,
@@ -203,8 +204,12 @@ export function LandingNavbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation (PR #63 Regression Guard) */}
-      {mobileOpen && (
+      {/* Mobile Drawer Navigation (PR #63 Regression Guard).
+          Rendered through a portal: the header's backdrop-filter creates a
+          containing block for fixed descendants, which otherwise pins the
+          drawer to the 64px header instead of the viewport and hides every
+          nav link below the fold. */}
+      {mobileOpen && createPortal(
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           {/* Backdrop */}
           <div
@@ -302,7 +307,8 @@ export function LandingNavbar() {
               </Link>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   )
