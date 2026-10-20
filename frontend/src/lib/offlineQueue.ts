@@ -7,6 +7,7 @@
  *
  * Only append-only writes (SOS, reports) should go through this — anything
  * that could conflict with a server-side check should fail loudly instead.
+ * Durable offline sync queue implementation.
  */
 
 const DB_NAME = 'ng-offline'
