@@ -9,6 +9,47 @@ import (
 	"security-solution/models"
 )
 
+// GetAdminAnalyticsOverview returns high-level metrics for super admin command center
+func GetAdminAnalyticsOverview(c *gin.Context) {
+	var activeSosCount int64
+	config.DB.Model(&models.SOSAlert{}).Where("status NOT IN (?, ?)", "resolved", "cancelled").Count(&activeSosCount)
+
+	var casesByStatus []struct {
+		Status string
+		Count  int64
+	}
+	config.DB.Model(&models.Case{}).Select("status, count(*) as count").Group("status").Scan(&casesByStatus)
+
+	var verifiedUnitsCount int64
+	config.DB.Model(&models.SecurityUnit{}).Where("is_verified = ?", true).Count(&verifiedUnitsCount)
+
+	var totalOfficers int64
+	config.DB.Model(&models.UnitMembership{}).Where("status = ?", "active").Count(&totalOfficers)
+
+	var recentReports []models.Report
+	config.DB.Where("status = ?", "pending").Order("created_at DESC").Limit(5).Find(&recentReports)
+
+	var dailyActivity []struct {
+		Date  string
+		Count int64
+	}
+	config.DB.Model(&models.Case{}).
+		Select("to_char(created_at, 'YYYY-MM-DD') as date, count(*) as count").
+		Group("date").
+		Order("date desc").
+		Limit(7).
+		Scan(&dailyActivity)
+
+	c.JSON(http.StatusOK, gin.H{
+		"activeSosCount":     activeSosCount,
+		"casesByStatus":      casesByStatus,
+		"verifiedUnitsCount": verifiedUnitsCount,
+		"totalOfficers":      totalOfficers,
+		"recentReports":      recentReports,
+		"dailyActivity":      dailyActivity,
+	})
+}
+
 // GetUnitAnalytics returns analytics for a specific unit
 func GetUnitAnalytics(c *gin.Context) {
 	unitID := c.Param("id")
