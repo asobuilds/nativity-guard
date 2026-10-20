@@ -960,6 +960,66 @@ are shared (same `.git`), so claims are visible; `git checkout` is not.
 
 ---
 
+### MEET-2026-10-20-01 — opencode — CLAIM + HOT-FILE HUDDLE: RES-025 event lifecycle automation (scheduler jobs)
+- Time: 2026-10-20T06:40:00Z
+- Feature: RES-025
+- Branch: `feat/event-automation` (branched from `origin/main` at `4b1b091`)
+- Claiming / reporting: claimed
+- Files: `backend/services/scheduler_service.go` (`UpdateEventStatuses`,
+  `SendEventReminders`, `RunOnce`), new `backend/services/main_test.go`,
+  new `backend/services/scheduler_service_test.go`,
+  `.github/workflows/integration-race.yml` (services suite step),
+  `resolution.md`, `agentmeeting.md`
+- Summary: community events had **no lifecycle at all** — `CommunityEvent.Status`
+  was written as `"upcoming"` on create (`handlers/community_handler.go:728`) and
+  nothing ever changed it. The event feed already filtered `status = 'upcoming'`
+  (`handlers/community_handler.go:770`), so a finished event stayed in the feed
+  forever. This adds two jobs to the existing hourly scheduler
+  (`services/scheduler_service.go`, started at `backend/main.go:86`):
+  **`UpdateEventStatuses`** flips an event to `completed` once its end date has
+  passed (`COALESCE(end_date, event_date) <= now`), and **`SendEventReminders`**
+  notifies every RSVP holder 24 hours before the event starts. Both run inside
+  `RunOnce()`, behind the existing Postgres advisory lock, so only one backend
+  instance acts at a time and a second instance is a no-op.
+- Decisions taken by the owner (both confirmed before implementation):
+  **(a)** the reminder writes `models.Notification` rows inline in the scheduler
+  — the same pattern `AnnounceOfficerOfTheWeek` already uses
+  (`services/scheduler_service.go:265-280`) — and the unexported
+  `handlers.notifyUser` is **not** refactored or moved;
+  **(b)** reminder idempotency is a **query** against the existing
+  `notifications` table (`user_id` + `type` + `entity_id` + a 25-hour window),
+  so **no schema change and no new column** is needed. Because the scheduler
+  runs hourly and an event sits in the 24-hour window for ~24 runs, the
+  de-duplication is what stops the same attendee being pinged 24 times.
+- Tests: `backend/services/scheduler_service_test.go` (integration) — an event
+  whose end date has passed is completed, an event without an end date falls
+  back to its start date, an event that has **started but not ended** stays
+  `upcoming`; the reminder fires once per attendee and is idempotent across
+  two runs; no reminder for an event outside the 24-hour window; no reminder
+  for a completed event. `backend/services/main_test.go` adds the package's
+  `TestMain` (the `services` package had none — it imports `internal/testutil`,
+  which imports `services`, so the test files live in the external
+  `services_test` package to avoid an import cycle).
+- CI: `integration-race.yml` only ran `./handlers/`, so the new services tests
+  would never have executed. A **services integration suite** step was added
+  (`go test -tags integration -race -count=1 -timeout 30m ./services/ -v`).
+- Hot files touched (Section 4): the **Coordination** row (`resolution.md`,
+  `agentmeeting.md`). `.github/workflows/` is not on the hot-file list; the
+  change is an appended CI step, no job reordering. **No** handler, route,
+  model or migration is touched, so the Middleware/authz and Backend-routes
+  rows are not engaged and no new decision row is needed.
+- Collision check against live claims on `origin`: `claude` is on RES-009
+  (frontend) and RES-002/RES-003 (backend authz handlers) — no file overlap.
+  `antigravity` is on RES-006 (finance handlers) — no overlap. RES-008 (event
+  RSVP object-level authorization: cross-unit and non-upcoming) stays
+  `unclaimed` and untouched — this row adds the lifecycle, not the
+  object-level check, and RES-008 is still open for whoever claims it.
+- Ask of other agents: none.
+- Decision needed: no
+- Blockers: none.
+
+---
+
 ## 8. Standing handoff notes
 
 - `fix/super-admin-global-settings` is merged (PR #62) but `README.md` still

@@ -1,13 +1,13 @@
-﻿package services
+package services
 
 import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"sync/atomic"
 	"time"
-	"golang.org/x/crypto/bcrypt"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -32,6 +32,13 @@ type SchedulerService struct {
 	Election   *ElectionService
 	Revocation *RevocationService
 }
+
+// Event status constants for CommunityEvent.
+const (
+	EventStatusUpcoming  = "upcoming"
+	EventStatusCompleted = "completed"
+	EventReminderType    = "event_reminder"
+)
 
 func NewSchedulerService() *SchedulerService {
 	return &SchedulerService{
@@ -78,6 +85,8 @@ func (s *SchedulerService) RunOnce() {
 
 	s.CloseExpiredElections()
 	s.ExpireStaleInvites()
+	s.UpdateEventStatuses()
+	s.SendEventReminders()
 	s.CleanupExpiredSessions()
 	s.CloseFinishedFinancialYears()
 	s.RecomputeRankings()
@@ -333,15 +342,15 @@ func (s *SchedulerService) PurgeDeletedAccounts() {
 		if err := config.DB.Unscoped().Model(&models.User{}).
 			Where("id = ?", u.ID).
 			Updates(map[string]interface{}{
-				"email":          "deleted_" + u.ID.String() + "@deleted.local",
-				"phone":          "",
-				"first_name":     "Deleted",
-				"last_name":      "Deleted",
-				"medical_info":   "",
-				"avatar_path":    "",
-				"cover_path":     "",
-				"password":       string(fakeHash),
-				"last_login":     nil,
+				"email":        "deleted_" + u.ID.String() + "@deleted.local",
+				"phone":        "",
+				"first_name":   "Deleted",
+				"last_name":    "Deleted",
+				"medical_info": "",
+				"avatar_path":  "",
+				"cover_path":   "",
+				"password":     string(fakeHash),
+				"last_login":   nil,
 			}).Error; err != nil {
 			log.Printf("scheduler: failed to anonymize user %s: %v", u.ID, err)
 			continue
@@ -354,4 +363,86 @@ func (s *SchedulerService) PurgeDeletedAccounts() {
 	}
 
 	log.Printf("scheduler: purged %d deleted accounts", len(users))
+}
+
+// UpdateEventStatuses marks community events whose end time has passed as
+// completed.
+//
+// The event list only shows "upcoming" rows, so an event that has run its
+// course would otherwise sit in the feed forever. An event with an explicit
+// end date completes when that end date passes; an event without one falls
+// back to its start date, because there is no other point at which it can be
+// said to be over.
+//
+// Idempotent: the WHERE clause only matches rows still marked "upcoming", so
+// running the job twice in one cycle changes nothing the second time.
+func (s *SchedulerService) UpdateEventStatuses() {
+	now := time.Now().UTC()
+
+	if err := config.DB.Model(&models.CommunityEvent{}).
+		Where("status = ? AND COALESCE(end_date, event_date) <= ?", EventStatusUpcoming, now).
+		Update("status", EventStatusCompleted).Error; err != nil {
+		log.Printf("scheduler: failed to complete past events: %v", err)
+	}
+}
+
+// SendEventReminders notifies the attendees of community events that start
+// within the next 24 hours.
+//
+// The window is [now, now+24h]. Because the scheduler runs hourly, an event
+// in that window is seen by roughly 24 hourly runs, so the job must not send
+// the same reminder twice. It does not: before writing a notification it
+// checks whether that attendee already has an "event_reminder" for that event
+// inside a slightly wider window (25h), and skips if so.
+//
+// An event that has just been created (say 2 hours before it starts) is also
+// picked up on the very next run, so a reminder is not lost.
+func (s *SchedulerService) SendEventReminders() {
+	now := time.Now().UTC()
+	windowEnd := now.Add(24 * time.Hour)
+	dedupeSince := now.Add(-25 * time.Hour)
+
+	var events []models.CommunityEvent
+	if err := config.DB.
+		Where("status = ? AND event_date > ? AND event_date <= ?", EventStatusUpcoming, now, windowEnd).
+		Find(&events).Error; err != nil {
+		log.Printf("scheduler: failed to load events starting soon: %v", err)
+		return
+	}
+
+	for _, event := range events {
+		var attendees []models.EventAttendee
+		if err := config.DB.Where("event_id = ? AND status = ?", event.ID, "registered").Find(&attendees).Error; err != nil {
+			log.Printf("scheduler: failed to load attendees of event %s: %v", event.ID, err)
+			continue
+		}
+
+		for _, attendee := range attendees {
+			var existing int64
+			if err := config.DB.Model(&models.Notification{}).
+				Where("user_id = ? AND type = ? AND entity_id = ? AND created_at >= ?",
+					attendee.UserID, EventReminderType, event.ID, dedupeSince).
+				Count(&existing).Error; err != nil {
+				log.Printf("scheduler: failed to check existing reminders for event %s: %v", event.ID, err)
+				continue
+			}
+			if existing > 0 {
+				continue
+			}
+
+			notification := models.Notification{
+				UserID:     attendee.UserID,
+				Title:      "Reminder: \"" + event.Title + "\" starts soon",
+				Message:    fmt.Sprintf("The event \"%s\" begins at %s UTC.", event.Title, event.EventDate.Format(time.RFC3339)),
+				Type:       EventReminderType,
+				Status:     "unread",
+				EntityType: "event",
+				EntityID:   event.ID,
+				LinkTo:     "/community/events/" + event.ID.String(),
+			}
+			if err := config.DB.Create(&notification).Error; err != nil {
+				log.Printf("scheduler: failed to send event reminder for event %s: %v", event.ID, err)
+			}
+		}
+	}
 }
