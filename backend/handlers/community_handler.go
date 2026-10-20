@@ -811,10 +811,11 @@ func RSVPToEvent(c *gin.Context) {
 	// Distinguish the failure modes inside the transaction from the HTTP
 	// mapping outside it, so a validation failure never surfaces as a 500.
 	var (
-		errEventNotFound   = errors.New("event not found")
-		errAlreadyRSVPed   = errors.New("already rsvped")
-		errEventFull       = errors.New("event full")
-		errEventOutOfPlace = errors.New("event outside your area")
+		errEventNotFound     = errors.New("event not found")
+		errAlreadyRSVPed     = errors.New("already rsvped")
+		errEventFull         = errors.New("event full")
+		errEventOutOfPlace   = errors.New("event outside your area")
+		errEventNotUpcoming  = errors.New("event not upcoming")
 	)
 
 	var event models.CommunityEvent
@@ -830,6 +831,11 @@ func RSVPToEvent(c *gin.Context) {
 				return errEventNotFound
 			}
 			return err
+		}
+
+		// An event is open for RSVP only while it is still upcoming (D-018).
+		if event.Status != "upcoming" {
+			return errEventNotUpcoming
 		}
 
 		// The event must be inside the caller's area, or belong to their own
@@ -887,6 +893,8 @@ func RSVPToEvent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "RSVP successful"})
 	case errors.Is(txErr, errEventNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+	case errors.Is(txErr, errEventNotUpcoming):
+		c.JSON(http.StatusConflict, gin.H{"error": "Event is not upcoming"})
 	case errors.Is(txErr, errEventOutOfPlace):
 		c.JSON(http.StatusForbidden, gin.H{"error": "This event is outside your area"})
 	case errors.Is(txErr, errAlreadyRSVPed):
