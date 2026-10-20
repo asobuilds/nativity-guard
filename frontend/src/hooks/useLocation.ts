@@ -27,6 +27,16 @@ export interface UseLocationResult extends LocationState {
   request: () => void
 }
 
+export interface UseLocationOptions {
+  /**
+   * When false the hook never asks the browser for a position on its own —
+   * only an explicit `request()` does. Use it on public pages where an
+   * unsolicited permission prompt on arrival is not acceptable.
+   * Defaults to true.
+   */
+  auto?: boolean
+}
+
 interface CachedLocation {
   latitude: number
   longitude: number
@@ -267,8 +277,13 @@ async function cacheAndShare(coords: LocationCoords): Promise<void> {
  *  - `denied` / `unavailable` → records the state and never asks again from here.
  *
  * A successful fix is cached in `sessionStorage` so a route change does not re-prompt.
+ *
+ * Pass `{ auto: false }` to opt out of the silent mount fetch entirely: nothing
+ * is requested until the caller calls `request()`. The public landing page does
+ * this so a visitor is never prompted for GPS just by opening the page.
  */
-export function useLocation(): UseLocationResult {
+export function useLocation(options: UseLocationOptions = {}): UseLocationResult {
+  const { auto = true } = options
   const [state, dispatch] = useReducer(locationReducer, undefined, initialLocationState)
 
   const resolvePosition = useCallback(() => {
@@ -308,6 +323,7 @@ export function useLocation(): UseLocationResult {
       // cannot pre-know the state, so expose "prompt" where the capability exists.
       if ('geolocation' in navigator) {
         dispatch({ type: 'permission_resolved', permission: 'prompt' })
+        if (auto) resolvePosition()
       } else {
         dispatch({
           type: 'permission_resolved',
@@ -323,14 +339,17 @@ export function useLocation(): UseLocationResult {
       .then((status) => {
         if (cancelled) return
         dispatch({ type: 'permission_resolved', permission: toPermission(status.state) })
-        if (status.state === 'granted' || status.state === 'prompt') {
+        if (auto && (status.state === 'granted' || status.state === 'prompt')) {
           resolvePosition()
         }
         status.onchange = () => {
           if (cancelled) return
           const resolved = toPermission(status.state)
           dispatch({ type: 'permission_resolved', permission: resolved })
-          if (resolved === 'granted' || resolved === 'prompt') {
+          // A move to "granted" means the visitor allowed access, so a fix is
+          // wanted either way. "prompt" only triggers a fetch when the caller
+          // asked for the automatic behaviour.
+          if (resolved === 'granted' || (auto && resolved === 'prompt')) {
             resolvePosition()
           }
         }
@@ -339,7 +358,7 @@ export function useLocation(): UseLocationResult {
         if (cancelled) return
         if ('geolocation' in navigator) {
           dispatch({ type: 'permission_resolved', permission: 'prompt' })
-          resolvePosition()
+          if (auto) resolvePosition()
         } else {
           dispatch({ type: 'permission_resolved', permission: 'unavailable' })
         }
@@ -348,7 +367,7 @@ export function useLocation(): UseLocationResult {
     return () => {
       cancelled = true
     }
-  }, [resolvePosition])
+  }, [auto, resolvePosition])
 
   const request = useCallback(() => {
     resolvePosition()
