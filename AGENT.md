@@ -278,5 +278,7 @@ Keep `LoginPage.tsx` and `SignupPage.tsx` desktop brand panels aligned with the 
 - `LandingHero` provides dynamic live metrics (Active Units, 774 LGA readiness, median response timeline), quick jump anchor navigation, and direct action triggers.
 - `LandingFooter` provides emergency hotlines (112, 199, 122), civic and legal navigation links, and anti-vigilante/non-custodial policies.
 - `LandingPage` assembles all 9 hubs with seamless `ActionAuthModal` coordination across anonymous and authenticated citizen flows.
+- `Cold Backend Resilience & Offline Fallbacks`: all public hooks configured with `networkMode: 'offlineFirst'` and instant mock fallback fixtures to eliminate layout shifts and error flashes during Render wakeups; `/map` and `/units` routes harmonized via `PublicOrProtected` wrapper so unauthenticated direct link visits navigate directly to landing hubs (`/#map`, `/#units`) rather than an abrasive auth wall.
+- `Acceptance & Regression Verification (Phase 7)`: automated suite expanded to 22 test files (200 passing tests); invariants verified across tracking ID format (`NG-YYYY-NNNNNNNN`), border-bounded coarse coordinates, privacy stripping (no suspect/internal notes in public payloads), unit registration numbering (`NG/STATE/LGA/YYYY/NNN`), democratic seat band scaling, and NUBAN donation account validity.
 
 ---

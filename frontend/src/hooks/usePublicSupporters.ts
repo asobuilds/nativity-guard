@@ -47,6 +47,7 @@ export function usePublicSupporters() {
       }
     },
     staleTime: 5 * 60_000,
+    networkMode: 'offlineFirst',
   })
 }
 
@@ -61,6 +62,7 @@ export function usePlatformDonationInfo() {
       }
     },
     staleTime: 30 * 60_000,
+    networkMode: 'offlineFirst',
   })
 }
 

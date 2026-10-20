@@ -127,6 +127,7 @@ export function usePublicBlueprint() {
       }
     },
     staleTime: 60 * 60_000,
+    networkMode: 'offlineFirst',
   })
 }
 

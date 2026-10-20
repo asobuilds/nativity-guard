@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
@@ -110,6 +110,19 @@ function LoginAlias() {
   return <Navigate to="/auth/login" replace state={location.state} />
 }
 
+function PublicOrProtected({
+  children,
+  fallbackHash,
+}: {
+  children: ReactNode
+  fallbackHash: string
+}) {
+  const { status } = useAuth()
+  if (status === 'loading') return <FullPageSpinner label="Restoring session…" />
+  if (status === 'anonymous') return <Navigate to={`/${fallbackHash}`} replace />
+  return <ProtectedShell>{children}</ProtectedShell>
+}
+
 export const SuperUnitRecordPage = lazy(() => import('@/pages/super/SuperUnitRecordPage').then(m => ({ default: m.SuperUnitRecordPage })))
 export const LiveCommunityPage = lazy(() => import('@/pages/LiveCommunityPage').then(m => ({ default: m.LiveCommunityPage })))
 export function App() {
@@ -134,6 +147,8 @@ export function App() {
                 <Route path="/login" element={<LoginAlias />} />
 
                 <Route path="/" element={<RootRoute />} />
+                <Route path="/map" element={<PublicOrProtected fallbackHash="#map"><MapPage /></PublicOrProtected>} />
+                <Route path="/units" element={<PublicOrProtected fallbackHash="#units"><UnitsPage /></PublicOrProtected>} />
 
                 <Route element={<ProtectedShell />}>
                   <Route path="/onboarding" element={<OnboardingPage />} />
@@ -184,8 +199,6 @@ export function App() {
                     }
                   />
 
-                  <Route path="/map" element={<MapPage />} />
-                  <Route path="/units" element={<UnitsPage />} />
                   <Route path="/units/:id" element={<UnitDetailPage />} />
 
                   <Route

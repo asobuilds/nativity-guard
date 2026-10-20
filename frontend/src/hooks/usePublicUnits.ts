@@ -93,5 +93,6 @@ export function usePublicUnits() {
       }
     },
     staleTime: 5 * 60_000,
+    networkMode: 'offlineFirst',
   })
 }
