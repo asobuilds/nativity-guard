@@ -469,6 +469,7 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.PUT("/users/:id/age-override", handlers.AgeOverride)
 			superAdmin.POST("/stop-impersonate", handlers.StopImpersonation)
 			superAdmin.GET("/stats", handlers.GetSystemStats)
+			superAdmin.GET("/analytics/overview", handlers.GetAdminAnalyticsOverview)
 			superAdmin.GET("/platform-donations", handlers.ListPlatformDonations)
 			superAdmin.POST("/platform-donations/:id/confirm", handlers.ConfirmPlatformDonation)
 

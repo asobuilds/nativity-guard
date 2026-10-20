@@ -179,3 +179,20 @@ export function useSuperAdminUnitRecord(unitId: string | undefined) {
     staleTime: 30_000,
   })
 }
+
+export interface AdminAnalyticsOverview {
+  activeSosCount: number
+  casesByStatus: Array<{ status: string; count: number }>
+  verifiedUnitsCount: number
+  totalOfficers: number
+  recentReports: Array<{ id: string; targetType: string; reason: string; status: string; createdAt: string }>
+  dailyActivity: Array<{ date: string; count: number }>
+}
+
+export function useAdminAnalyticsOverview() {
+  return useQuery({
+    queryKey: ['super', 'analytics', 'overview'],
+    queryFn: () => api.get<AdminAnalyticsOverview>('/admin/analytics/overview'),
+    staleTime: 30_000,
+  })
+}
