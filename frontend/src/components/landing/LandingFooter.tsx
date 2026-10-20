@@ -71,7 +71,7 @@ export function LandingFooter({ onActionTrigger: _onActionTrigger }: LandingFoot
 
             <div className="mt-4 flex items-center gap-2 text-[11px] text-ink-faint">
               <span className="size-2 rounded-full bg-ok" />
-              <span>System Operational across 774 Local Government Areas</span>
+              <span>Made for communities across Nigeria</span>
             </div>
           </div>
 
