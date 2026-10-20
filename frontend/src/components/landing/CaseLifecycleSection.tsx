@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   Clock,
   FileSearch,
   Lock,
@@ -75,18 +76,121 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
       <div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
           <FileSearch className="size-3.5 text-signal" aria-hidden />
-          Accountability & Auditable Workflow
+          Case Updates
         </span>
         <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-          What Happens When an Incident is Reported
+          Track a Case. Stay Informed.
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Every report in Nativity Guard moves through an unalterable 8-stage audit trail. Direct officer
-          self-closure is blocked: closing a case requires verified sign-off from at least two independent
-          administrators.
+          Use your reference number to see available public updates. Private case information requires sign-in. You can also explore the review stages below.
         </p>
       </div>
 
+      {/* Tracking ID Lookup Tool */}
+      <Card className="mt-8 p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-ink">Find a Report</h3>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Enter an official tracking reference (e.g.{' '}
+              <span className="font-mono text-signal">NG-2026-00194821</span>) to check public progress.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 max-w-md w-full sm:w-auto">
+            <div className="relative flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
+                aria-hidden
+              />
+              <Input
+                type="text"
+                aria-label="Search by case reference"
+                placeholder="Enter case reference"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 font-mono text-xs"
+              />
+            </div>
+            {searchQuery ? (
+              <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
+                Clear
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Search Results Display */}
+        {searchQuery.trim() ? (
+          <div className="mt-4 border-t border-border pt-4">
+            {searchResult ? (
+              <div className="rounded-lg border border-signal/30 bg-signal/5 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold text-signal">
+                      {searchResult.trackingId}
+                    </span>
+                    <StatusChip status={searchResult.status} />
+                    <PriorityChip level={searchResult.priorityLevel} />
+                  </div>
+                  <span className="text-xs text-ink-faint">
+                    Updated {relativeTime(searchResult.updatedAt)}
+                  </span>
+                </div>
+
+                <h4 className="mt-2 text-sm font-medium text-ink">{searchResult.title}</h4>
+                <p className="mt-1 text-xs text-ink-muted">{searchResult.description}</p>
+                <p className="mt-2 text-[11px] text-ink-faint">
+                  Jurisdiction Area: {searchResult.location}
+                </p>
+
+                <div className="mt-3 flex items-center justify-end">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleFollowCase(searchResult)}
+                    icon={<Lock className="size-3.5" />}
+                  >
+                    Authenticate to Follow Detailed Case Dossier
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-surface-hi/40 p-4 text-center">
+                <p className="text-xs font-medium text-ink">No public record matched "{searchQuery}"</p>
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  Cases with privacy restrictions, confidential evidence, or unassigned citizen reports
+                  are shielded. If you reported this case, sign in with your account to access it.
+                </p>
+                <div className="mt-3 flex justify-center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      onActionTrigger({
+                        type: 'follow_case',
+                        title: 'Locate Private Case Record',
+                        description: 'Sign in to access your confidential citizen reports.',
+                        badgeText: `Reference: ${searchQuery}`,
+                      })
+                    }
+                  >
+                    Sign In to Look Up Private Reports
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </Card>
+
+      {/* Full workflow is available on demand; tracking is the primary task. */}
+      <details className="group mt-6 rounded-xl border border-border bg-surface/60">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-ink hover:bg-surface-hi/40 [&::-webkit-details-marker]:hidden">
+          View the full case review process
+          <ChevronDown className="size-4 shrink-0 text-signal transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="border-t border-border px-4 pb-4">
       {/* 8-Stage Interactive Lifecycle Visualizer */}
       <div className="mt-8">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
@@ -171,108 +275,14 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
         </div>
       </div>
 
-      {/* Tracking ID Lookup Tool */}
-      <Card className="mt-8 p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-ink">Track Any Case by Reference ID</h3>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Enter an official tracking reference (e.g.{' '}
-              <span className="font-mono text-signal">NG-2026-00194821</span>) to check public progress.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 max-w-md w-full sm:w-auto">
-            <div className="relative flex-1">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
-                aria-hidden
-              />
-              <Input
-                type="text"
-                placeholder="NG-2026-..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 font-mono text-xs"
-              />
-            </div>
-            {searchQuery ? (
-              <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
-                Clear
-              </Button>
-            ) : null}
-          </div>
         </div>
-
-        {/* Search Results Display */}
-        {searchQuery.trim() ? (
-          <div className="mt-4 border-t border-border pt-4">
-            {searchResult ? (
-              <div className="rounded-lg border border-signal/30 bg-signal/5 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-signal">
-                      {searchResult.trackingId}
-                    </span>
-                    <StatusChip status={searchResult.status} />
-                    <PriorityChip level={searchResult.priorityLevel} />
-                  </div>
-                  <span className="text-xs text-ink-faint">
-                    Updated {relativeTime(searchResult.updatedAt)}
-                  </span>
-                </div>
-
-                <h4 className="mt-2 text-sm font-medium text-ink">{searchResult.title}</h4>
-                <p className="mt-1 text-xs text-ink-muted">{searchResult.description}</p>
-                <p className="mt-2 text-[11px] text-ink-faint">
-                  Jurisdiction Area: {searchResult.location}
-                </p>
-
-                <div className="mt-3 flex items-center justify-end">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleFollowCase(searchResult)}
-                    icon={<Lock className="size-3.5" />}
-                  >
-                    Authenticate to Follow Detailed Case Dossier
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-border bg-surface-hi/40 p-4 text-center">
-                <p className="text-xs font-medium text-ink">No public record matched "{searchQuery}"</p>
-                <p className="mt-1 text-[11px] text-ink-muted">
-                  Cases with privacy restrictions, confidential evidence, or unassigned citizen reports
-                  are shielded. If you reported this case, sign in with your account to access it.
-                </p>
-                <div className="mt-3 flex justify-center">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      onActionTrigger({
-                        type: 'follow_case',
-                        title: 'Locate Private Case Record',
-                        description: 'Sign in to access your confidential citizen reports.',
-                        badgeText: `Reference: ${searchQuery}`,
-                      })
-                    }
-                  >
-                    Sign In to Look Up Private Reports
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : null}
-      </Card>
+      </details>
 
       {/* Live Public Cases Stream */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-ink">
-            Live Public Incidents Feed{' '}
+            Public Incident Updates{' '}
             {selectedStatus !== 'all' ? (
               <span className="text-xs font-normal text-ink-faint">
                 (Filtered by {selectedStatus})

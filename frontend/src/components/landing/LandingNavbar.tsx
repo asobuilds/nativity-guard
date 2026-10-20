@@ -22,14 +22,10 @@ const THEMES: { value: Theme; name: string; subtitle: string; preview: [string, 
 ]
 
 const NAV_LINKS = [
+  { href: '#how-it-works', label: 'How It Works' },
+  { href: '#case-lifecycle', label: 'Track a Case' },
   { href: '#map', label: 'Safety Map' },
-  { href: '#case-lifecycle', label: 'Case Tracker' },
-  { href: '#units', label: 'Security Units' },
-  { href: '#sos-simulator', label: 'SOS Protocol' },
-  { href: '#community-alerts', label: 'Alerts' },
-  { href: '#ai-safety', label: 'AI Advisor' },
-  { href: '#governance', label: 'Governance' },
-  { href: '#transparency', label: 'Ledger' },
+  { href: '#more-tools', label: 'More Tools' },
 ]
 
 export function LandingNavbar() {
@@ -90,16 +86,13 @@ export function LandingNavbar() {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black tracking-wider text-ink uppercase">
+              <span className="text-sm font-black tracking-wide text-ink uppercase">
                 Nativity Guard
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-ok/10 px-1.5 py-0.2 text-[9px] font-semibold text-ok ring-1 ring-ok/20">
-                <span className="size-1.5 rounded-full bg-ok animate-pulse" />
-                Live
-              </span>
+
             </div>
             <p className="text-[10px] text-ink-faint leading-none">
-              Sovereign Safety Infrastructure
+              Community safety, together
             </p>
           </div>
         </a>
