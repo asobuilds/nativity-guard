@@ -357,3 +357,132 @@ html[data-theme='stone'] { --public-art-opacity: 0.17; --public-art-blur: 18px; 
   .ng-public-scene::before { opacity: 0.06; filter: none; }
   .ng-public-glass { background: var(--color-surface); }
 }
+
+/* -------------------------------------------------------------------------
+   Landing scene: fixed cyber-network artwork behind the public hub.
+
+   This is deliberately landing-only. Auth and onboarding keep the carved
+   artwork above. The image is fixed to the viewport so it stays a page
+   backdrop while the long landing page scrolls, rather than stretching a
+   736x414 source over several thousand pixels.
+
+   Legibility comes from three layers:
+   1. the image is dimmed and desaturated by `--landing-art-filter`
+   2. a theme-coloured veil (base surface, not black) covers the viewport
+   3. the hero adds a lighter tint of the same veil behind its copy
+
+   Every value that changes between themes lives in the `html[...]` blocks
+   below, so the background follows the existing five-theme switcher.
+   ------------------------------------------------------------------------- */
+html {
+  --landing-art-opacity: 0.82;
+  --landing-art-filter: blur(2px) brightness(0.72) saturate(1) contrast(1.05);
+  --landing-veil-rgb: 16 34 29;
+  --landing-veil-top: 0.52;
+  --landing-veil-mid: 0.62;
+  --landing-veil-bottom: 0.92;
+  --landing-hero-veil: 0.42;
+  --landing-hero-edge: 0.68;
+}
+html[data-theme='forest'] {
+  /* inherits the defaults above */
+}
+html[data-theme='midnight'] {
+  --landing-art-opacity: 0.85;
+  --landing-art-filter: blur(2px) brightness(0.65) saturate(0.95);
+  --landing-veil-rgb: 10 10 10;
+  --landing-veil-top: 0.48;
+  --landing-veil-mid: 0.58;
+  --landing-veil-bottom: 0.92;
+  --landing-hero-veil: 0.38;
+  --landing-hero-edge: 0.66;
+}
+html[data-theme='daylight'] {
+  --landing-art-opacity: 0.62;
+  --landing-art-filter: blur(3px) brightness(1.12) saturate(0.6);
+  --landing-veil-rgb: 247 247 245;
+  --landing-veil-top: 0.66;
+  --landing-veil-mid: 0.76;
+  --landing-veil-bottom: 0.95;
+  --landing-hero-veil: 0.54;
+  --landing-hero-edge: 0.74;
+}
+html[data-theme='ocean'] {
+  --landing-art-opacity: 0.82;
+  --landing-art-filter: blur(2px) brightness(0.68) saturate(1.15);
+  --landing-veil-rgb: 10 26 48;
+  --landing-veil-top: 0.50;
+  --landing-veil-mid: 0.60;
+  --landing-veil-bottom: 0.92;
+  --landing-hero-veil: 0.40;
+  --landing-hero-edge: 0.68;
+}
+html[data-theme='stone'] {
+  --landing-art-opacity: 0.75;
+  --landing-art-filter: blur(2px) brightness(0.65) saturate(0.75) sepia(0.28) hue-rotate(-8deg);
+  --landing-veil-rgb: 35 32 25;
+  --landing-veil-top: 0.55;
+  --landing-veil-mid: 0.64;
+  --landing-veil-bottom: 0.93;
+  --landing-hero-veil: 0.46;
+  --landing-hero-edge: 0.70;
+}
+
+.ng-landing-scene::before {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  background-image: url('/images/nativity-global-network.webp');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: var(--landing-art-opacity);
+  mix-blend-mode: normal;
+  filter: var(--landing-art-filter);
+}
+.ng-landing-scene::after {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 50% 28%,
+      transparent 0%,
+      rgb(var(--landing-veil-rgb) / 0.20) 62%,
+      rgb(var(--landing-veil-rgb) / 0.55) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgb(var(--landing-veil-rgb) / var(--landing-veil-top)) 0%,
+      rgb(var(--landing-veil-rgb) / var(--landing-veil-mid)) 44%,
+      rgb(var(--landing-veil-rgb) / var(--landing-veil-bottom)) 100%
+    );
+  opacity: 1;
+}
+.ng-landing-scene .dawn-hero {
+  /* Keep the star/warm accents, but replace the opaque theme gradient with a
+     translucent veil so the globe stays visible behind the headline. */
+  background:
+    radial-gradient(circle at 82% 18%, var(--hero-star) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 39%, var(--hero-dot) 0 1px, transparent 2px),
+    radial-gradient(circle at 93% 54%, var(--hero-dot) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 82% 85%, var(--hero-warm), transparent 42%),
+    linear-gradient(
+      145deg,
+      rgb(var(--landing-veil-rgb) / var(--landing-hero-edge)) 12%,
+      rgb(var(--landing-veil-rgb) / var(--landing-hero-veil)) 67%,
+      rgb(var(--landing-veil-rgb) / var(--landing-hero-edge)) 100%
+    );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* Respect the OS setting: flatten the image and restore the opaque hero. */
+  .ng-landing-scene::before { opacity: 0.08; filter: none; }
+  .ng-landing-scene .dawn-hero {
+    background:
+      radial-gradient(circle at 82% 18%, var(--hero-star) 0 1px, transparent 2px),
+      radial-gradient(circle at 68% 39%, var(--hero-dot) 0 1px, transparent 2px),
+      radial-gradient(circle at 93% 54%, var(--hero-dot) 0 1px, transparent 2px),
+      radial-gradient(ellipse at 82% 85%, var(--hero-warm), transparent 42%),
+      linear-gradient(145deg, var(--hero-end-1) 12%, var(--hero-mid) 67%, var(--hero-end-2) 100%);
+  }
+}

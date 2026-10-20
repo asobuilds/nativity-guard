@@ -38,7 +38,7 @@ export function LandingPage() {
   }
 
   return (
-    <div className="ng-public-scene min-h-screen bg-base text-ink selection:bg-signal selection:text-signal-ink">
+    <div className="ng-public-scene ng-landing-scene min-h-screen bg-base text-ink selection:bg-signal selection:text-signal-ink">
       {/* Action-Aware Authentication Modal */}
       <ActionAuthModal
         open={Boolean(activeAction)}

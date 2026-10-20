@@ -65,7 +65,7 @@ export function LandingHero({ onActionTrigger }: LandingHeroProps) {
       </h1>
 
       {/* Mission description */}
-      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted sm:text-base">
+      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted sm:text-[1rem]">
         Nativity Guard connects Nigerian citizens, independent community security patrols, and
         oversight administrators on one tamper-proof record. Report neighborhood incidents with
         ground-truth coordinates, simulate rapid SOS dispatches, and support local units with
