@@ -76,6 +76,11 @@ export interface MapViewProps {
   allowLocate?: boolean
   userLocation?: { latitude: number; longitude: number } | null
   /**
+   * Marks `userLocation` as an approximation (an IP-derived area rather than
+   * a GPS fix), so the marker does not claim a precision it does not have.
+   */
+  approximateUserLocation?: boolean
+  /**
    * A point the caller explicitly asked to be shown. When set the map flies
    * there — this is the "pinpoint this location" action, separate from the
    * passive `userLocation` marker.
@@ -261,6 +266,7 @@ export function MapView({
   onPickLocation,
   allowLocate = false,
   userLocation = null,
+  approximateUserLocation = false,
   focusLocation = null,
   focusZoom,
   autoRecenter = true,
@@ -385,10 +391,10 @@ export function MapView({
               center={ownPosition}
               radius={22}
               pathOptions={{
-                color: '#3b82f6',
+                color: approximateUserLocation ? '#f0a63c' : '#3b82f6',
                 weight: 1,
                 opacity: 0.4,
-                fillColor: '#3b82f6',
+                fillColor: approximateUserLocation ? '#f0a63c' : '#3b82f6',
                 fillOpacity: 0.15,
               }}
             />
@@ -398,7 +404,7 @@ export function MapView({
               pathOptions={{
                 color: '#ffffff',
                 weight: 2.5,
-                fillColor: '#3b82f6',
+                fillColor: approximateUserLocation ? '#f0a63c' : '#3b82f6',
                 fillOpacity: 1,
               }}
             />

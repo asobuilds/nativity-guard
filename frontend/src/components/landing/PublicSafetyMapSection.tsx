@@ -19,8 +19,9 @@ import { MapView } from '@/components/map/MapView'
 import { useGeoStates, useGeoLgas } from '@/hooks/useGeo'
 import { usePublicUnits } from '@/hooks/usePublicUnits'
 import { usePublicCases } from '@/hooks/usePublicCases'
-import { useLocation } from '@/hooks/useLocation'
+import { useLocation, ipFallback } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
+import { locateFailureKind, locateFailureMessage } from '@/lib/locationNotice'
 import { formatCoord } from '@/lib/format'
 import type { Case, SecurityUnit } from '@/types/api'
 import type { ActionContext } from './types'
@@ -40,6 +41,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
     longitude: userLng,
     permission,
     error: locationError,
+    errorCode,
     request: requestLocation,
     loading: locating,
   } = useLocation({ auto: false })
@@ -53,6 +55,8 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   const [pickedCoord, setPickedCoord] = useState<LatLngTuple | null>(null)
   /** The point the visitor asked the map to pinpoint. */
   const [focusPoint, setFocusPoint] = useState<LatLngTuple | null>(null)
+  /** True when the point came from the network, not from GPS. */
+  const [approximatePoint, setApproximatePoint] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   /** Set while a locate request is in flight, so the fix that lands is focused. */
   const locatePendingRef = useRef(false)
@@ -118,7 +122,8 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   }, [selectedUnit, userLat, userLng, filteredUnits])
 
   /** Put the visitor's own position at the centre of the map. */
-  const focusOnUser = useCallback((lat: number, lng: number) => {
+  const focusOnUser = useCallback((lat: number, lng: number, approximate = false) => {
+    setApproximatePoint(approximate)
     setFocusPoint([lat, lng])
     // On a phone the map sits below the fold, so bring it into view.
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -145,27 +150,50 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
     focusOnUser(userLat, userLng)
   }, [userLat, userLng, focusOnUser])
 
+  /**
+   * Last resort when the browser will not hand over a GPS fix: fall back to
+   * the area the network says we are in. It is an approximation, and it is
+   * labelled as one — but it beats leaving the visitor with a dead map.
+   */
+  const showApproximateArea = useCallback(async () => {
+    const approximate = await ipFallback()
+    if (!approximate) return
+    focusOnUser(approximate.latitude, approximate.longitude, true)
+  }, [focusOnUser])
+
+  // A failed request falls back to the approximate area.
+  useEffect(() => {
+    if (!locatePendingRef.current) return
+    if (!locationError) return
+    locatePendingRef.current = false
+    void showApproximateArea()
+  }, [locationError, showApproximateArea])
+
   const locateNotice = useMemo(() => {
-    if (locationError) {
-      return permission === 'denied'
-        ? 'Location permission was denied. Allow location for this site, then press Locate My Area again.'
-        : locationError
-    }
-    if (permission === 'unavailable') {
-      return 'This device does not report a location. You can still explore the map.'
-    }
-    return null
-  }, [locationError, permission])
+    const kind = locateFailureKind({
+      errorCode,
+      permission,
+      secureContext: typeof window === 'undefined' ? true : window.isSecureContext,
+      supported: typeof navigator === 'undefined' ? true : 'geolocation' in navigator,
+    })
+    if (!kind) return null
+    const reason = locateFailureMessage(kind)
+    return approximatePoint
+      ? `${reason} Showing an approximate area from your network in the meantime.`
+      : reason
+  }, [errorCode, permission, approximatePoint])
 
   const locatedLabel = useMemo(() => {
     if (!focusPoint) return null
-    if (locationLabel) return locationLabel
-    return formatCoord(focusPoint[0], focusPoint[1])
-  }, [focusPoint, locationLabel])
+    const place = locationLabel || formatCoord(focusPoint[0], focusPoint[1])
+    return approximatePoint ? `approximate area — ${place}` : place
+  }, [focusPoint, locationLabel, approximatePoint])
 
   function handleReportAtLocation() {
-    const lat = pickedCoord ? pickedCoord[0] : (userLat ?? 9.082)
-    const lng = pickedCoord ? pickedCoord[1] : (userLng ?? 8.6753)
+    // A picked point wins, then a GPS fix, then the approximate area, and
+    // only then the centre of the country.
+    const lat = pickedCoord ? pickedCoord[0] : (userLat ?? focusPoint?.[0] ?? 9.082)
+    const lng = pickedCoord ? pickedCoord[1] : (userLng ?? focusPoint?.[1] ?? 8.6753)
     onActionTrigger({
       type: 'report_incident',
       title: 'File Incident Report',
@@ -325,6 +353,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
             userLocation={
               focusPoint ? { latitude: focusPoint[0], longitude: focusPoint[1] } : null
             }
+            approximateUserLocation={approximatePoint}
             focusLocation={focusPoint}
             focusZoom={15}
             autoRecenter={false}
