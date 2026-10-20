@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer } from 'react'
 import { api } from '@/lib/apiClient'
+import { GEO_ERROR_DENIED } from '@/lib/locationNotice'
 
 /** Persisted between route changes so a prompt is not repeated within a tab. */
 const STORAGE_KEY = 'cs.lastLocation'
@@ -13,6 +14,8 @@ export interface LocationState {
   permission: LocationPermission
   loading: boolean
   error: string | null
+  /** `GeolocationPositionError.code` from the browser, when there was one. */
+  errorCode: number | null
 }
 
 export interface LocationCoords {
@@ -56,7 +59,7 @@ export type LocationEvent =
   | { type: 'permission_resolved'; permission: LocationPermission; error?: string }
   | { type: 'fetch_start' }
   | { type: 'position_success'; coords: LocationCoords }
-  | { type: 'position_error'; message?: string }
+  | { type: 'position_error'; message?: string; code?: number }
 
 /**
  * Single source of truth for location state.
@@ -72,12 +75,13 @@ export function locationReducer(state: LocationState, event: LocationEvent): Loc
         ...state,
         permission: event.permission,
         error: event.error ?? null,
+        errorCode: null,
         ...(event.permission === 'denied'
           ? { latitude: null, longitude: null, accuracy: null, loading: false }
           : {}),
       }
     case 'fetch_start':
-      return { ...state, loading: true, error: null }
+      return { ...state, loading: true, error: null, errorCode: null }
     case 'position_success':
       return {
         latitude: event.coords.latitude,
@@ -86,16 +90,22 @@ export function locationReducer(state: LocationState, event: LocationEvent): Loc
         permission: 'granted',
         loading: false,
         error: null,
+        errorCode: null,
       }
-    case 'position_error':
+    case 'position_error': {
+      // A refusal and a timeout are different problems with different fixes.
+      // Only a refusal is a permission problem; a timeout or an unavailable
+      // position must not throw away a fix we already had.
+      const refused = event.code == null || event.code === GEO_ERROR_DENIED
       return {
-        latitude: null,
-        longitude: null,
-        accuracy: null,
-        permission: 'denied',
+        ...state,
+        ...(refused ? { latitude: null, longitude: null, accuracy: null } : {}),
+        permission: refused ? 'denied' : state.permission,
         loading: false,
         error: event.message ?? 'Location permission denied.',
+        errorCode: event.code ?? null,
       }
+    }
     default:
       return state
   }
@@ -140,6 +150,7 @@ export function initialLocationState(): LocationState {
       permission: cached.permission,
       loading: false,
       error: null,
+      errorCode: null,
     }
   }
   return {
@@ -149,6 +160,7 @@ export function initialLocationState(): LocationState {
     permission: 'unavailable',
     loading: false,
     error: null,
+    errorCode: null,
   }
 }
 
@@ -310,6 +322,7 @@ export function useLocation(options: UseLocationOptions = {}): UseLocationResult
         dispatch({
           type: 'position_error',
           message: error?.message ?? 'Location request was denied.',
+          code: error?.code,
         })
       },
       HIGH_ACCURACY_OPTIONS,
