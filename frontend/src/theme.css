@@ -375,57 +375,57 @@ html[data-theme='stone'] { --public-art-opacity: 0.17; --public-art-blur: 18px; 
    below, so the background follows the existing five-theme switcher.
    ------------------------------------------------------------------------- */
 html {
-  --landing-art-opacity: 0.82;
-  --landing-art-filter: blur(2px) brightness(0.72) saturate(1) contrast(1.05);
+  --landing-art-opacity: 0.85;
+  --landing-art-filter: blur(2px) brightness(0.55) saturate(1.05) contrast(1.12);
   --landing-veil-rgb: 16 34 29;
-  --landing-veil-top: 0.52;
-  --landing-veil-mid: 0.62;
+  --landing-veil-top: 0.50;
+  --landing-veil-mid: 0.60;
   --landing-veil-bottom: 0.92;
-  --landing-hero-veil: 0.42;
-  --landing-hero-edge: 0.68;
+  --landing-hero-veil: 0.38;
+  --landing-hero-edge: 0.64;
 }
 html[data-theme='forest'] {
   /* inherits the defaults above */
 }
 html[data-theme='midnight'] {
-  --landing-art-opacity: 0.85;
-  --landing-art-filter: blur(2px) brightness(0.65) saturate(0.95);
+  --landing-art-opacity: 0.88;
+  --landing-art-filter: blur(2px) brightness(0.48) saturate(0.95) contrast(1.15);
   --landing-veil-rgb: 10 10 10;
+  --landing-veil-top: 0.46;
+  --landing-veil-mid: 0.56;
+  --landing-veil-bottom: 0.92;
+  --landing-hero-veil: 0.34;
+  --landing-hero-edge: 0.62;
+}
+html[data-theme='daylight'] {
+  --landing-art-opacity: 0.60;
+  --landing-art-filter: blur(3px) brightness(0.95) saturate(0.7) contrast(1.1);
+  --landing-veil-rgb: 247 247 245;
+  --landing-veil-top: 0.68;
+  --landing-veil-mid: 0.77;
+  --landing-veil-bottom: 0.95;
+  --landing-hero-veil: 0.58;
+  --landing-hero-edge: 0.78;
+}
+html[data-theme='ocean'] {
+  --landing-art-opacity: 0.85;
+  --landing-art-filter: blur(2px) brightness(0.52) saturate(1.15) contrast(1.12);
+  --landing-veil-rgb: 10 26 48;
   --landing-veil-top: 0.48;
   --landing-veil-mid: 0.58;
   --landing-veil-bottom: 0.92;
-  --landing-hero-veil: 0.38;
-  --landing-hero-edge: 0.66;
-}
-html[data-theme='daylight'] {
-  --landing-art-opacity: 0.62;
-  --landing-art-filter: blur(3px) brightness(1.12) saturate(0.6);
-  --landing-veil-rgb: 247 247 245;
-  --landing-veil-top: 0.66;
-  --landing-veil-mid: 0.76;
-  --landing-veil-bottom: 0.95;
-  --landing-hero-veil: 0.54;
-  --landing-hero-edge: 0.74;
-}
-html[data-theme='ocean'] {
-  --landing-art-opacity: 0.82;
-  --landing-art-filter: blur(2px) brightness(0.68) saturate(1.15);
-  --landing-veil-rgb: 10 26 48;
-  --landing-veil-top: 0.50;
-  --landing-veil-mid: 0.60;
-  --landing-veil-bottom: 0.92;
-  --landing-hero-veil: 0.40;
-  --landing-hero-edge: 0.68;
+  --landing-hero-veil: 0.36;
+  --landing-hero-edge: 0.64;
 }
 html[data-theme='stone'] {
-  --landing-art-opacity: 0.75;
-  --landing-art-filter: blur(2px) brightness(0.65) saturate(0.75) sepia(0.28) hue-rotate(-8deg);
+  --landing-art-opacity: 0.78;
+  --landing-art-filter: blur(2px) brightness(0.5) saturate(0.8) sepia(0.3) hue-rotate(-8deg) contrast(1.1);
   --landing-veil-rgb: 35 32 25;
-  --landing-veil-top: 0.55;
-  --landing-veil-mid: 0.64;
+  --landing-veil-top: 0.53;
+  --landing-veil-mid: 0.62;
   --landing-veil-bottom: 0.93;
-  --landing-hero-veil: 0.46;
-  --landing-hero-edge: 0.70;
+  --landing-hero-veil: 0.42;
+  --landing-hero-edge: 0.68;
 }
 
 .ng-landing-scene::before {
