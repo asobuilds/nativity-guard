@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LatLngTuple } from 'leaflet'
 import {
   Compass,
@@ -21,6 +21,7 @@ import { usePublicUnits } from '@/hooks/usePublicUnits'
 import { usePublicCases } from '@/hooks/usePublicCases'
 import { useLocation } from '@/hooks/useLocation'
 import { useReverseGeocode, formatAddress } from '@/hooks/useReverseGeocode'
+import { formatCoord } from '@/lib/format'
 import type { Case, SecurityUnit } from '@/types/api'
 import type { ActionContext } from './types'
 
@@ -32,7 +33,16 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   const { data: states = [] } = useGeoStates()
   const { data: units = [] } = usePublicUnits()
   const { data: publicCases = [] } = usePublicCases()
-  const { latitude: userLat, longitude: userLng, request: requestLocation, loading: locating } = useLocation()
+  // `auto: false` — a visitor is never asked for GPS just by opening the
+  // landing page. The position is requested when "Locate My Area" is pressed.
+  const {
+    latitude: userLat,
+    longitude: userLng,
+    permission,
+    error: locationError,
+    request: requestLocation,
+    loading: locating,
+  } = useLocation({ auto: false })
 
   const [selectedState, setSelectedState] = useState<string>('all')
   const { data: lgas = [] } = useGeoLgas(selectedState === 'all' ? null : selectedState)
@@ -41,6 +51,11 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   const [showCoverage, setShowCoverage] = useState(true)
   const [showCases, setShowCases] = useState(true)
   const [pickedCoord, setPickedCoord] = useState<LatLngTuple | null>(null)
+  /** The point the visitor asked the map to pinpoint. */
+  const [focusPoint, setFocusPoint] = useState<LatLngTuple | null>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+  /** Set while a locate request is in flight, so the fix that lands is focused. */
+  const locatePendingRef = useRef(false)
 
   // Reverse-geocode user location or picked location
   const activeLat = pickedCoord ? pickedCoord[0] : userLat
@@ -102,9 +117,51 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
     return [9.082, 8.6753] // Nigeria geographical center
   }, [selectedUnit, userLat, userLng, filteredUnits])
 
+  /** Put the visitor's own position at the centre of the map. */
+  const focusOnUser = useCallback((lat: number, lng: number) => {
+    setFocusPoint([lat, lng])
+    // On a phone the map sits below the fold, so bring it into view.
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [])
+
   function handleLocateMe() {
+    locatePendingRef.current = true
+    if (userLat != null && userLng != null) {
+      // A fix is already known — show it straight away, then refresh it.
+      focusOnUser(userLat, userLng)
+      requestLocation()
+      return
+    }
     requestLocation()
   }
+
+  // A fix that arrives after the visitor pressed the button pins the map.
+  useEffect(() => {
+    if (!locatePendingRef.current) return
+    if (userLat == null || userLng == null) return
+    locatePendingRef.current = false
+    focusOnUser(userLat, userLng)
+  }, [userLat, userLng, focusOnUser])
+
+  const locateNotice = useMemo(() => {
+    if (locationError) {
+      return permission === 'denied'
+        ? 'Location permission was denied. Allow location for this site, then press Locate My Area again.'
+        : locationError
+    }
+    if (permission === 'unavailable') {
+      return 'This device does not report a location. You can still explore the map.'
+    }
+    return null
+  }, [locationError, permission])
+
+  const locatedLabel = useMemo(() => {
+    if (!focusPoint) return null
+    if (locationLabel) return locationLabel
+    return formatCoord(focusPoint[0], focusPoint[1])
+  }, [focusPoint, locationLabel])
 
   function handleReportAtLocation() {
     const lat = pickedCoord ? pickedCoord[0] : (userLat ?? 9.082)
@@ -147,24 +204,37 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
           </p>
         </div>
 
-        <div className="flex items-center gap-2 pt-2 md:pt-0">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleLocateMe}
-            loading={locating}
-            icon={<MapPin className="size-3.5 text-signal" />}
-          >
-            Locate My Area
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleReportAtLocation}
-            icon={<Plus className="size-3.5" />}
-          >
-            Report Incident Here
-          </Button>
+        <div className="pt-2 md:pt-0">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleLocateMe}
+              loading={locating}
+              icon={<MapPin className="size-3.5 text-signal" />}
+            >
+              Locate My Area
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleReportAtLocation}
+              icon={<Plus className="size-3.5" />}
+            >
+              Report Incident Here
+            </Button>
+          </div>
+
+          {locatedLabel ? (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
+              <MapPin className="size-3.5 text-signal" aria-hidden />
+              Showing your area: {locatedLabel}
+            </p>
+          ) : null}
+
+          {locateNotice ? (
+            <p className="mt-2 max-w-sm text-xs text-warn">{locateNotice}</p>
+          ) : null}
         </div>
       </div>
 
@@ -243,7 +313,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
 
       {/* Map Canvas and Selected Unit Drawer */}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="overflow-hidden rounded-panel border border-border bg-surface lg:col-span-2">
+        <div ref={mapRef} className="overflow-hidden rounded-panel border border-border bg-surface lg:col-span-2">
           <MapView
             height="460px"
             center={mapCenter}
@@ -252,6 +322,12 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
             cases={mappedCases}
             showUnitCoverage={showCoverage}
             allowLocate
+            userLocation={
+              focusPoint ? { latitude: focusPoint[0], longitude: focusPoint[1] } : null
+            }
+            focusLocation={focusPoint}
+            focusZoom={15}
+            autoRecenter={false}
             onPickLocation={(lat, lng) => setPickedCoord([lat, lng])}
           />
         </div>

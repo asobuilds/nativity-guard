@@ -75,6 +75,20 @@ export interface MapViewProps {
   onPickLocation?: (lat: number, lng: number) => void
   allowLocate?: boolean
   userLocation?: { latitude: number; longitude: number } | null
+  /**
+   * A point the caller explicitly asked to be shown. When set the map flies
+   * there — this is the "pinpoint this location" action, separate from the
+   * passive `userLocation` marker.
+   */
+  focusLocation?: LatLngTuple | null
+  /** Zoom used when focusing on `focusLocation`. Defaults to the current zoom. */
+  focusZoom?: number
+  /**
+   * When false the map does not move to the user position on its own; only an
+   * explicit `focusLocation` moves it. Used by the public landing page so the
+   * map stays on the country view until the visitor asks to be located.
+   */
+  autoRecenter?: boolean
   pois?: POI[]
   hiddenPOICategories?: Set<POICategory>
   route?: Route | null
@@ -116,6 +130,23 @@ function Recenter({ target, zoom }: { target: LatLngTuple | null; zoom?: number 
   useEffect(() => {
     if (lat == null || lng == null) return
     map.setView([lat, lng], zoom ?? Math.max(map.getZoom(), 15))
+  }, [lat, lng, zoom, map])
+  return null
+}
+
+/**
+ * Fly to a point the caller explicitly asked to be shown.
+ *
+ * `Recenter` jumps; this animates, so the visitor can see the map travel
+ * to their position instead of the view changing under them.
+ */
+function FlyTo({ target, zoom }: { target: LatLngTuple | null; zoom?: number }) {
+  const map = useMap()
+  const lat = target?.[0]
+  const lng = target?.[1]
+  useEffect(() => {
+    if (lat == null || lng == null) return
+    map.flyTo([lat, lng], zoom ?? Math.max(map.getZoom(), 15), { duration: 0.8 })
   }, [lat, lng, zoom, map])
   return null
 }
@@ -230,6 +261,9 @@ export function MapView({
   onPickLocation,
   allowLocate = false,
   userLocation = null,
+  focusLocation = null,
+  focusZoom,
+  autoRecenter = true,
   pois = [],
   hiddenPOICategories,
   route = null,
@@ -377,7 +411,8 @@ export function MapView({
 
         {mode === 'view' ? (
           <>
-            {userLocationCenter ? <Recenter target={userLocationCenter} /> : null}
+            {autoRecenter && ownPosition ? <Recenter target={ownPosition} /> : null}
+            {focusLocation ? <FlyTo target={focusLocation} zoom={focusZoom} /> : null}
             <FitToContent points={plotted} enabled={plotted.length > 0 && !ownPosition} />
 
             {showUnitCoverage
