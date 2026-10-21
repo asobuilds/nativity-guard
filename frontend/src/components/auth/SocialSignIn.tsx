@@ -173,7 +173,7 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
           type="button"
           disabled={busy}
           onClick={() => void loginWithApple()}
-          className="flex min-h-12 w-full items-center justify-center rounded-lg border border-border-hi bg-ink px-3 text-sm font-semibold text-base disabled:opacity-60"
+          className="flex min-h-12 w-full items-center justify-center rounded-lg border border-border-hi bg-black px-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           Continue with Apple
         </button>
