@@ -1,5 +1,5 @@
 export type LandingPalette = 'forest' | 'midnight' | 'ocean' | 'sand'
-export type LandingWallpaper = 'gate' | 'illustration' | 'plain'
+export type LandingWallpaper = 'gate' | 'illustration' | 'plain' | 'custom'
 
 export interface LandingAppearance {
   palette: LandingPalette
@@ -19,7 +19,7 @@ export function normalizeLandingAppearance(value: unknown): LandingAppearance {
   const wallpaper = input.wallpaper
   return {
     palette: palette === 'forest' || palette === 'midnight' || palette === 'ocean' || palette === 'sand' ? palette : 'forest',
-    wallpaper: wallpaper === 'gate' || wallpaper === 'illustration' || wallpaper === 'plain' ? wallpaper : 'gate',
+    wallpaper: wallpaper === 'gate' || wallpaper === 'illustration' || wallpaper === 'plain' || wallpaper === 'custom' ? wallpaper : 'gate',
   }
 }
 

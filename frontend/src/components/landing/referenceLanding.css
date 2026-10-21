@@ -449,3 +449,116 @@
   .ng-ref-action, .ng-ref-feature-card { transition: none; }
   .ng-ref-action:hover { transform: none; }
 }
+
+
+/* Personal wallpaper: object URLs are created from visitor-selected images and
+   loaded solely from IndexedDB on the visitor's own device. */
+.ng-ref-page[data-landing-wallpaper='custom'] .ng-ref-photo {
+  background-image: var(--ng-custom-wallpaper, none);
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: .9;
+}
+.ng-ref-page[data-landing-wallpaper='custom'] .ng-ref-photo::after { display: none; }
+.ng-ref-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.ng-ref-custom-wallpaper { padding-top: 13px; }
+.ng-ref-upload-wallpaper {
+  display: block; width: 100%; min-height: 44px;
+  padding: 9px 13px; border: 1px solid #efcd80; border-radius: 10px;
+  background: rgba(244,206,120,.13); color: #ffe5a0;
+  font-size: 13px; font-weight: 750; cursor: pointer; text-align: center;
+}
+.ng-ref-custom-wallpaper-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.ng-ref-custom-wallpaper-actions button {
+  min-height: 42px; padding: 8px; border: 1px solid #658576; border-radius: 9px;
+  color: #f3f8ef; background: #193b31; cursor: pointer; font-size: 12px;
+}
+.ng-ref-custom-wallpaper-actions button[aria-pressed='true'] { border-color: #efcd80; }
+.ng-ref-custom-wallpaper-actions button:last-child { border-color: #915b55; }
+.ng-ref-custom-wallpaper button:disabled { opacity: .6; cursor: wait; }
+.ng-ref-wallpaper-help { margin-top: 10px; color: #b9d4c6; font-size: 11px; line-height: 1.5; }
+.ng-ref-wallpaper-error { margin-top: 8px; color: #ffc3b5; font-size: 12px; line-height: 1.5; }
+
+/* A rich but lightweight public feature directory. Static illustration, layered
+   gradients, and restrained interactions—no heavy background video or trackers. */
+.ng-ref-features-main {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 83% 5%, rgba(52, 142, 114, .22), transparent 46%),
+    radial-gradient(ellipse at 0% 76%, rgba(218, 170, 77, .09), transparent 45%),
+    linear-gradient(156deg, #0c3029, #102620 70%);
+}
+.ng-ref-features-main::before {
+  content: '';
+  position: absolute; inset: 0;
+  z-index: -1; pointer-events: none;
+  background: url('/images/abuja-reference-hero.svg') center 12% / cover no-repeat;
+  opacity: .12;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+}
+.ng-ref-features-main::after {
+  content: '';
+  position: absolute;
+  z-index: -1; pointer-events: none;
+  top: 20%; right: -170px; width: 420px; height: 420px;
+  border-radius: 50%; border: 1px solid rgba(238, 207, 133, .12);
+  box-shadow: 0 0 0 75px rgba(39, 127, 99, .035), 0 0 0 150px rgba(39, 127, 99, .025);
+}
+.ng-ref-page[data-landing-wallpaper='gate'] .ng-ref-features-main::before {
+  background-image: url('/images/abuja-city-gate-reference.webp');
+  background-position: right 14% top;
+  opacity: .21;
+}
+.ng-ref-page[data-landing-wallpaper='custom'] .ng-ref-features-main::before {
+  background-image: var(--ng-custom-wallpaper, none);
+  background-position: center 30%;
+  opacity: .26;
+}
+.ng-ref-page[data-landing-wallpaper='plain'] .ng-ref-features-main::before { display: none; }
+.ng-ref-page[data-landing-palette='midnight'] .ng-ref-features-main {
+  background: radial-gradient(ellipse at 85% 8%, rgba(62, 112, 178, .2), transparent 52%), linear-gradient(160deg,#101b27,#131b2c);
+}
+.ng-ref-page[data-landing-palette='ocean'] .ng-ref-features-main {
+  background: radial-gradient(ellipse at 85% 8%, rgba(47, 157, 180, .2), transparent 52%), linear-gradient(160deg,#0d3449,#0c2636);
+}
+.ng-ref-page[data-landing-palette='sand'] .ng-ref-features-main {
+  background: radial-gradient(ellipse at 85% 8%, rgba(205, 162, 101, .18), transparent 52%), linear-gradient(160deg,#35291e,#251f18);
+}
+.ng-ref-feature-breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; }
+.ng-ref-feature-home {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 15px;
+  border: 1px solid rgba(235,205,140,.5);
+  border-radius: 999px; background: rgba(246,209,133,.1);
+  color: #f8dd9b; text-decoration: none; font-size: 13px; font-weight: 750;
+}
+.ng-ref-feature-home:hover, .ng-ref-feature-home:focus-visible {
+  background: rgba(246,209,133,.21); border-color: #f8dd9b;
+}
+.ng-ref-features-intro h1 { max-width: 780px; text-shadow: 0 6px 30px rgba(0, 0, 0, .25); }
+.ng-ref-feature-card {
+  position: relative;
+  background: linear-gradient(125deg, rgba(31,80,66,.96), rgba(16,54,46,.91));
+  border-color: rgba(130,183,153,.36);
+  box-shadow: 0 7px 30px rgba(0, 12, 8, .14), inset 0 1px 0 rgba(229,246,234,.07);
+}
+.ng-ref-feature-card:hover, .ng-ref-feature-card:focus-visible {
+  background: linear-gradient(125deg, rgba(40,99,79,.98), rgba(27,76,61,.97));
+  box-shadow: 0 13px 32px rgba(0, 12, 8, .24);
+  border-color: #e5c97f;
+}
+.ng-ref-feature-card:focus-visible, .ng-ref-custom-wallpaper button:focus-visible {
+  outline: 2px solid #f4ce78; outline-offset: 3px;
+}
+@media (max-width: 650px) {
+  .ng-ref-appearance-popover { max-height: min(75dvh, 620px); overflow-y: auto; }
+  .ng-ref-feature-home { width: fit-content; }
+  .ng-ref-features-main::after { right: -290px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ng-ref-feature-card, .ng-ref-custom-wallpaper button { transition: none; }
+}

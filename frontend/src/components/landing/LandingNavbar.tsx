@@ -30,6 +30,11 @@ interface LandingNavbarProps {
   onReport: () => void
   appearance?: LandingAppearance
   onAppearanceChange?: (next: LandingAppearance) => void
+  onUploadWallpaper?: (file: File) => Promise<void>
+  onRemoveWallpaper?: () => Promise<void>
+  hasCustomWallpaper?: boolean
+  wallpaperError?: string | null
+  wallpaperBusy?: boolean
 }
 
 const PALETTES: { value: LandingPalette; label: string; color: string }[] = [
@@ -44,7 +49,19 @@ const WALLPAPERS: { value: LandingWallpaper; label: string }[] = [
   { value: 'plain', label: 'Plain colour' },
 ]
 
-function AppearanceChoices({ appearance, onChange }: { appearance: LandingAppearance; onChange: (next: LandingAppearance) => void }) {
+interface AppearanceChoicesProps {
+  appearance: LandingAppearance
+  onChange: (next: LandingAppearance) => void
+  onUploadWallpaper?: (file: File) => Promise<void>
+  onRemoveWallpaper?: () => Promise<void>
+  hasCustomWallpaper?: boolean
+  wallpaperError?: string | null
+  wallpaperBusy?: boolean
+}
+function AppearanceChoices({
+  appearance, onChange, onUploadWallpaper, onRemoveWallpaper, hasCustomWallpaper, wallpaperError, wallpaperBusy,
+}: AppearanceChoicesProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   return (
     <div className="ng-ref-appearance-choices">
       <p className="ng-ref-option-label">Background colour</p>
@@ -75,11 +92,52 @@ function AppearanceChoices({ appearance, onChange }: { appearance: LandingAppear
           </button>
         ))}
       </div>
+      {onUploadWallpaper && (
+        <div className="ng-ref-custom-wallpaper">
+          <input
+            ref={fileInputRef}
+            className="ng-ref-file-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Choose a custom wallpaper image"
+            onChange={event => {
+              const file = event.currentTarget.files?.[0]
+              if (file) void onUploadWallpaper(file)
+              event.currentTarget.value = ''
+            }}
+          />
+          <button
+            type="button"
+            className="ng-ref-upload-wallpaper"
+            disabled={wallpaperBusy}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {wallpaperBusy ? 'Saving picture…' : 'Upload your own wallpaper'}
+          </button>
+          {hasCustomWallpaper && (
+            <div className="ng-ref-custom-wallpaper-actions">
+              <button type="button" disabled={wallpaperBusy} aria-pressed={appearance.wallpaper === 'custom'} onClick={() => onChange({ ...appearance, wallpaper: 'custom' })}>
+                Use my picture
+              </button>
+              {onRemoveWallpaper && (
+                <button type="button" disabled={wallpaperBusy} onClick={() => void onRemoveWallpaper()}>
+                  Remove picture
+                </button>
+              )}
+            </div>
+          )}
+          <p className="ng-ref-wallpaper-help">JPG, PNG or WebP, up to 8 MB. Saved only in this browser, never uploaded to Nativity Guard.</p>
+          {wallpaperError && <p className="ng-ref-wallpaper-error" role="alert">{wallpaperError}</p>}
+        </div>
+      )}
     </div>
   )
 }
 
-export function LandingNavbar({ onOpen, onReport, appearance, onAppearanceChange }: LandingNavbarProps) {
+export function LandingNavbar({
+  onOpen, onReport, appearance, onAppearanceChange, onUploadWallpaper,
+  onRemoveWallpaper, hasCustomWallpaper, wallpaperError, wallpaperBusy,
+}: LandingNavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
@@ -176,7 +234,7 @@ export function LandingNavbar({ onOpen, onReport, appearance, onAppearanceChange
               {optionsOpen && (
                 <div className="ng-ref-appearance-popover">
                   <div className="ng-ref-appearance-title">Appearance</div>
-                  <AppearanceChoices appearance={appearance} onChange={onAppearanceChange} />
+                  <AppearanceChoices appearance={appearance} onChange={onAppearanceChange} onUploadWallpaper={onUploadWallpaper} onRemoveWallpaper={onRemoveWallpaper} hasCustomWallpaper={hasCustomWallpaper} wallpaperError={wallpaperError} wallpaperBusy={wallpaperBusy} />
                 </div>
               )}
             </div>
@@ -202,7 +260,7 @@ export function LandingNavbar({ onOpen, onReport, appearance, onAppearanceChange
             {appearance && onAppearanceChange && (
               <details className="ng-ref-mobile-appearance">
                 <summary><Palette size={17} aria-hidden /> Appearance options</summary>
-                <AppearanceChoices appearance={appearance} onChange={onAppearanceChange} />
+                <AppearanceChoices appearance={appearance} onChange={onAppearanceChange} onUploadWallpaper={onUploadWallpaper} onRemoveWallpaper={onRemoveWallpaper} hasCustomWallpaper={hasCustomWallpaper} wallpaperError={wallpaperError} wallpaperBusy={wallpaperBusy} />
               </details>
             )}
             <div className="ng-ref-mobile-auth">

@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { ArrowLeft, ArrowRight, BookOpen, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ActionAuthModal } from '@/components/landing/ActionAuthModal'
 import { LANDING_FEATURES, LandingNavbar, type LandingPanel } from '@/components/landing/LandingNavbar'
 import { LandingToolContent } from '@/components/landing/LandingToolContent'
-import { readLandingAppearance, saveLandingAppearance } from '@/components/landing/landingAppearance'
+import { useLandingAppearance } from '@/components/landing/useLandingAppearance'
 import type { ActionContext } from '@/components/landing/types'
 import '@/components/landing/referenceLanding.css'
 
@@ -13,7 +13,7 @@ export function ExploreFeaturesPage() {
   const { feature } = useParams<{ feature?: string }>()
   const navigate = useNavigate()
   const selected = LANDING_FEATURES.find(item => item.panel === feature)
-  const [appearance, setAppearance] = useState(readLandingAppearance)
+  const { appearance, updateAppearance, uploadWallpaper, removeWallpaper, wallpaperUrl, wallpaperError, busy } = useLandingAppearance()
   const [activeAction, setActiveAction] = useState<ActionContext | null>(null)
 
   function report() {
@@ -30,11 +30,31 @@ export function ExploreFeaturesPage() {
   }
 
   return (
-    <div className="ng-ref-page ng-ref-features-page" data-landing-palette={appearance.palette} data-landing-wallpaper={appearance.wallpaper}>
+    <div
+      className="ng-ref-page ng-ref-features-page"
+      data-landing-palette={appearance.palette}
+      data-landing-wallpaper={appearance.wallpaper === 'custom' && !wallpaperUrl ? 'gate' : appearance.wallpaper}
+      style={{ '--ng-custom-wallpaper': wallpaperUrl ? `url("${wallpaperUrl}")` : 'none' } as CSSProperties}
+    >
       <div className="ng-ref-shell">
-        <LandingNavbar onOpen={open} onReport={report} appearance={appearance} onAppearanceChange={value => setAppearance(saveLandingAppearance(value))} />
+        <LandingNavbar
+          onOpen={open}
+          onReport={report}
+          appearance={appearance}
+          onAppearanceChange={updateAppearance}
+          onUploadWallpaper={uploadWallpaper}
+          onRemoveWallpaper={removeWallpaper}
+          hasCustomWallpaper={Boolean(wallpaperUrl)}
+          wallpaperError={wallpaperError}
+          wallpaperBusy={busy}
+        />
         <main className="ng-ref-features-main">
-          <Link to="/explore" className="ng-ref-feature-back"><ArrowLeft size={18} aria-hidden /> {selected ? 'All features' : 'Explore Nativity Guard'}</Link>
+          <nav className="ng-ref-feature-breadcrumbs" aria-label="Page navigation">
+            {selected || feature ? (
+              <Link to="/explore" className="ng-ref-feature-back"><ArrowLeft size={18} aria-hidden /> All features</Link>
+            ) : null}
+            <Link to="/" className="ng-ref-feature-home"><ArrowLeft size={18} aria-hidden /> Back to homepage</Link>
+          </nav>
           <div className="ng-ref-features-intro">
             <span className="ng-ref-feature-eyebrow"><ShieldCheck size={16} aria-hidden /> Community safety tools</span>
             <h1>{selected ? selected.title : 'Explore everything Nativity Guard offers'}</h1>
