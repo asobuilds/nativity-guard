@@ -21,6 +21,12 @@ func NewAuthService() *AuthService {
 	return &AuthService{}
 }
 
+// GenerateJWTWithJTI issues a normal session token after a trusted provider
+// has been verified. The caller must still record the session and refresh token.
+func (s *AuthService) GenerateJWTWithJTI(user *models.User) (string, string, error) {
+ return s.generateJWTWithJTI(user)
+}
+
 // GenerateJWT is used when a new token needs to be generated
 // for an authenticated user, including controlled impersonation.
 func (s *AuthService) GenerateJWT(user *models.User) (string, error) {

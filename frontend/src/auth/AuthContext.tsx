@@ -12,6 +12,13 @@ import { queryClient } from '@/lib/queryClient'
 import { normaliseRole } from '@/lib/role'
 import type { LoginResponse, ProfileResponse, Role, User } from '@/types/api'
 
+type SocialRegistration = {
+  dateOfBirth: string
+  termsVersion: string
+  consentTerms: boolean
+  consentDataProcessing: boolean
+}
+
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
 
 interface AuthContextValue {
@@ -26,6 +33,7 @@ interface AuthContextValue {
   rawRole: string | null
   status: AuthStatus
   login: (email: string, password: string) => Promise<void>
+  loginWithSocial: (provider: 'google' | 'apple', idToken: string, nonce: string, registration?: SocialRegistration) => Promise<void>
   logout: () => void
   refreshProfile: () => Promise<void>
 }
@@ -96,6 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setStatus('authenticated')
   }, [])
+  const loginWithSocial = useCallback(async (provider: 'google' | 'apple', idToken: string, nonce: string, registration?: SocialRegistration) => {
+    const result = await api.postAnonymous<LoginResponse>('/auth/social/exchange', { provider, idToken, nonce, ...registration })
+    queryClient.clear()
+    tokenStore.set(result.token)
+    tokenStore.setRefresh(result.refreshToken)
+    try {
+      const { user: fresh } = await api.get<ProfileResponse>('/auth/profile')
+      setUser(fresh)
+    } catch {
+      setUser(result.user as User)
+    }
+    setStatus('authenticated')
+  }, [])
   const refreshProfile = useCallback(async () => {
     const { user: fresh } = await api.get<ProfileResponse>('/auth/profile')
     setUser(fresh)
@@ -111,10 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rawRole: user?.role ?? null,
       status,
       login,
+      loginWithSocial,
       logout,
       refreshProfile,
     }),
-    [user, status, login, logout, refreshProfile],
+    [user, status, login, loginWithSocial, logout, refreshProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -17,12 +17,15 @@ export function RequireRole({
   roles: Role[]
   children: ReactNode
 }) {
-  const { status, role, rawRole, logout } = useAuth()
+  const { status, role, rawRole, user, logout } = useAuth()
   const location = useLocation()
 
   if (status === 'loading') return <FullPageSpinner label="Restoring session…" />
   if (status === 'anonymous') {
     return <Navigate to="/auth/login" replace state={{ from: location.pathname }} />
+  }
+  if (user?.accountAccessLevel === 'limited') {
+    return <Navigate to="/auth/complete-profile" replace />
   }
 
   // Signed in, but the role is not one this build can name. Show it and stop —

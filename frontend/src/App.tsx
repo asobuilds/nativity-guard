@@ -12,6 +12,7 @@ import { usePreferences } from '@/hooks/usePreferences'
 import { LandingPage } from '@/pages/LandingPage'
 const ExploreFeaturesPage = lazy(() => import('@/pages/ExploreFeaturesPage').then(m => ({ default: m.ExploreFeaturesPage })))
 
+const CompleteSocialSignupPage = lazy(() => import('@/pages/auth/CompleteSocialSignupPage').then(m => ({ default: m.CompleteSocialSignupPage })))
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
@@ -87,9 +88,12 @@ function ProtectedShell({ children }: { children?: ReactNode }) {
 }
 
 function RootRoute() {
-  const { status } = useAuth()
+  const { status, user: authUser } = useAuth()
   if (status === 'loading') return <FullPageSpinner label="Restoring sessionâ€¦" />
   if (status === 'anonymous') return <LandingPage />
+  // Social sign-in must not grant protected pages until age and consent are verified.
+  // ProtectedShell has the same guard; this also avoids flashing the dashboard.
+  if (authUser?.accountAccessLevel === 'limited') return <Navigate to="/auth/complete-profile" replace />
   return (
     <ProtectedShell>
       <HomeRoute />
@@ -137,6 +141,7 @@ export function App() {
             <Suspense fallback={<FullPageSpinner />}>
               <Routes>
                 <Route path="/auth/login" element={<LoginPage />} />
+                <Route path="/auth/complete-profile" element={<CompleteSocialSignupPage />} />
                 <Route path="/auth/signup" element={<SignupPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/about" element={<AboutPage />} />

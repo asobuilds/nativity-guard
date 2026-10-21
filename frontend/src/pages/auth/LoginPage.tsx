@@ -8,6 +8,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { homePathForRole } from '@/auth/RequireRole'
 import { UnrecognisedRoleScreen } from '@/auth/UnrecognisedRoleScreen'
 import { ApiError } from '@/lib/apiClient'
+import { SocialSignIn } from '@/components/auth/SocialSignIn'
 import { MOCK_ACCOUNTS, USE_MOCKS } from '@/mocks/config'
 
 /**
@@ -30,7 +31,7 @@ interface LoginHandoff {
  * without a running API.
  */
 export function LoginPage() {
-  const { login, status, role, rawRole, logout } = useAuth()
+  const { login, status, role, rawRole, logout, user } = useAuth()
   const location = useLocation()
   const { notify } = useToast()
 
@@ -42,6 +43,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
 
   if (status === 'authenticated') {
+    if (user?.accountAccessLevel === 'limited') return <Navigate to="/auth/complete-profile" replace />
     const destination = handoff?.from || homePathForRole(role)
     // No destination means the role is not one this build can name. Say so, rather
     // than bouncing — an unrecognised role is what used to blank the screen.
@@ -100,7 +102,7 @@ export function LoginPage() {
 
           <h2 className="text-xl font-semibold text-ink">Sign in</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Use your service email address and password.
+            Choose a quick sign-in option, or use your existing email and password.
           </p>
           <Link to="/terms" className="mt-2 inline-block text-xs text-signal hover:underline">Read user rules</Link>
 
@@ -127,6 +129,8 @@ export function LoginPage() {
             </p>
           ) : null}
 
+          <SocialSignIn onComplete={() => { /* AuthContext redirects after verification */ }} />
+
           <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
             <Field label="Email" required>
               {(props) => (
@@ -134,7 +138,6 @@ export function LoginPage() {
                   {...props}
                   type="email"
                   autoComplete="email"
-                  autoFocus
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}

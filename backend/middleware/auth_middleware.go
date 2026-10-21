@@ -104,6 +104,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// Provider-created accounts begin with unverified age and no consent.
+		// Never grant reporting, SOS, identity upload, or any authenticated API
+		// before they complete the same eligibility rules as password signup.
+		if user.AccountAccessLevel == "limited" && !limitedSocialRouteAllowed(c.FullPath()) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "profile_completion_required"})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }
@@ -139,5 +148,15 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			"error": "Insufficient permissions",
 		})
 		c.Abort()
+	}
+}
+
+func limitedSocialRouteAllowed(path string) bool {
+	switch path {
+	case "/api/v1/auth/profile", "/api/v1/auth/complete-profile",
+		"/api/v1/auth/logout", "/api/v1/auth/account":
+		return true
+	default:
+		return false
 	}
 }
