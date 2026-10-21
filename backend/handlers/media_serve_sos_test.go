@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"security-solution/config"
 	"security-solution/internal/testutil"
@@ -24,7 +25,7 @@ func TestServeFile_SOSMedia_RequiresSOSVisibility(t *testing.T) {
 	owner := testutil.MakeUser(t, "citizen")
 	stranger := testutil.MakeUser(t, "citizen")
 
-	_, hash := store.put("sos_media", "clip.mp4", []byte("clip bytes"))
+	key, hash := store.put("sos_media", "clip.mp4", []byte("clip bytes"))
 
 	alert := models.SOSAlert{
 		UserID:        owner.ID,
@@ -39,6 +40,10 @@ func TestServeFile_SOSMedia_RequiresSOSVisibility(t *testing.T) {
 	if err := config.DB.Create(&alert).Error; err != nil {
 		t.Fatalf("create alert: %v", err)
 	}
+
+	if err := config.DB.Create(&models.MediaLink{
+		ObjectKey: key, ParentType: MediaParentSOS, ParentID: alert.ID,
+	}).Error; err != nil { t.Fatalf("link alert media: %v", err) }
 
 	serve := func(t *testing.T, user *models.User, query string) (int, string) {
 		t.Helper()
@@ -55,6 +60,15 @@ func TestServeFile_SOSMedia_RequiresSOSVisibility(t *testing.T) {
 	}
 	if body != "clip bytes" {
 		t.Errorf("want the stored bytes, got %q", body)
+	}
+
+	// A different visible alert cannot act as a key to this file.
+	otherAlert := alert
+	otherAlert.ID = uuid.Nil
+	if err := config.DB.Create(&otherAlert).Error; err != nil { t.Fatal(err) }
+	code, body = serve(t, owner, "?sosId="+otherAlert.ID.String())
+	if code != http.StatusNotFound {
+		t.Fatalf("a visible but unrelated SOS must not expose media, got %d %s", code, body)
 	}
 
 	// A caller with no relation to the alert cannot.

@@ -72,6 +72,44 @@ func ServeFile(c *gin.Context) {
 		return
 	}
 
+	// Private keys must belong to the exact parent being accessed, not merely
+	// share a category with some other readable parent. Otherwise a known media
+	// hash from an unrelated case/SOS could be read via an accessible parent ID.
+	switch category {
+	case "sos_media", "report_media":
+		parentType, parentParam := MediaParentSOS, "sosId"
+		if category == "report_media" {
+			parentType, parentParam = MediaParentReport, "reportId"
+		}
+		parentID, parseErr := uuid.Parse(c.Query(parentParam))
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid media parent"})
+			return
+		}
+		var count int64
+		err := config.DB.Model(&models.MediaLink{}).
+			Where("object_key = ? AND parent_type = ? AND parent_id = ?", key, parentType, parentID).
+			Count(&count).Error
+		if err != nil || count == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "media is not attached to this record"})
+			return
+		}
+	case "evidence":
+		caseID, parseErr := uuid.Parse(c.Query("caseId"))
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid case ID"})
+			return
+		}
+		var count int64
+		err := config.DB.Model(&models.Evidence{}).
+			Where("case_id = ? AND (file_path = ? OR file_url = ?)", caseID, key, key).
+			Count(&count).Error
+		if err != nil || count == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "evidence is not attached to this case"})
+			return
+		}
+	}
+
 	r2 := storageSvc.R2()
 	if r2 == nil {
 		// Local disk mode: stream straight from disk.

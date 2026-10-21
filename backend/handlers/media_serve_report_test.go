@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"security-solution/config"
 	"security-solution/internal/testutil"
@@ -50,7 +51,7 @@ func TestServeFile_ReportMedia_RequiresPostVisibilityOrModerator(t *testing.T) {
 	// A citizen with no unit and no place of their own.
 	stranger := testutil.MakeUser(t, "citizen")
 
-	_, hash := store.put("report_media", "clip.mp4", []byte("clip bytes"))
+	key, hash := store.put("report_media", "clip.mp4", []byte("clip bytes"))
 
 	report := models.Report{
 		ReportedBy: reporter.ID,
@@ -62,6 +63,10 @@ func TestServeFile_ReportMedia_RequiresPostVisibilityOrModerator(t *testing.T) {
 	if err := config.DB.Create(&report).Error; err != nil {
 		t.Fatalf("create report: %v", err)
 	}
+
+	if err := config.DB.Create(&models.MediaLink{
+		ObjectKey: key, ParentType: MediaParentReport, ParentID: report.ID,
+	}).Error; err != nil { t.Fatalf("link report media: %v", err) }
 
 	serve := func(t *testing.T, user *models.User, query string) (int, string) {
 		t.Helper()
@@ -78,6 +83,15 @@ func TestServeFile_ReportMedia_RequiresPostVisibilityOrModerator(t *testing.T) {
 	}
 	if body != "clip bytes" {
 		t.Errorf("want the stored bytes, got %q", body)
+	}
+
+	// A different accessible report does not grant access to this key.
+	unrelated := report
+	unrelated.ID = uuid.Nil
+	if err := config.DB.Create(&unrelated).Error; err != nil { t.Fatal(err) }
+	code, body = serve(t, reporter, "?reportId="+unrelated.ID.String())
+	if code != http.StatusNotFound {
+		t.Fatalf("a visible but unrelated report must not expose media, got %d %s", code, body)
 	}
 
 	// A moderator of the post's unit can action the report, so the moderator

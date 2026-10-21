@@ -210,6 +210,7 @@ func SetupRoutes(router *gin.Engine) {
 			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
 			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
 			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
+			evidence.GET("/case/:caseId/:evidenceId/file", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ServeCaseEvidence)
 			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
 			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
 			evidence.PATCH("/:id/verify", middleware.AuthMiddleware(), handlers.VerifyEvidence)
@@ -228,9 +229,11 @@ func SetupRoutes(router *gin.Engine) {
 			// not exist until /sos/send; the returned key is only accepted by
 			// SendSOSAlert when it is a private sos_media/ key.
 			sos.POST("/media/presign", middleware.AuthMiddleware(), handlers.PresignSOSMedia)
+			sos.POST("/media/upload", middleware.AuthMiddleware(), handlers.UploadSOSMediaFile)
 			sos.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlerts)
 			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
 			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)
+			sos.GET("/:id/media/:mediaId/file", middleware.AuthMiddleware(), handlers.ServeSOSAttachment)
 			sos.GET("/:id/responders/locations", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetSOSResponderLocations)
 			sos.GET("/:id/responders/:unitId/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSOfficerCandidates)
 			sos.PUT("/:id/responders/:unitId/officer", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.AssignSOSOfficer)

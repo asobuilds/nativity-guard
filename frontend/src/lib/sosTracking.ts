@@ -12,6 +12,12 @@ export interface SosResponder {
   unit?: { id: string; name: string; type?: string }
 }
 
+export interface SosMediaAttachment {
+  id: string
+  kind: 'audio' | 'video' | 'recording'
+  createdAt: string
+}
+
 export interface SosDetail extends SosAlert {
   severity?: 'normal' | 'critical'
   dispatchState?: 'open' | 'locked' | 'multi_responder' | 'resolved'
@@ -20,6 +26,7 @@ export interface SosDetail extends SosAlert {
   jurisdictionState?: string
   jurisdictionLga?: string
   responders: SosResponder[]
+  media?: SosMediaAttachment[]
 }
 
 export interface ResponderLocation {
@@ -36,12 +43,13 @@ export interface SosDetailResponse {
   sos?: SosDetail
   alert?: SosDetail
   responders?: SosResponder[]
+  media?: SosMediaAttachment[]
 }
 
 export function normaliseSosDetail(data: SosDetailResponse): SosDetail {
   const sos = data.sos ?? data.alert
   if (!sos?.id) throw new Error('The server did not return an SOS alert.')
-  return { ...sos, responders: data.responders ?? sos.responders ?? [] }
+  return { ...sos, responders: data.responders ?? sos.responders ?? [], ...(data.media ? { media: data.media } : {}) }
 }
 
 export function isSosActive(sos: SosDetail): boolean {

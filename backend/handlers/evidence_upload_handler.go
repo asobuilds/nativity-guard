@@ -18,7 +18,7 @@ func categoryFromMime(mime string) string {
 		return "image"
 	case mime == "video/mp4" || mime == "video/webm" || mime == "video/quicktime":
 		return "video"
-	case mime == "audio/mpeg" || mime == "audio/wav" || mime == "audio/ogg" || mime == "audio/webm":
+	case mime == "audio/mpeg" || mime == "audio/mp4" || mime == "audio/wav" || mime == "audio/ogg" || mime == "audio/webm":
 		return "audio"
 	default:
 		return "document"
@@ -56,7 +56,7 @@ func UploadEvidenceFile(c *gin.Context) {
 
 	evidenceType := c.PostForm("type")
 	if evidenceType == "" {
-		evidenceType = "other"
+		evidenceType = categoryFromMime(file.Header.Get("Content-Type"))
 	}
 
 	description := c.PostForm("description")
@@ -79,6 +79,7 @@ func UploadEvidenceFile(c *gin.Context) {
 		UploadedBy:  userObj.ID,
 		Type:        evidenceType,
 		Description: description,
+		FileURL:     stored.RelativePath,
 		FilePath:    stored.RelativePath,
 		MimeType:    mime,
 		SizeBytes:   stored.Size,

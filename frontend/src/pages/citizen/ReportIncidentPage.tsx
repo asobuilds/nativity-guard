@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { MapView } from '@/components/map/MapView'
+import { MediaRecorderField } from '@/components/media/MediaRecorderField'
 import { BackLink } from '@/components/ui/BackLink'
 import { Button } from '@/components/ui/Button'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
@@ -134,6 +135,8 @@ export function ReportIncidentPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   // Photo files selected in the evidence step (not persisted to draft)
   const [photos, setPhotos] = useState<PhotoFile[]>([])
+  const [voiceNote, setVoiceNote] = useState<File | null>(null)
+  const [videoClip, setVideoClip] = useState<File | null>(null)
 
   const createCase = useCreateCase()
   const queryClient = useQueryClient()
@@ -161,35 +164,49 @@ export function ReportIncidentPage() {
    * Presign → PUT → Confirm flow for a single photo file.
    */
   async function uploadPhoto(caseId: string, photo: PhotoFile): Promise<string> {
-    const hash = await sha256(photo.file)
-    const presign = await api.post<PresignEvidenceResponse>(`/evidence/case/${caseId}/presign`, {
-      filename: photo.file.name,
-      contentType: photo.file.type,
-      sizeBytes: photo.file.size,
-      sha256: hash,
-    })
-    // PUT the file to the presigned URL (no auth header — presigned URL carries auth)
-    const putResponse = await fetch(presign.uploadUrl, {
-      method: 'PUT',
-      // Go signs these S3 metadata headers in PresignPut. The PUT must send
-      // the same values or the storage service rejects its signature.
-      headers: {
-        'Content-Type': photo.file.type,
-        'x-amz-meta-sha256': hash,
-        'x-amz-meta-original-filename': photo.file.name,
-        'x-amz-meta-case-id': caseId,
-      },
-      body: photo.file,
-    })
-    if (!putResponse.ok) {
-      throw new Error(`Upload failed: ${putResponse.statusText}`)
+    const file = photo.file
+    const hash = await sha256(file)
+    // The backend's private /evidence/case/:caseId/file endpoint is used only
+    // when the direct-to-storage PUT fails (e.g. missing provider CORS rules).
+    // All uploads still require authentication and case access.
+    let presign: PresignEvidenceResponse | null = null
+    let fallback = false
+    try {
+      presign = await api.post<PresignEvidenceResponse>(`/evidence/case/${caseId}/presign`, {
+        filename: file.name, contentType: file.type, sizeBytes: file.size, sha256: hash,
+      })
+      try {
+        const result = await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type,
+            'x-amz-meta-sha256': hash,
+            'x-amz-meta-original-filename': file.name,
+            'x-amz-meta-case-id': caseId,
+          },
+          body: file,
+        })
+        if (!result.ok) {
+          if (result.status === 403 || result.status >= 500) fallback = true
+          else throw new Error(`Storage rejected this file (HTTP ${result.status}).`)
+        }
+      } catch (error) {
+        if (error instanceof TypeError) fallback = true
+        else throw error
+      }
+    } catch (error) {
+      if (ApiError.isNetwork(error) || (error instanceof ApiError && error.status >= 500)) fallback = true
+      else throw error
     }
-    // Confirm the upload
+
+    if (fallback) {
+      await api.upload(`/evidence/case/${caseId}/file`, file)
+      return 'stored'
+    }
+    if (!presign) throw new Error('Could not prepare media upload.')
     await api.post(`/evidence/case/${caseId}/confirm`, {
-      key: presign.key,
-      filename: photo.file.name,
-      contentType: photo.file.type,
-      sizeBytes: photo.file.size,
+      key: presign.key, filename: file.name, contentType: file.type,
+      sizeBytes: file.size, type: photo.type,
     })
     return presign.key
   }
@@ -217,7 +234,7 @@ export function ReportIncidentPage() {
             i === attachmentIndex ? { ...item, status: 'failed', message } : item,
           ),
         )
-        notify(`Photo failed to upload: ${photo.file.name}`, 'error')
+        notify(`Evidence failed to upload: ${photo.file.name}`, 'error')
       }
     }
     await Promise.all([
@@ -341,9 +358,15 @@ export function ReportIncidentPage() {
     clearReportDraft(storage)
     setCreated(response)
 
-    // Build attachment state for both links and photos
+    // Keep the completed case receipt visible while uploading media evidence.
+    const evidenceFiles: PhotoFile[] = [
+      ...photos,
+      ...(voiceNote ? [{ file: voiceNote, preview: '', type: 'audio' }] : []),
+      ...(videoClip ? [{ file: videoClip, preview: '', type: 'video' }] : []),
+    ]
+    // Build attachment state for links, photos, voice notes and video clips
     const linkAttachments = linksToSend.map((link) => ({ ...link, status: 'queued' as const }))
-    const photoAttachments = photos.map((photo) => ({
+    const photoAttachments = evidenceFiles.map((photo) => ({
       fileUrl: photo.file.name,
       type: photo.type,
       status: 'queued' as const,
@@ -355,7 +378,7 @@ export function ReportIncidentPage() {
     // Attach links (existing flow)
     void attachEvidence(response.case.id, linksToSend)
     // Attach photos (new flow) — best effort, non-blocking
-    void attachPhotos(response.case.id, photos)
+    void attachPhotos(response.case.id, evidenceFiles)
   }
 
   /**
@@ -409,7 +432,11 @@ export function ReportIncidentPage() {
     )
     try {
       if (link.isPhoto) {
-        const photo = photos[index - linksToSend.length]
+        const photo: PhotoFile | undefined = [
+          ...photos,
+          ...(voiceNote ? [{ file: voiceNote, preview: '', type: 'audio' }] : []),
+          ...(videoClip ? [{ file: videoClip, preview: '', type: 'video' }] : []),
+        ][index - linksToSend.length]
         if (!photo) throw new Error('Photo is no longer available. Please file a new report to attach it.')
         await uploadPhoto(caseId, photo)
       } else {
@@ -437,6 +464,10 @@ export function ReportIncidentPage() {
     setDraft(emptyReportDraft())
     setCreated(null)
     setAttachments([])
+    setVoiceNote(null)
+    setVideoClip(null)
+    photos.forEach(photo => URL.revokeObjectURL(photo.preview))
+    setPhotos([])
     setSubmitError(null)
     setStepIndex(0)
   }
@@ -700,6 +731,26 @@ export function ReportIncidentPage() {
                 )}
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MediaRecorderField
+                  mode="voice"
+                  label="Voice note"
+                  onFileReady={setVoiceNote}
+                  initialFile={voiceNote}
+                />
+                <MediaRecorderField
+                  mode="video"
+                  label="Video clip"
+                  onFileReady={setVideoClip}
+                  initialFile={videoClip}
+                />
+              </div>
+              <p className="text-xs text-ink-muted" role="status">
+                {voiceNote || videoClip
+                  ? 'Your recordings stay on this device until you submit the case. They are uploaded after your tracking ID is created.'
+                  : 'You can record or choose a voice note or video. A report can be submitted without media.'}
+              </p>
+
               <div className="flex flex-col gap-4">
                 <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wide">Links</h3>
                 {draft.evidence.length === 0 ? (
@@ -803,7 +854,15 @@ export function ReportIncidentPage() {
           ) : null}
 
           {step.key === 'review' ? (
-            <ReviewStep draft={draft} photos={photos} onEdit={setStepIndex} />
+            <ReviewStep
+              draft={draft}
+              photos={[
+                ...photos,
+                ...(voiceNote ? [{ file: voiceNote, preview: '', type: 'audio' }] : []),
+                ...(videoClip ? [{ file: videoClip, preview: '', type: 'video' }] : []),
+              ]}
+              onEdit={setStepIndex}
+            />
           ) : null}
 
           {stepBlocked && step.key !== 'review' ? (
@@ -1148,7 +1207,7 @@ function ReviewStep({
 
       <SummaryRow label="Evidence" onEdit={() => onEdit(2)}>
         {(links.length === 0 && photos.length === 0) ? (
-          <p className="text-sm text-ink-muted">No links or photos</p>
+          <p className="text-sm text-ink-muted">No evidence attached</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {links.map((link, index) => (
@@ -1159,7 +1218,7 @@ function ReviewStep({
             ))}
             {photos.map((photo, index) => (
               <li key={index} className="truncate text-xs text-ink-muted flex items-center gap-1">
-                <Image className="size-3" aria-hidden />
+                <Paperclip className="size-3" aria-hidden />
                 {photo.file.name} ({Math.round(photo.file.size / 1024)} KB)
               </li>
             ))}
@@ -1316,7 +1375,7 @@ function Receipt({
 
           {attachments.length > 0 ? (
             <div className="relative w-full text-left">
-              <p className="text-xs font-medium text-ink-muted">Your links</p>
+              <p className="text-xs font-medium text-ink-muted">Evidence attachments</p>
               <ul className="mt-1.5 flex flex-col gap-1.5">
                 {attachments.map((item, index) => (
                   <li
@@ -1349,7 +1408,7 @@ function Receipt({
               </ul>
               {sendingIndex >= 0 ? (
                 <p className="mt-2 text-[11px] text-ink-faint" aria-live="polite">
-                  Attaching your links ({sendingIndex + 1} of {attachments.length})…
+                  Attaching evidence ({sendingIndex + 1} of {attachments.length})…
                 </p>
               ) : failed > 0 ? (
                 <p className="mt-2 text-[11px] text-ink-muted">
@@ -1377,7 +1436,7 @@ function Receipt({
       </Card>
 
       <p className="mt-4 text-center text-[11px] text-ink-faint">
-        Your saved draft has been cleared.
+        Your saved draft has been cleared. Keep this page open until every selected file says “Attached to your report.”
       </p>
     </div>
   )

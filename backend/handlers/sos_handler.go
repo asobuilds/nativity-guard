@@ -115,7 +115,14 @@ func SendSOSAlert(c *gin.Context) {
 
 	// Record the attachment links now the alert has an id. Best-effort: the alert
 	// is already sent, so a link failure must not become a 500.
-	linkMedia(MediaParentSOS, sos.ID, voiceNoteKey, videoKey)
+	linkedMedia, failedMedia := linkMedia(MediaParentSOS, sos.ID, voiceNoteKey, videoKey)
+	mediaAttachmentStatus := "none"
+	mediaAttachmentWarning := ""
+	if linkedMedia > 0 { mediaAttachmentStatus = "attached" }
+	if failedMedia > 0 {
+		mediaAttachmentStatus = "partial"
+		mediaAttachmentWarning = "SOS was recorded, but one or more recordings could not be linked. Review the SOS detail and contact the responder directly if needed."
+	}
 
 	// Compliance audit for anonymous SOS.
 	if anon {
@@ -155,9 +162,11 @@ func SendSOSAlert(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":        "🚨 SOS alert sent successfully! Help is on the way.",
+		"message":        "SOS alert recorded. Responder acknowledgement is not yet confirmed.",
 		"sos":            sos,
 		"escalationTime": "5 minutes",
+		"mediaAttachmentStatus": mediaAttachmentStatus,
+		"mediaAttachmentWarning": mediaAttachmentWarning,
 	})
 }
 

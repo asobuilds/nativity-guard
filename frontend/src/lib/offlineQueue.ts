@@ -5,8 +5,8 @@
  * return a synthetic "queued" response. On reconnect, the queue drains
  * sequentially. Survives browser close, page reload, and phone restart.
  *
- * Only append-only writes (SOS, reports) should go through this — anything
- * that could conflict with a server-side check should fail loudly instead.
+ * Emergency SOS is excluded: replaying an old distress alert after reconnection
+ * can be dangerous. Only explicitly approved non-emergency writes may queue.
  * Durable offline sync queue implementation.
  */
 
@@ -52,6 +52,9 @@ function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBReque
 }
 
 export async function enqueue(path: string, body: unknown): Promise<QueuedWrite> {
+  if (path === '/sos/send') {
+    throw new Error('Emergency SOS cannot be stored for delayed delivery. Call 112 if immediate assistance is needed.')
+  }
   const entry: QueuedWrite = {
     id: crypto.randomUUID(),
     path,

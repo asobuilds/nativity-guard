@@ -38,6 +38,7 @@ var evidencePresignMIME = map[string]bool{
 	"video/webm":      true,
 	"video/quicktime": true,
 	"audio/mpeg":      true,
+	"audio/mp4":       true,
 	"audio/wav":       true,
 	"audio/ogg":       true,
 	"audio/webm":      true,

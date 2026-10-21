@@ -48,7 +48,7 @@ const (
 // ok=false means the type is neither voice nor video and must be rejected.
 func mediaKind(contentType string) (kind string, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
-	case "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm":
+	case "audio/mpeg", "audio/mp4", "audio/wav", "audio/ogg", "audio/webm":
 		return "voice", true
 	case "video/mp4", "video/webm", "video/quicktime":
 		return "video", true
@@ -235,13 +235,17 @@ func attachVerifiedMedia(c *gin.Context, mediaKey, expectedPrefix string, cap in
 // that was just created. A link failure must not fail the parent write (an SOS
 // is time-critical, and the report already exists), so it is logged and carried
 // on; the object simply stays unattached until the retry or the orphan sweep.
-func linkMedia(parentType string, parentID uuid.UUID, mediaKeys ...string) {
+func linkMedia(parentType string, parentID uuid.UUID, mediaKeys ...string) (attached, failed int) {
 	for _, key := range mediaKeys {
 		if strings.TrimSpace(key) == "" {
 			continue
 		}
 		if err := attachMediaLink(key, parentType, parentID); err != nil {
+			failed++
 			log.Printf("media link attach failed for %s %s key %s: %v", parentType, parentID, key, err)
+		} else {
+			attached++
 		}
 	}
+	return attached, failed
 }

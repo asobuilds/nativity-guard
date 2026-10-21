@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, postQueued } from '@/lib/apiClient'
+import { api } from '@/lib/apiClient'
 import type { SendSosInput, SosAlert } from '@/types/api'
 import { normaliseSosDetail, type SosDetailResponse, type SosResponder } from '@/lib/sosTracking'
 
@@ -30,13 +30,11 @@ export function useSosDetail(id: string | undefined) {
 export function useSendSos() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: async (input: SendSosInput) => {
-      const result = await postQueued<{ message: string; sos: SosAlert; escalationTime: string }>('/sos/send', input)
-      if (result && typeof result === 'object' && 'queued' in result) {
-        return { message: 'SOS queued - will send when back online.', sos: null as unknown as SosAlert, escalationTime: '', queued: true as const }
-      }
-      return result
-    },
+    // Never queue an SOS for silent later replay. Its location and urgency can
+    // become stale, and a queued response must not masquerade as a sent alert.
+    // A real receipt is returned only after the server confirms persistence.
+    mutationFn: (input: SendSosInput) =>
+      api.post<{ message: string; sos: SosAlert; escalationTime: string; mediaAttachmentStatus?: string; mediaAttachmentWarning?: string }>('/sos/send', input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: sosKey })
       void client.invalidateQueries({ queryKey: ['sos'] })

@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Field'
 import { Skeleton, ErrorState } from '@/components/ui/States'
 import { SosLiveTracking } from '@/components/sos/SosLiveTracking'
 import { SosTracker } from '@/components/sos/SosTracker'
+import { SosAttachmentPanel } from '@/components/sos/SosAttachmentPanel'
 import { useAuth } from '@/auth/AuthContext'
 import { useAcceptSos, useAssignSos, useReleaseSos, useSosDetail } from '@/hooks/useSos'
 import { useUnits } from '@/hooks/useUnits'
@@ -96,7 +97,7 @@ export function SosDetailPage() {
 
         {isReporter ? (
           <div className="rounded-lg border border-ok/40 bg-ok/10 p-3 text-sm text-ink">
-            <CheckCircle2 className="inline size-4 text-ok" aria-hidden /> Your alert is visible to responders. Follow its progress below.
+            <CheckCircle2 className="inline size-4 text-ok" aria-hidden /> Your alert is recorded. Response is not guaranteed; follow its progress below.
           </div>
         ) : null}
       </Card>
@@ -107,6 +108,7 @@ export function SosDetailPage() {
       </Card>
 
       <SosLiveTracking sos={sos} />
+      <SosAttachmentPanel sosId={sos.id} media={sos.media ?? []} />
 
       <Card className="space-y-4 p-5">
         <div className="flex items-center gap-2">

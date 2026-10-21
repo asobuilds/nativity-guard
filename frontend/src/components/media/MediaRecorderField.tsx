@@ -11,14 +11,14 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
-import { api } from '@/lib/apiClient'
+import { api, ApiError } from '@/lib/apiClient'
 import { cn } from '@/lib/cn'
 import type { PresignEvidenceResponse } from '@/types/api'
 
 type Mode = 'voice' | 'video'
 type State = 'idle' | 'permission' | 'recording' | 'preview' | 'uploading' | 'ready'
 
-const VOICE_TYPES = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm']
+const VOICE_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg', 'audio/webm']
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
 
 /** Strip codec parameters and lowercase a MIME type. */
@@ -29,12 +29,10 @@ function bareType(type: string): string {
 /**
  * Map a recorded MIME type onto one the backend accepts.
  *
- * iOS Safari records voice as `audio/mp4`, which the presign endpoint rejects,
- * so it is declared as `audio/mpeg` for both the presign body and the PUT
- * `Content-Type` (R2 checks the header against the signed URL, so the two must
- * agree).
+ * Preserve Safari's audio/mp4 instead of falsely declaring MPEG bytes.
+ * Backend presigning and storage now allow audio/mp4 (M4A).
  */
-function uploadTypeFor(type: string, mode: Mode): string {
+export function uploadTypeFor(type: string, mode: Mode): string {
   const bare = bareType(type)
   if (mode === 'voice') {
     if (VOICE_TYPES.includes(bare)) return bare
@@ -44,10 +42,12 @@ function uploadTypeFor(type: string, mode: Mode): string {
   return 'video/mp4'
 }
 
-function extensionFor(uploadType: string): string {
+export function extensionFor(uploadType: string): string {
   switch (uploadType) {
     case 'audio/mpeg':
       return 'mp3'
+    case 'audio/mp4':
+      return 'm4a'
     case 'audio/ogg':
       return 'ogg'
     case 'audio/wav':
@@ -92,21 +92,26 @@ export function MediaRecorderField({
   mode,
   presignPath,
   onCaptured,
+  onFileReady,
+  initialFile,
   maxDuration = mode === 'voice' ? 30 : 60,
   maxSize = mode === 'voice' ? 5 * 1024 * 1024 : 20 * 1024 * 1024,
   label = mode === 'voice' ? 'Voice note' : 'Video clip',
   className,
 }: {
   mode: Mode
-  presignPath: string
-  onCaptured: (key: string) => void
+  presignPath?: string
+  onCaptured?: (key: string) => void
+  /** For case reports: hold a file locally until the case ID exists. */
+  onFileReady?: (file: File | null) => void
+  initialFile?: File | null
   maxDuration?: number
   maxSize?: number
   label?: string
   className?: string
 }) {
   const { notify } = useToast()
-  const [state, setState] = useState<State>('idle')
+  const [state, setState] = useState<State>(initialFile ? 'ready' : 'idle')
   const [error, setError] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -114,7 +119,7 @@ export function MediaRecorderField({
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
-  const blobRef = useRef<Blob | null>(null)
+  const blobRef = useRef<Blob | null>(initialFile ?? null)
   const timerRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
   const liveVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -150,6 +155,10 @@ export function MediaRecorderField({
     }
   }, [clearTimers, stopStream])
 
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
+  }, [previewUrl])
+
   // Attach the live camera feed once recording starts. The effect runs after
   // the <video> for the recording state has mounted, so the ref is populated.
   useEffect(() => {
@@ -170,10 +179,13 @@ export function MediaRecorderField({
     setElapsed(0)
     setError(null)
     setState('idle')
-    onCaptured('')
-  }, [clearPreviewUrl, clearTimers, onCaptured, stopStream])
+    onCaptured?.('')
+    onFileReady?.(null)
+  }, [clearPreviewUrl, clearTimers, onCaptured, onFileReady, stopStream])
 
   async function startRecording() {
+    onCaptured?.('')
+    onFileReady?.(null)
     setError(null)
     setState('permission')
 
@@ -287,48 +299,96 @@ export function MediaRecorderField({
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
   }
 
+  function chooseFile(file: File | undefined) {
+    if (!file) return
+    setError(null)
+    const mime = bareType(file.type)
+    const allowed = mode === 'voice' ? VOICE_TYPES : VIDEO_TYPES
+    if (!allowed.includes(mime)) {
+      setError(`Select a supported ${mode === 'voice' ? 'audio' : 'video'} file.`)
+      return
+    }
+    if (file.size <= 0 || file.size > maxSize) {
+      setError(`Choose a file smaller than ${Math.round(maxSize / (1024 * 1024))} MB.`)
+      return
+    }
+    onCaptured?.('')
+    onFileReady?.(null)
+    blobRef.current = file
+    setPreviewUrl(current => {
+      clearPreviewUrl(current)
+      return URL.createObjectURL(file)
+    })
+    setState('preview')
+  }
+
   async function upload() {
     const blob = blobRef.current
     if (!blob) return
-
     setState('uploading')
     setError(null)
-
-    const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
-    const sha256 = Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-
-    const uploadType = uploadTypeFor(blob.type, mode)
-    const filename = `${mode === 'voice' ? 'voice-note' : 'video-clip'}.${extensionFor(uploadType)}`
-
     try {
-      const presign = await api.post<PresignEvidenceResponse>(presignPath, {
-        filename,
-        contentType: uploadType,
-        sizeBytes: blob.size,
-        sha256,
-      })
+      const uploadType = uploadTypeFor(blob.type, mode)
+      const filename = `${mode === 'voice' ? 'voice-note' : 'video-clip'}.${extensionFor(uploadType)}`
+      const file = new File([blob], filename, { type: uploadType })
 
-      const putResponse = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': uploadType,
-          'x-amz-meta-sha256': sha256,
-          'x-amz-meta-original-filename': filename,
-        },
-        body: blob,
-      })
-
-      if (!putResponse.ok) {
-        throw new Error(`Upload failed (${putResponse.status}). Please try again.`)
+      // A case ID is created only when the reporter submits their report.
+      // Do not store a key prematurely or mislabel locally held evidence as uploaded.
+      if (onFileReady) {
+        onFileReady(file)
+        setState('ready')
+        return
       }
+      if (!presignPath || !onCaptured) throw new Error('Recording upload is not configured.')
 
-      onCaptured(presign.key)
+      // First attempt: browser -> object storage. Some deployments lack the
+      // storage-provider CORS policy; fall back to the authenticated API.
+      let key: string | null = null
+      let canUseFallback = false
+      try {
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+        const sha256 = Array.from(new Uint8Array(digest))
+          .map(b => b.toString(16).padStart(2, '0')).join('')
+        const presign = await api.post<PresignEvidenceResponse>(presignPath, {
+          filename, contentType: uploadType, sizeBytes: file.size, sha256,
+        })
+        try {
+          const response = await fetch(presign.uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': uploadType,
+              'x-amz-meta-sha256': sha256,
+              'x-amz-meta-original-filename': filename,
+            },
+            body: file,
+          })
+          if (!response.ok) {
+            if (response.status === 403 || response.status >= 500) canUseFallback = true
+            else throw new Error(`Storage refused upload (HTTP ${response.status}).`)
+          } else key = presign.key
+        } catch (error) {
+          if (error instanceof TypeError) canUseFallback = true
+          else throw error
+        }
+      } catch (error) {
+        if (ApiError.isNetwork(error) || (error instanceof ApiError && error.status === 503)) {
+          canUseFallback = true
+        } else {
+          throw error
+        }
+      }
+      if (!key && canUseFallback) {
+        const saved = await api.upload<{ key: string }>('/sos/media/upload', file)
+        key = saved.key
+      }
+      if (!key) throw new Error('Recording was not stored. Please try again.')
+      onCaptured(key)
       setState('ready')
-      notify(mode === 'voice' ? 'Voice note attached' : 'Video clip attached', 'success')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload failed'
+      notify(mode === 'voice' ? 'Voice note uploaded' : 'Video clip uploaded', 'success')
+    } catch (error) {
+      const message = ApiError.isNetwork(error)
+        ? 'Cannot reach the server. Check your internet connection and try again.'
+        : error instanceof Error ? error.message : 'Recording upload failed.'
       setError(message)
       setState('preview')
       notify(message, 'error')
@@ -338,6 +398,21 @@ export function MediaRecorderField({
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <p className="text-xs font-medium text-ink-muted">{label}</p>
+
+      <label className="flex items-center gap-2 text-xs text-ink-muted">
+        <Upload className="size-4 shrink-0" aria-hidden />
+        Or choose an existing {mode === 'voice' ? 'audio' : 'video'} file
+        <input
+          type="file"
+          className="max-w-[190px] text-xs"
+          accept={mode === 'voice' ? 'audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,.m4a' : 'video/mp4,video/webm,video/quicktime,.mov'}
+          disabled={state === 'uploading' || state === 'recording' || state === 'permission'}
+          onChange={event => {
+            chooseFile(event.currentTarget.files?.[0])
+            event.currentTarget.value = ''
+          }}
+        />
+      </label>
 
       {state === 'idle' && (
         <button
@@ -423,7 +498,7 @@ export function MediaRecorderField({
               icon={<Upload className="size-4" />}
               onClick={() => void upload()}
             >
-              Attach {label.toLowerCase()}
+              {onFileReady ? 'Keep for report' : `Attach ${label.toLowerCase()}`}
             </Button>
           </div>
         </div>
@@ -439,7 +514,7 @@ export function MediaRecorderField({
       {state === 'ready' && (
         <div className="flex items-center gap-2 rounded-lg border border-ok/30 bg-ok/5 px-3 py-2">
           <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
-          <span className="text-sm text-ink">{label} attached</span>
+          <span className="text-sm text-ink">{onFileReady ? `${label} ready — attached after report submission` : `${label} uploaded`}</span>
           <button
             type="button"
             onClick={resetCapture}
