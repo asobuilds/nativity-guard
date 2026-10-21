@@ -54,7 +54,7 @@ function loadProviderScript(src: string): Promise<void> {
  * The frontend never trusts Google/Apple profile data directly. The signed ID
  * token and a one-time nonce must be verified by the Go backend.
  */
-export function SocialSignIn({ onComplete }: { onComplete: () => void }) {
+export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () => void; onAvailability?: (available: boolean) => void }) {
   const { loginWithSocial } = useAuth()
   const [providers, setProviders] = useState<ProviderConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +66,10 @@ export function SocialSignIn({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
     let mounted = true
     api.get<ProviderConfig>('/auth/social/providers').then(config => {
-      if (mounted) setProviders(config)
+      if (mounted) {
+        setProviders(config)
+        onAvailability?.(Boolean(config.googleClientId || config.appleServiceId))
+      }
     }).catch(() => {
       if (mounted) setError('Additional sign-in methods are temporarily unavailable.')
     })

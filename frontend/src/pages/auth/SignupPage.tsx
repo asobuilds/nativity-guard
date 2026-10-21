@@ -97,6 +97,7 @@ type ModalKind = 'terms' | 'privacy'
 export function SignupPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [socialAvailable, setSocialAvailable] = useState(false)
 
   const [draft, setDraft] = useState<SignupDraft>(() => {
     const p = loadPersisted()
@@ -296,8 +297,8 @@ export function SignupPage() {
             unit as an officer or administrator is arranged separately, by that unit.
           </p>
 
-          <SocialSignIn onComplete={() => navigate('/auth/complete-profile', { replace: true })} />
-          <details className="mt-6 rounded-lg border border-border px-3 py-4">
+          <SocialSignIn onComplete={() => navigate('/auth/complete-profile', { replace: true })} onAvailability={setSocialAvailable} />
+          <details className="mt-6 rounded-lg border border-border px-3 py-4" open={!socialAvailable}>
             <summary className="cursor-pointer text-sm font-medium text-signal">Or create an account using email and password</summary>
           <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
             <Field label="Email" required error={errorFor('email')}>

@@ -138,7 +138,6 @@ export function LoginPage() {
                   {...props}
                   type="email"
                   autoComplete="email"
-                  autoFocus
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
