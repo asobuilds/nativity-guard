@@ -10,6 +10,7 @@ import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { queryClient } from '@/lib/queryClient'
 import { usePreferences } from '@/hooks/usePreferences'
 import { LandingPage } from '@/pages/LandingPage'
+const ExploreFeaturesPage = lazy(() => import('@/pages/ExploreFeaturesPage').then(m => ({ default: m.ExploreFeaturesPage })))
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage').then(m => ({ default: m.SignupPage })))
@@ -147,6 +148,8 @@ export function App() {
                 <Route path="/login" element={<LoginAlias />} />
 
                 <Route path="/" element={<RootRoute />} />
+                <Route path="/explore" element={<ExploreFeaturesPage />} />
+                <Route path="/explore/:feature" element={<ExploreFeaturesPage />} />
                 <Route path="/map" element={<PublicOrProtected fallbackHash="#map"><MapPage /></PublicOrProtected>} />
                 <Route path="/units" element={<PublicOrProtected fallbackHash="#units"><UnitsPage /></PublicOrProtected>} />
 

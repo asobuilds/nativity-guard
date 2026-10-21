@@ -266,3 +266,186 @@
   .ng-ref-modal-window { width: 100%; max-height: 100svh; height: 100svh; border-radius: 0; }
   .ng-ref-modal-content { padding: 0 15px 20px; }
 }
+
+
+/* Optional wallpaper/colour presets. The default forest + City Gate matches the approved hero. */
+.ng-ref-page[data-landing-palette='midnight'] {
+  background: #090f16;
+}
+.ng-ref-page[data-landing-palette='midnight'] .ng-ref-header {
+  background: linear-gradient(105deg, #0c1520, #132533);
+}
+.ng-ref-page[data-landing-palette='midnight'] .ng-ref-stage {
+  background: #101b28;
+}
+.ng-ref-page[data-landing-palette='midnight'] .ng-ref-stage-shade {
+  background: linear-gradient(90deg, rgba(8,16,26,.92), rgba(7,16,27,.63) 50%, rgba(7,20,32,.25)),
+    linear-gradient(0deg, #0b1622, transparent 75%);
+}
+.ng-ref-page[data-landing-palette='ocean'] {
+  background: #071b29;
+}
+.ng-ref-page[data-landing-palette='ocean'] .ng-ref-header {
+  background: linear-gradient(105deg, #083044, #145977);
+}
+.ng-ref-page[data-landing-palette='ocean'] .ng-ref-stage {
+  background: #092d43;
+}
+.ng-ref-page[data-landing-palette='ocean'] .ng-ref-stage-shade {
+  background: linear-gradient(90deg, rgba(4,32,48,.94), rgba(6,45,65,.65) 50%, rgba(7,42,60,.23)),
+    linear-gradient(0deg, #092f45, transparent 75%);
+}
+.ng-ref-page[data-landing-palette='sand'] {
+  background: #201912;
+}
+.ng-ref-page[data-landing-palette='sand'] .ng-ref-header {
+  background: linear-gradient(105deg, #382919, #65503b);
+}
+.ng-ref-page[data-landing-palette='sand'] .ng-ref-stage {
+  background: #3e3024;
+}
+.ng-ref-page[data-landing-palette='sand'] .ng-ref-stage-shade {
+  background: linear-gradient(90deg, rgba(38,26,19,.92), rgba(52,36,26,.63) 50%, rgba(58,39,25,.22)),
+    linear-gradient(0deg, #32271e, transparent 75%);
+}
+.ng-ref-page[data-landing-wallpaper='illustration'] .ng-ref-photo::after {
+  display: none;
+}
+.ng-ref-page[data-landing-wallpaper='plain'] .ng-ref-photo {
+  display: none;
+}
+.ng-ref-page[data-landing-wallpaper='plain'] .ng-ref-stage-shade {
+  background: radial-gradient(ellipse at 85% 15%, rgba(103,158,134,.2), transparent 62%);
+}
+
+/* Desktop appearance controls are intentionally outside the cinematic hero. */
+.ng-ref-appearance-holder { position: relative; }
+.ng-ref-options-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 0 10px; border: 1px solid rgba(224,240,229,.35);
+  border-radius: 9px; background: rgba(0,0,0,.12); color: white; font-size: 12px;
+  font-weight: 700; cursor: pointer;
+}
+.ng-ref-options-button:hover, .ng-ref-options-button[aria-expanded='true'] {
+  background: rgba(255,255,255,.16);
+}
+.ng-ref-appearance-popover {
+  position: absolute; top: calc(100% + 12px); right: 0; z-index: 30;
+  width: min(330px, calc(100vw - 32px)); padding: 18px;
+  border: 1px solid #527466; border-radius: 15px;
+  color: #f8f5e9; background: #102b24; box-shadow: 0 22px 50px rgba(0,0,0,.55);
+}
+.ng-ref-appearance-title { font-size: 17px; font-weight: 800; }
+.ng-ref-option-label { margin: 17px 0 9px; font-size: 12px; color: #bedacc; font-weight: 700; }
+.ng-ref-palette-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.ng-ref-palette-choice {
+  display: flex; align-items: center; gap: 8px; padding: 8px; text-align: left;
+  border: 1px solid #48695d; border-radius: 9px; color: #fff; font-size: 12px;
+  background: #173a30; cursor: pointer;
+}
+.ng-ref-palette-swatch { display: inline-block; width: 23px; height: 23px; flex-shrink: 0; border: 1px solid #9fb5ad; border-radius: 6px; }
+.ng-ref-wallpaper-options { display: grid; gap: 7px; }
+.ng-ref-wallpaper-options button {
+  min-height: 42px; padding: 8px 11px; text-align: left; border: 1px solid #48695d;
+  border-radius: 9px; background: #173a30; color: #fff; font-size: 12px; cursor: pointer;
+}
+.ng-ref-palette-choice[aria-pressed='true'], .ng-ref-wallpaper-options button[aria-pressed='true'] {
+  border-color: #f6ce78; background: #285443; box-shadow: inset 0 0 0 1px #f6ce78;
+}
+.ng-ref-mobile-appearance {
+  margin: 18px 0; padding: 12px; border: 1px solid #547569; border-radius: 12px;
+}
+.ng-ref-mobile-appearance summary {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0; color: #fff;
+  font-weight: 700; cursor: pointer; min-height: 44px;
+}
+.ng-ref-mobile-appearance .ng-ref-option-label { margin-top: 12px; }
+
+/* Dedicated feature catalogue with its own individual tool screens. */
+.ng-ref-features-main {
+  min-height: calc(100svh - 88px); padding: 32px clamp(18px, 4vw, 48px) 50px;
+  background: linear-gradient(160deg, #092a24, #10221d 65%);
+  color: #f8f5e9;
+}
+.ng-ref-feature-back {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+  color: #e4d098; text-decoration: none; font-size: 13px; font-weight: 700;
+}
+.ng-ref-features-intro { max-width: 740px; margin: 16px 0 26px; }
+.ng-ref-feature-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #e4d098; }
+.ng-ref-features-intro h1 { margin: 13px 0; font-size: clamp(27px, 4vw, 43px); line-height: 1.12; font-weight: 900; letter-spacing: -.035em; }
+.ng-ref-features-intro p { font-size: 15px; line-height: 1.65; color: #bedacc; }
+.ng-ref-feature-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.ng-ref-feature-card {
+  display: flex; align-items: center; gap: 13px; min-height: 112px; padding: 20px;
+  border: 1px solid #3b6052; border-radius: 16px; background: #17372e;
+  color: white; text-decoration: none; transition: background-color .2s, border-color .2s;
+}
+.ng-ref-feature-card:hover { background: #20493c; border-color: #e5c97f; }
+.ng-ref-feature-number { align-self: flex-start; font-size: 15px; font-weight: 900; color: #edce86; }
+.ng-ref-feature-copy { display: flex; flex: 1; flex-direction: column; gap: 7px; }
+.ng-ref-feature-copy strong { font-size: 17px; font-weight: 800; }
+.ng-ref-feature-copy small { font-size: 13px; line-height: 1.5; color: #c0d8cc; }
+.ng-ref-feature-card > svg { flex-shrink: 0; color: #edce86; }
+.ng-ref-feature-workspace {
+  overflow: hidden; margin-top: 18px; padding: 4px 15px 24px;
+  border: 1px solid #426658; border-radius: 16px; background: #10221d;
+}
+.ng-ref-feature-note {
+  display: flex; gap: 10px; max-width: 850px; margin-top: 26px;
+  color: #d2dfd8; font-size: 12px; line-height: 1.6;
+}
+.ng-ref-feature-note > svg { flex-shrink: 0; color: #edce86; }
+.ng-ref-feature-note a { color: #f6ce78; font-weight: 800; }
+
+/* Safari/iPhone: respect the notch, home indicator, viewport and touch gestures. */
+.ng-ref-menu-trigger,
+.ng-ref-desktop-nav button,
+.ng-ref-mobile-drawer button,
+.ng-ref-mobile-drawer a,
+.ng-ref-mobile-dismiss,
+.ng-ref-action,
+.ng-ref-sos-button,
+.ng-ref-feature-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ng-ref-mobile-backdrop { height: 100svh; }
+.ng-ref-mobile-drawer {
+  padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.ng-ref-mobile-heading button { min-width: 48px; min-height: 48px; }
+.ng-ref-mobile-links a, .ng-ref-mobile-links button { min-height: 50px; font-size: 16px; }
+.ng-ref-mobile-auth { flex-shrink: 0; }
+.ng-ref-mobile-auth a { min-height: 50px; }
+.ng-ref-modal-content { -webkit-overflow-scrolling: touch; }
+@media (max-width: 1130px) {
+  .ng-ref-desktop-nav, .ng-ref-header-actions { display: none; }
+  .ng-ref-menu-trigger { display: grid; margin-left: auto; }
+}
+@media (max-width: 650px) {
+  .ng-ref-feature-grid { grid-template-columns: 1fr; }
+  .ng-ref-features-main { padding: 18px 16px 35px; }
+  .ng-ref-feature-workspace { padding: 4px 10px 22px; }
+  .ng-ref-feature-card { min-height: 94px; padding: 16px; }
+  .ng-ref-modal-backdrop { padding: 0; }
+  .ng-ref-modal-window { height: 100svh; max-height: 100svh; border-radius: 0; }
+  .ng-ref-modal-heading { padding-top: max(14px, calc(env(safe-area-inset-top, 0px) + 8px)); }
+  .ng-ref-modal-content { padding-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px)); }
+}
+@supports (height: 100dvh) {
+  .ng-ref-mobile-backdrop { height: 100dvh; }
+  .ng-ref-mobile-drawer { height: 100dvh; }
+  @media (max-width: 650px) {
+    .ng-ref-modal-window { height: 100dvh; max-height: 100dvh; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ng-ref-action, .ng-ref-feature-card { transition: none; }
+  .ng-ref-action:hover { transform: none; }
+}
