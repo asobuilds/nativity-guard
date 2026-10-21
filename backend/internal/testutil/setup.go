@@ -94,6 +94,7 @@ func SetupTestDB() error {
 		&models.SOSResponder{},
 		&models.CommunityEvent{},
 		&models.EventAttendee{},
+		&models.LocalIntelligence{},
 		// Community content + the generic report table. Needed so integration
 		// tests can exercise ReportForumPost and the feed against real rows.
 		&models.ForumPost{},
