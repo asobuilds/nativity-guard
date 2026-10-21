@@ -97,6 +97,12 @@ func (s *FileStorageService) Save(file *multipart.FileHeader, category string) (
 		return nil, errors.New("invalid storage category")
 	}
 
+	// Reject before buffering a potentially large video if persistent storage
+	// is required but no functioning remote storage client is configured.
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("MEDIA_REQUIRE_REMOTE")), "true") && s.remote() == nil {
+		return nil, errors.New("remote media storage is required but unavailable")
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return nil, errors.New("cannot open file")
