@@ -233,6 +233,7 @@ func SetupRoutes(router *gin.Engine) {
 			sos.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlerts)
 			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
 			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)
+			sos.GET("/:id/media/:mediaId/file", middleware.AuthMiddleware(), handlers.ServeSOSAttachment)
 			sos.GET("/:id/responders/locations", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetSOSResponderLocations)
 			sos.GET("/:id/responders/:unitId/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSOfficerCandidates)
 			sos.PUT("/:id/responders/:unitId/officer", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.AssignSOSOfficer)

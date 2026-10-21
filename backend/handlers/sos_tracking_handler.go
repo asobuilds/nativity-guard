@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 	"math"
 	"net/http"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"security-solution/config"
 	"security-solution/models"
+	"security-solution/services"
 )
 
 const sosLocationMaxAge = 2 * time.Minute
@@ -178,10 +180,24 @@ func GetSOSDetailWithResponders(c *gin.Context) {
 		mine := r.AssignedUserID != nil && *r.AssignedUserID == u.ID && sosOfficerActive(config.DB, u.ID, r.UnitID)
 		responders = append(responders, responderView(r, u, manage, mine))
 	}
-	// Keep alert for existing clients while fixing the sos envelope expected
-	// by the current detail screen.
+	// Only scoped viewers see link IDs; never include raw storage keys.
+	var links []models.MediaLink
+	if err := config.DB.Where("parent_type = ? AND parent_id = ?", MediaParentSOS, s.ID).
+		Order("created_at ASC").Find(&links).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Could not load SOS attachments"})
+		return
+	}
+	media := make([]gin.H, 0, len(links))
+	for _, link := range links {
+		kind := "recording"
+		if _, contentType, err := services.NewFileStorageService().Head(link.ObjectKey); err == nil {
+			if strings.HasPrefix(contentType, "audio/") { kind = "audio" }
+			if strings.HasPrefix(contentType, "video/") { kind = "video" }
+		}
+		media = append(media, gin.H{"id": link.ID, "kind": kind, "createdAt": link.CreatedAt})
+	}
 	view := sosView(s)
-	c.JSON(200, gin.H{"sos": view, "alert": view, "responders": responders})
+	c.JSON(200, gin.H{"sos": view, "alert": view, "responders": responders, "media": media})
 }
 
 func freshSOSLocation(l models.UserLocation, now time.Time) bool {
