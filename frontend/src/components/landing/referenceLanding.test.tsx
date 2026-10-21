@@ -51,6 +51,7 @@ describe('Reference landing layout', () => {
     expect(html).toContain('href="/terms"')
     expect(html).toContain('Privacy notice &amp; your rights')
     expect(html).toContain('not a police force')
+    expect(html).toContain('deletion of personal data')
     expect(html).toContain('href="tel:112"')
     expect(html).not.toContain('Government approved')
   })
