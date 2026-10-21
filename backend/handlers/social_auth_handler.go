@@ -193,7 +193,7 @@ func CompleteSocialProfile(c *gin.Context) {
   ConsentTerms bool `json:"consentTerms"`
   ConsentDataProcessing bool `json:"consentDataProcessing"`
  }
- if c.ShouldBindJSON(&input)!=nil{c.JSON(400,gin.H{"error":"name, phone, birth date and current terms are required"});return}
+ if c.ShouldBindJSON(&input)!=nil{c.JSON(400,gin.H{"error":"name, phone and current terms are required"});return}
  input.Phone=strings.TrimSpace(input.Phone)
  if !socialPhonePattern.MatchString(input.Phone) ||
    strings.TrimSpace(input.FirstName)=="" || strings.TrimSpace(input.LastName)=="" ||
@@ -222,7 +222,7 @@ func CompleteSocialProfile(c *gin.Context) {
  for i:=range docs {if docs[i].Kind=="terms" && docs[i].Role=="citizen"{term=&docs[i]}
   if docs[i].Kind=="privacy" && docs[i].Role=="all"{privacy=&docs[i]}}
  if term==nil||privacy==nil{c.JSON(503,gin.H{"error":"terms_unavailable"});return}
- err=config.DB.Transaction(func(tx *gorm.DB)error{
+ err:=config.DB.Transaction(func(tx *gorm.DB)error{
   var other int64
   if err:=tx.Model(&models.User{}).Where("phone = ? AND id <> ?",input.Phone,user.ID).Count(&other).Error;err!=nil{return err}
   if other>0{return errSocialPhoneExists}
