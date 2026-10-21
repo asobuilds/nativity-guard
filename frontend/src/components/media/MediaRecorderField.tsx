@@ -32,7 +32,7 @@ function bareType(type: string): string {
  * Preserve Safari's audio/mp4 instead of falsely declaring MPEG bytes.
  * Backend presigning and storage now allow audio/mp4 (M4A).
  */
-function uploadTypeFor(type: string, mode: Mode): string {
+export function uploadTypeFor(type: string, mode: Mode): string {
   const bare = bareType(type)
   if (mode === 'voice') {
     if (VOICE_TYPES.includes(bare)) return bare
@@ -42,7 +42,7 @@ function uploadTypeFor(type: string, mode: Mode): string {
   return 'video/mp4'
 }
 
-function extensionFor(uploadType: string): string {
+export function extensionFor(uploadType: string): string {
   switch (uploadType) {
     case 'audio/mpeg':
       return 'mp3'

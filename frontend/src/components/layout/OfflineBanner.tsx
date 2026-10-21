@@ -4,7 +4,7 @@ import { useOfflineQueue } from '@/hooks/useOfflineQueue'
 
 export function OfflineBanner() {
   const [offline, setOffline] = useState(!navigator.onLine)
-  const { count, draining, justSent } = useOfflineQueue()
+  const { count, draining, justSent, unsentSos } = useOfflineQueue()
 
   useEffect(() => {
     const on = () => setOffline(false)
@@ -18,7 +18,13 @@ export function OfflineBanner() {
   }, [])
 
   // Nothing to show if we're online, the queue is empty, and nothing just sent.
-  if (!offline && count === 0 && justSent === 0) return null
+  if (!offline && count === 0 && justSent === 0 && unsentSos === 0) return null
+
+  if (unsentSos > 0) return (
+    <div role="alert" className="fixed inset-x-0 top-0 z-[70] bg-emergency px-4 py-3 text-center text-sm text-white">
+      An earlier offline SOS was not delivered. For immediate help, call 112. Check your SOS history before trying again.
+    </div>
+  )
 
   if (justSent > 0) {
     return (

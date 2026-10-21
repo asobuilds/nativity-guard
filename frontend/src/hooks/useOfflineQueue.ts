@@ -10,6 +10,7 @@ export function useOfflineQueue() {
   const [pending, setPending] = useState<QueuedWrite[]>([])
   const [draining, setDraining] = useState(false)
   const [justSent, setJustSent] = useState(0)
+  const [unsentSos, setUnsentSos] = useState(0)
 
   async function refresh() {
     try {
@@ -29,12 +30,20 @@ export function useOfflineQueue() {
   useEffect(() => {
     async function drain() {
       if (draining) return
-      if (!navigator.onLine) return
       const items = await listQueued()
-      if (items.length === 0) return
+      // Older app versions may have queued an SOS. Never dispatch an emergency
+      // alert hours later with stale location. Warn instead of silently replaying.
+      const oldSos = items.filter(item => item.path === '/sos/send')
+      if (oldSos.length) {
+        for (const entry of oldSos) await removeQueued(entry.id)
+        setUnsentSos(count => count + oldSos.length)
+      }
+      if (!navigator.onLine) return
+      if (items.length === oldSos.length) return
       setDraining(true)
       let sent = 0
       for (const entry of items) {
+        if (entry.path === '/sos/send') continue
         try {
           await api.post(entry.path, entry.body)
           await removeQueued(entry.id)
@@ -67,5 +76,5 @@ export function useOfflineQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draining])
 
-  return { pending, count: pending.length, draining, justSent }
+  return { pending, count: pending.length, draining, justSent, unsentSos }
 }
