@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { X } from 'lucide-react'
 import { ActionAuthModal } from '@/components/landing/ActionAuthModal'
 import { LandingNavbar, type LandingPanel } from '@/components/landing/LandingNavbar'
 import { LandingToolContent } from '@/components/landing/LandingToolContent'
-import { readLandingAppearance, saveLandingAppearance } from '@/components/landing/landingAppearance'
+import { useLandingAppearance } from '@/components/landing/useLandingAppearance'
 import { LandingHero } from '@/components/landing/LandingHero'
 import type { ActionContext } from '@/components/landing/types'
 import '@/components/landing/referenceLanding.css'
@@ -43,7 +43,7 @@ function panelFromHash() {
  */
 export function LandingPage() {
   const [activeAction, setActiveAction] = useState<ActionContext | null>(null)
-  const [appearance, setAppearance] = useState(readLandingAppearance)
+  const { appearance, updateAppearance, uploadWallpaper, removeWallpaper, wallpaperUrl, wallpaperError, busy } = useLandingAppearance()
   const [panel, setPanel] = useState<LandingPanel | null>(panelFromHash)
 
   useEffect(() => {
@@ -96,9 +96,24 @@ export function LandingPage() {
   }
 
   return (
-    <div className="ng-ref-page" data-landing-palette={appearance.palette} data-landing-wallpaper={appearance.wallpaper}>
+    <div
+      className="ng-ref-page"
+      data-landing-palette={appearance.palette}
+      data-landing-wallpaper={appearance.wallpaper === 'custom' && !wallpaperUrl ? 'gate' : appearance.wallpaper}
+      style={{ '--ng-custom-wallpaper': wallpaperUrl ? `url("${wallpaperUrl}")` : 'none' } as CSSProperties}
+    >
       <div className="ng-ref-shell">
-        <LandingNavbar onOpen={openPanel} onReport={report} appearance={appearance} onAppearanceChange={value => setAppearance(saveLandingAppearance(value))} />
+        <LandingNavbar
+          onOpen={openPanel}
+          onReport={report}
+          appearance={appearance}
+          onAppearanceChange={updateAppearance}
+          onUploadWallpaper={uploadWallpaper}
+          onRemoveWallpaper={removeWallpaper}
+          hasCustomWallpaper={Boolean(wallpaperUrl)}
+          wallpaperError={wallpaperError}
+          wallpaperBusy={busy}
+        />
         <LandingHero onActionTrigger={triggerAction} onOpen={openPanel} />
       </div>
 
