@@ -401,7 +401,7 @@ export function MediaRecorderField({
 
       <label className="flex items-center gap-2 text-xs text-ink-muted">
         <Upload className="size-4 shrink-0" aria-hidden />
-        Or choose an existing ${mode === 'voice' ? 'audio' : 'video'} file
+        Or choose an existing {mode === 'voice' ? 'audio' : 'video'} file
         <input
           type="file"
           className="max-w-[190px] text-xs"
