@@ -24,7 +24,7 @@ services:
       - key: SMS_WEBHOOK_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://nativityguard-frontend.onrender.com
+        value: https://nativityguard.com,https://www.nativityguard.com,https://nativityguard-frontend.onrender.com
       - key: MEDIA_ENDPOINT
         sync: false
       - key: MEDIA_REGION

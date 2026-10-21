@@ -228,6 +228,7 @@ func SetupRoutes(router *gin.Engine) {
 			// not exist until /sos/send; the returned key is only accepted by
 			// SendSOSAlert when it is a private sos_media/ key.
 			sos.POST("/media/presign", middleware.AuthMiddleware(), handlers.PresignSOSMedia)
+			sos.POST("/media/upload", middleware.AuthMiddleware(), handlers.UploadSOSMediaFile)
 			sos.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlerts)
 			sos.GET("/my", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUserSOSAlerts)
 			sos.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetSOSAlertByID)

@@ -48,7 +48,7 @@ const (
 // ok=false means the type is neither voice nor video and must be rejected.
 func mediaKind(contentType string) (kind string, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0])) {
-	case "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm":
+	case "audio/mpeg", "audio/mp4", "audio/wav", "audio/ogg", "audio/webm":
 		return "voice", true
 	case "video/mp4", "video/webm", "video/quicktime":
 		return "video", true

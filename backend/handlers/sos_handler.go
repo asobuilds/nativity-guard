@@ -155,7 +155,7 @@ func SendSOSAlert(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":        "🚨 SOS alert sent successfully! Help is on the way.",
+		"message":        "SOS alert recorded. Responder acknowledgement is not yet confirmed.",
 		"sos":            sos,
 		"escalationTime": "5 minutes",
 	})
