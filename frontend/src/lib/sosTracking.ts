@@ -49,7 +49,7 @@ export interface SosDetailResponse {
 export function normaliseSosDetail(data: SosDetailResponse): SosDetail {
   const sos = data.sos ?? data.alert
   if (!sos?.id) throw new Error('The server did not return an SOS alert.')
-  return { ...sos, responders: data.responders ?? sos.responders ?? [], media: data.media ?? sos.media ?? [] }
+  return { ...sos, responders: data.responders ?? sos.responders ?? [], ...(data.media ? { media: data.media } : {}) }
 }
 
 export function isSosActive(sos: SosDetail): boolean {
