@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { useAuth } from '@/auth/AuthContext'
 import { api, ApiError } from '@/lib/apiClient'
-import { latestEligibleDob, MIN_SIGNUP_AGE } from '@/lib/signup'
+import { MIN_SIGNUP_AGE } from '@/lib/signup'
 
 type TermsResponse = { version: string }
 
@@ -15,7 +15,6 @@ export function CompleteSocialSignupPage() {
   const [firstName, setFirstName] = useState(user?.firstName === 'Community' ? '' : user?.firstName ?? '')
   const [lastName, setLastName] = useState(user?.lastName === 'Member' ? '' : user?.lastName ?? '')
   const [phone, setPhone] = useState('')
-  const [dateOfBirth, setDateOfBirth] = useState('')
   const [termsVersion, setTermsVersion] = useState('')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
@@ -48,7 +47,7 @@ export function CompleteSocialSignupPage() {
     try {
       await api.post('/auth/complete-profile', {
         firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim(),
-        dateOfBirth, termsVersion, consentTerms: termsAccepted,
+        termsVersion, consentTerms: termsAccepted,
         consentDataProcessing: privacyAccepted,
       })
       await refreshProfile()
@@ -69,11 +68,11 @@ export function CompleteSocialSignupPage() {
         <p className="mt-2 text-sm leading-relaxed text-ink-muted">
           Your Google or Apple account is connected. Before accessing reports,
           emergency SOS or private community information, we need to confirm
-          age eligibility, a contact number and your agreement to the current rules.
+          a contact number and your agreement to the current rules.
         </p>
         <p className="mt-3 rounded-lg border border-border bg-surface-hi p-3 text-xs text-ink-muted">
           Until this is finished, protected features stay locked. Eligibility
-          rules still apply, including the minimum registration age of {MIN_SIGNUP_AGE}.
+          rules still apply. The minimum registration age of {MIN_SIGNUP_AGE} was checked during sign-in.
         </p>
         <p className="mt-3 text-sm text-ink-muted">
           For an immediate emergency, call <a href="tel:112" className="font-semibold text-signal underline">112</a> rather than relying on an incomplete account.
@@ -87,9 +86,6 @@ export function CompleteSocialSignupPage() {
           </Field>
           <Field label="Phone number" required>
             {props => <Input {...props} type="tel" value={phone} onChange={event => setPhone(event.target.value)} autoComplete="tel" placeholder="+234..." required />}
-          </Field>
-          <Field label="Date of birth" required>
-            {props => <Input {...props} type="date" value={dateOfBirth} onChange={event => setDateOfBirth(event.target.value)} max={latestEligibleDob()} required />}
           </Field>
           <fieldset className="space-y-3 rounded-lg border border-border p-3 text-sm text-ink-muted">
             <legend className="px-1 text-xs font-medium">Before activating your account</legend>

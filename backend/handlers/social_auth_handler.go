@@ -108,6 +108,7 @@ func FinishSocialLogin(c *gin.Context) {
   Provider string `json:"provider" binding:"required"`
   IDToken string `json:"idToken" binding:"required"`
   Nonce string `json:"nonce" binding:"required"`
+  DateOfBirth string `json:"dateOfBirth"`
  }
  if c.ShouldBindJSON(&input)!=nil || !socialEnabled(input.Provider) {
   c.JSON(400,gin.H{"error":"invalid social sign-in request"});return
@@ -117,6 +118,24 @@ func FinishSocialLogin(c *gin.Context) {
  }
  verified,err:=services.VerifySocialIDToken(c.Request.Context(),input.Provider,input.IDToken,input.Nonce)
  if err!=nil {c.JSON(http.StatusUnauthorized,gin.H{"error":"identity verification failed; restart sign-in"});return}
+ // New accounts must satisfy the existing registration age policy BEFORE
+ // any user row or session is created. Returning provider subjects do not
+ // need to submit their date of birth again.
+ var knownIdentity models.SocialIdentity
+ lookup := config.DB.Where("provider = ? AND subject = ?", input.Provider, verified.Subject).First(&knownIdentity)
+ if lookup.Error != nil && !errors.Is(lookup.Error, gorm.ErrRecordNotFound) {
+  c.JSON(http.StatusServiceUnavailable,gin.H{"error":"sign-in temporarily unavailable"});return
+ }
+ var eligibleDOB time.Time
+ var eligibleMinorStatus string
+ if errors.Is(lookup.Error, gorm.ErrRecordNotFound) {
+  if strings.TrimSpace(input.DateOfBirth)=="" {
+   c.JSON(http.StatusPreconditionRequired,gin.H{"error":"date_of_birth_required"})
+   return
+  }
+  eligibleDOB,eligibleMinorStatus,err = validateDOB(input.DateOfBirth)
+  if err!=nil {c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()});return}
+ }
  var user models.User
  err=config.DB.Transaction(func(tx *gorm.DB)error{
   if err:=consumeSocialChallenge(tx,input.Provider,input.Nonce);err!=nil{return err}
@@ -140,7 +159,7 @@ func FinishSocialLogin(c *gin.Context) {
   user=models.User{
    ID:id,Email:verified.Email,Phone:"pending-"+id.String(),
    FirstName:first,LastName:last,Password:string(hashed),
-   Role:"citizen",Status:"pending",MinorStatus:"unknown",DOBVerified:false,
+   Role:"citizen",Status:"pending",MinorStatus:eligibleMinorStatus,DateOfBirth:&eligibleDOB,DOBVerified:true,
    AccountAccessLevel:"limited",
   }
   if err:=tx.Create(&user).Error;err!=nil{return err}
@@ -169,7 +188,7 @@ func CompleteSocialProfile(c *gin.Context) {
   Phone string `json:"phone" binding:"required"`
   FirstName string `json:"firstName" binding:"required"`
   LastName string `json:"lastName" binding:"required"`
-  DateOfBirth string `json:"dateOfBirth" binding:"required"`
+  DateOfBirth string `json:"dateOfBirth"`
   TermsVersion string `json:"termsVersion" binding:"required"`
   ConsentTerms bool `json:"consentTerms"`
   ConsentDataProcessing bool `json:"consentDataProcessing"`
@@ -188,8 +207,11 @@ func CompleteSocialProfile(c *gin.Context) {
  if input.TermsVersion!=content.TermsVersion {
   c.JSON(http.StatusConflict,gin.H{"error":"terms_version_stale"});return
  }
- dob,minorStatus,err:=validateDOB(input.DateOfBirth)
- if err!=nil {c.JSON(400,gin.H{"error":err.Error()});return}
+ // Age eligibility was checked before first social account creation.
+ // Do not let this second step change a validated age or minor status.
+ if user.DateOfBirth==nil || !user.DOBVerified {
+  c.JSON(http.StatusForbidden,gin.H{"error":"age_verification_required"});return
+ }
  var docs []models.TermsDocument
  if err:=config.DB.Where("version = ? AND is_active = ?",content.TermsVersion,true).
   Where("(kind = ? AND role = ?) OR (kind = ? AND role = ?)",
@@ -208,8 +230,7 @@ func CompleteSocialProfile(c *gin.Context) {
    Where("id = ? AND account_access_level = ?",user.ID,"limited").
    Updates(map[string]interface{}{
     "phone":input.Phone,"first_name":strings.TrimSpace(input.FirstName),
-    "last_name":strings.TrimSpace(input.LastName),"date_of_birth":dob,
-    "minor_status":minorStatus,"dob_verified":true,"account_access_level":"full",
+    "last_name":strings.TrimSpace(input.LastName),"account_access_level":"full",
    })
   if result.Error!=nil{return result.Error}
   if result.RowsAffected!=1{return errors.New("account setup already changed")}

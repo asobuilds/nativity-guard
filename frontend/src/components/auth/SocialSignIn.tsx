@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '@/lib/apiClient'
+import { latestEligibleDob, MIN_SIGNUP_AGE } from '@/lib/signup'
 import { useAuth } from '@/auth/AuthContext'
 
 type Provider = 'google' | 'apple'
@@ -59,6 +60,8 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
   const [providers, setProviders] = useState<ProviderConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [pendingAge, setPendingAge] = useState<{ provider: Provider; idToken: string; nonce: string } | null>(null)
+  const [dateOfBirth, setDateOfBirth] = useState('')
   const googleButton = useRef<HTMLDivElement>(null)
   const appleChallenge = useRef<string | null>(null)
   const googleNonce = useRef<string | null>(null)
@@ -116,7 +119,7 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
     return () => { cancelled = true }
   }, [providers?.appleServiceId])
 
-  async function finish(provider: Provider, idToken: string, nonce: string | null) {
+  async function finish(provider: Provider, idToken: string, nonce: string | null, eligibleDob?: string) {
     if (!nonce || !idToken || busy) {
       setError('This sign-in request has expired. Please reload and try again.')
       return
@@ -124,10 +127,17 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
     setBusy(true)
     setError(null)
     try {
-      await loginWithSocial(provider, idToken, nonce)
+      await loginWithSocial(provider, idToken, nonce, eligibleDob)
+      setPendingAge(null)
       onComplete()
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Sign-in could not be verified. Try again.')
+      if (cause instanceof ApiError && cause.status === 428 && !eligibleDob) {
+        // No user or session is created before first-time age eligibility.
+        setPendingAge({ provider, idToken, nonce })
+        setError(null)
+      } else {
+        setError(cause instanceof ApiError ? cause.message : 'Sign-in could not be verified. Try again.')
+      }
     } finally {
       setBusy(false)
     }
@@ -178,10 +188,29 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
           Continue with Apple
         </button>
       ) : null}
+      {pendingAge ? (
+        <div className="rounded-lg border border-border-hi bg-surface-hi p-4">
+          <label htmlFor="social-date-of-birth" className="block text-sm font-semibold text-ink">
+            First-time sign-in: confirm your date of birth
+          </label>
+          <p className="mt-1 text-xs text-ink-muted">
+            Registration requires age {MIN_SIGNUP_AGE} or above. We verify this
+            before creating an account, then you can provide other details later.
+          </p>
+          <input id="social-date-of-birth" type="date" required max={latestEligibleDob()}
+            value={dateOfBirth} onChange={event => setDateOfBirth(event.target.value)}
+            className="mt-3 block min-h-11 w-full rounded-lg border border-border bg-surface p-2 text-ink" />
+          <button type="button" disabled={!dateOfBirth || busy}
+            onClick={() => void finish(pendingAge.provider, pendingAge.idToken, pendingAge.nonce, dateOfBirth)}
+            className="mt-3 min-h-11 w-full rounded-lg bg-signal px-4 font-semibold text-signal-ink disabled:opacity-50">
+            Confirm eligibility and continue
+          </button>
+        </div>
+      ) : null}
       <p className="text-xs leading-relaxed text-ink-muted">
-        New accounts start with limited access. You can explore first, then confirm
-        age eligibility, consent and contact details before protected services unlock.
-        Read our <Link to="/terms" className="text-signal underline">terms and privacy information</Link>.
+        Returning users can sign in immediately. For a new account, age
+        eligibility is checked first; contact details and consent follow before
+        protected features unlock. Read the <Link to="/terms" className="text-signal underline">terms and privacy notice</Link>.
       </p>
       {busy ? <p role="status" className="text-xs text-ink-muted">Verifying your account…</p> : null}
       {error ? <p role="alert" className="text-xs text-warn">{error}</p> : null}
