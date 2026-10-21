@@ -12,6 +12,13 @@ type ProviderConfig = {
   appleRedirectUri: string
 }
 type Challenge = { nonce: string; expiresInSeconds: number }
+type SocialRegistration = {
+  dateOfBirth: string
+  termsVersion: string
+  consentTerms: boolean
+  consentDataProcessing: boolean
+}
+type TermsResponse = { version: string }
 type GoogleCredential = { credential: string }
 type GoogleSDK = {
   accounts: { id: {
@@ -62,6 +69,9 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
   const [busy, setBusy] = useState(false)
   const [pendingAge, setPendingAge] = useState<{ provider: Provider; idToken: string; nonce: string } | null>(null)
   const [dateOfBirth, setDateOfBirth] = useState('')
+  const [termsVersion, setTermsVersion] = useState('')
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const googleButton = useRef<HTMLDivElement>(null)
   const appleChallenge = useRef<string | null>(null)
   const googleNonce = useRef<string | null>(null)
@@ -119,7 +129,20 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
     return () => { cancelled = true }
   }, [providers?.appleServiceId])
 
-  async function finish(provider: Provider, idToken: string, nonce: string | null, eligibleDob?: string) {
+  useEffect(() => {
+    if (!pendingAge) return
+    let active = true
+    Promise.all([
+      api.get<TermsResponse>('/terms/citizen'),
+      api.get<TermsResponse>('/terms/citizen?kind=privacy'),
+    ]).then(([terms, privacy]) => {
+      if (active && terms.version === privacy.version) setTermsVersion(terms.version)
+      else if (active) setError('The latest terms are unavailable. Reload to retry.')
+    }).catch(() => { if (active) setError('The latest terms are unavailable. Reload to retry.') })
+    return () => { active = false }
+  }, [pendingAge])
+
+  async function finish(provider: Provider, idToken: string, nonce: string | null, registration?: SocialRegistration) {
     if (!nonce || !idToken || busy) {
       setError('This sign-in request has expired. Please reload and try again.')
       return
@@ -127,11 +150,11 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
     setBusy(true)
     setError(null)
     try {
-      await loginWithSocial(provider, idToken, nonce, eligibleDob)
+      await loginWithSocial(provider, idToken, nonce, registration)
       setPendingAge(null)
       onComplete()
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 428 && !eligibleDob) {
+      if (cause instanceof ApiError && cause.status === 428 && !registration) {
         // No user or session is created before first-time age eligibility.
         setPendingAge({ provider, idToken, nonce })
         setError(null)
@@ -200,8 +223,19 @@ export function SocialSignIn({ onComplete, onAvailability }: { onComplete: () =>
           <input id="social-date-of-birth" type="date" required max={latestEligibleDob()}
             value={dateOfBirth} onChange={event => setDateOfBirth(event.target.value)}
             className="mt-3 block min-h-11 w-full rounded-lg border border-border bg-surface p-2 text-ink" />
-          <button type="button" disabled={!dateOfBirth || busy}
-            onClick={() => void finish(pendingAge.provider, pendingAge.idToken, pendingAge.nonce, dateOfBirth)}
+          <label className="mt-3 flex items-start gap-3 text-xs text-ink-muted">
+            <input type="checkbox" checked={acceptTerms} onChange={event => setAcceptTerms(event.target.checked)}
+              className="mt-0.5 size-4 accent-signal" />
+            <span>I agree to the <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-signal underline">Terms of Service</Link>.</span>
+          </label>
+          <label className="mt-3 flex items-start gap-3 text-xs text-ink-muted">
+            <input type="checkbox" checked={acceptPrivacy} onChange={event => setAcceptPrivacy(event.target.checked)}
+              className="mt-0.5 size-4 accent-signal" />
+            <span>I consent to data processing under the <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-signal underline">Privacy Notice</Link>.</span>
+          </label>
+          <button type="button" disabled={!dateOfBirth || !termsVersion || !acceptTerms || !acceptPrivacy || busy}
+            onClick={() => void finish(pendingAge.provider, pendingAge.idToken, pendingAge.nonce,
+              { dateOfBirth, termsVersion, consentTerms: acceptTerms, consentDataProcessing: acceptPrivacy })}
             className="mt-3 min-h-11 w-full rounded-lg bg-signal px-4 font-semibold text-signal-ink disabled:opacity-50">
             Confirm eligibility and continue
           </button>

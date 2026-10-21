@@ -6,7 +6,7 @@ Signup asks for too many details at first contact. Social entry can reduce frict
 ## What this PR implements
 - Two verified provider ID-token flows: Google via Identity Services, and Apple via Sign in with Apple JS (conditional on provider configuration).
 - Fresh server-generated, one-use login nonce expiring after five minutes. Backend validates public RSA JWKS signatures, issuer, audience, expiry, nonce and verified email; only immutable provider `sub` can identify returning users. Email matches do not automatically link an existing password account.
-- On a **first** social sign-in, the provider ID token must be verified and the user must confirm a date of birth that meets the existing minimum registration age **before any user record or session is created**. Returning provider subjects do not repeat the age prompt. Newly created citizen accounts then start with `account_access_level=limited` and no privileged role. Auth middleware rejects **every authenticated route other than profile, complete profile, logout and account deletion** until profile completion.
+- On a **first** social sign-in, the provider ID token must be verified and the user must confirm a date of birth that meets the existing minimum registration age **and explicitly accept the current Terms and Privacy Notice before any user record or session is created**. Returning provider subjects do not repeat the age prompt. Newly created citizen accounts then start with `account_access_level=limited` and no privileged role. Auth middleware rejects **every authenticated route other than profile, complete profile, logout and account deletion** until profile completion.
 - Profile completion requires name, contact phone, and current terms/privacy consent; the validated birth date and minor status cannot be replaced through this screen. Consent and account promotion share a database transaction.
 - Existing password login and staff permissions are unchanged.
 - Google/Apple buttons are only displayed when the backend advertises verified configuration.
@@ -20,7 +20,7 @@ Do NOT put Apple private keys, Google client secrets, or storage credentials in 
 
 ## Staging release gates
 1. Check schema migration (user access level, login challenges, subject identities). Confirm older password users remain `full`.
-2. Sign in to a new Google/Apple identity: the server first requires a valid age-eligible date of birth; then one `limited` citizen is created with no profile completion recorded. Attempt API calls directly (report, SOS, evidence, admin, identity upload) and assert HTTP 403 `profile_completion_required` before age/consent.
+2. Sign in to a new Google/Apple identity: the server first requires a valid age-eligible date of birth and active terms/privacy consent; then one `limited` citizen is created with no profile completion recorded. Attempt API calls directly (report, SOS, evidence, admin, identity upload) and assert HTTP 403 `profile_completion_required` before age/consent.
 3. Invalid provider token, wrong audience, forged algorithm, wrong issuer, old nonce, re-used nonce and unverified email must all fail. Provider signing-key outage must fail closed.
 4. Existing password account email must not be linked automatically. Provider subject must remain stable, even if its display name changes.
 5. Complete profile with an eligible birth date, phone and explicit terms/privacy consent. Refresh the session and confirm citizen dashboard/report permissions only then, while normal minor safeguards remain enforced.

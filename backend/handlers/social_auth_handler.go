@@ -109,6 +109,9 @@ func FinishSocialLogin(c *gin.Context) {
   IDToken string `json:"idToken" binding:"required"`
   Nonce string `json:"nonce" binding:"required"`
   DateOfBirth string `json:"dateOfBirth"`
+  TermsVersion string `json:"termsVersion"`
+  ConsentTerms bool `json:"consentTerms"`
+  ConsentDataProcessing bool `json:"consentDataProcessing"`
  }
  if c.ShouldBindJSON(&input)!=nil || !socialEnabled(input.Provider) {
   c.JSON(400,gin.H{"error":"invalid social sign-in request"});return
@@ -128,6 +131,7 @@ func FinishSocialLogin(c *gin.Context) {
  }
  var eligibleDOB time.Time
  var eligibleMinorStatus string
+ var termsDocument, privacyDocument *models.TermsDocument
  if errors.Is(lookup.Error, gorm.ErrRecordNotFound) {
   if strings.TrimSpace(input.DateOfBirth)=="" {
    c.JSON(http.StatusPreconditionRequired,gin.H{"error":"date_of_birth_required"})
@@ -135,6 +139,25 @@ func FinishSocialLogin(c *gin.Context) {
   }
   eligibleDOB,eligibleMinorStatus,err = validateDOB(input.DateOfBirth)
   if err!=nil {c.JSON(http.StatusBadRequest,gin.H{"error":err.Error()});return}
+  if !input.ConsentTerms || !input.ConsentDataProcessing {
+   c.JSON(http.StatusBadRequest,gin.H{"error":"terms_consent_required"});return
+  }
+  if input.TermsVersion!=content.TermsVersion {
+   c.JSON(http.StatusConflict,gin.H{"error":"terms_version_stale"});return
+  }
+  var docs []models.TermsDocument
+  if err:=config.DB.Where("version = ? AND is_active = ?",content.TermsVersion,true).
+   Where("(kind = ? AND role = ?) OR (kind = ? AND role = ?)",
+    "terms","citizen","privacy","all").Find(&docs).Error;err!=nil {
+   c.JSON(http.StatusServiceUnavailable,gin.H{"error":"terms_unavailable"});return
+  }
+  for i:=range docs {
+   if docs[i].Kind=="terms" && docs[i].Role=="citizen" {termsDocument=&docs[i]}
+   if docs[i].Kind=="privacy" && docs[i].Role=="all" {privacyDocument=&docs[i]}
+  }
+  if termsDocument==nil || privacyDocument==nil {
+   c.JSON(http.StatusServiceUnavailable,gin.H{"error":"terms_unavailable"});return
+  }
  }
  var user models.User
  err=config.DB.Transaction(func(tx *gorm.DB)error{
@@ -159,12 +182,22 @@ func FinishSocialLogin(c *gin.Context) {
   user=models.User{
    ID:id,Email:verified.Email,Phone:"pending-"+id.String(),
    FirstName:first,LastName:last,Password:string(hashed),
-   Role:"citizen",Status:"pending",MinorStatus:eligibleMinorStatus,DateOfBirth:&eligibleDOB,DOBVerified:true,
+   Role:"citizen",Status:"pending",MinorStatus:eligibleMinorStatus,DateOfBirth:&eligibleDOB,DOBVerified:false,
    AccountAccessLevel:"limited",
   }
   if err:=tx.Create(&user).Error;err!=nil{return err}
   identity=models.SocialIdentity{UserID:id,Provider:input.Provider,Subject:verified.Subject}
-  return tx.Create(&identity).Error
+  if err:=tx.Create(&identity).Error;err!=nil{return err}
+  // All acceptance rows and the limited account are committed atomically.
+  now:=time.Now().UTC()
+  ip, agent := clampStr(c.ClientIP(),64),clampStr(c.Request.UserAgent(),400)
+  for _,doc:=range []*models.TermsDocument{termsDocument,privacyDocument} {
+   row:=models.TermsAcceptance{UserID:id,DocumentID:doc.ID,
+    DocumentKind:doc.Kind,DocumentRole:doc.Role,DocumentVersion:doc.Version,
+    AcceptedAt:now,IPAddress:ip,UserAgent:agent}
+   if err:=tx.Create(&row).Error;err!=nil{return err}
+  }
+  return nil
  })
  if errors.Is(err,errSocialEmailExists) {
   c.JSON(http.StatusConflict,gin.H{"error":"An account already uses this email. Sign in with your existing method; accounts are not linked automatically."});return
@@ -207,9 +240,10 @@ func CompleteSocialProfile(c *gin.Context) {
  if input.TermsVersion!=content.TermsVersion {
   c.JSON(http.StatusConflict,gin.H{"error":"terms_version_stale"});return
  }
- // Age eligibility was checked before first social account creation.
- // Do not let this second step change a validated age or minor status.
- if user.DateOfBirth==nil || !user.DOBVerified {
+ // Age eligibility was checked at first social registration, but the
+ // self-declared birth date is NOT independently verified. Never set
+ // DOBVerified without the separately audited admin verification flow.
+ if user.DateOfBirth==nil || (user.MinorStatus!="minor" && user.MinorStatus!="adult") {
   c.JSON(http.StatusForbidden,gin.H{"error":"age_verification_required"});return
  }
  var docs []models.TermsDocument
