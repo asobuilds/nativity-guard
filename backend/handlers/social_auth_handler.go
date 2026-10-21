@@ -176,7 +176,9 @@ func CompleteSocialProfile(c *gin.Context) {
  }
  if c.ShouldBindJSON(&input)!=nil{c.JSON(400,gin.H{"error":"name, phone, birth date and current terms are required"});return}
  input.Phone=strings.TrimSpace(input.Phone)
- if !socialPhonePattern.MatchString(input.Phone) || len(strings.TrimSpace(input.FirstName))>100 ||
+ if !socialPhonePattern.MatchString(input.Phone) ||
+   strings.TrimSpace(input.FirstName)=="" || strings.TrimSpace(input.LastName)=="" ||
+   len(strings.TrimSpace(input.FirstName))>100 ||
    len(strings.TrimSpace(input.LastName))>100 {
   c.JSON(400,gin.H{"error":"enter a valid contact phone and name"});return
  }
