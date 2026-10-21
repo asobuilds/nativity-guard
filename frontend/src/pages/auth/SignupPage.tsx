@@ -16,6 +16,7 @@ import {
 } from '@/lib/signup'
 import type { RegisterResponse } from '@/types/api'
 import { useAuth } from '@/auth/AuthContext'
+import { SocialSignIn } from '@/components/auth/SocialSignIn'
 
 const DRAFT_KEY = 'cs.signup.draft'
 
@@ -295,6 +296,9 @@ export function SignupPage() {
             unit as an officer or administrator is arranged separately, by that unit.
           </p>
 
+          <SocialSignIn onComplete={() => navigate('/auth/complete-profile', { replace: true })} />
+          <details className="mt-6 rounded-lg border border-border px-3 py-4">
+            <summary className="cursor-pointer text-sm font-medium text-signal">Or create an account using email and password</summary>
           <form className="mt-6 flex flex-col gap-4" onSubmit={onSubmit} noValidate>
             <Field label="Email" required error={errorFor('email')}>
               {(props) => (
@@ -478,6 +482,7 @@ export function SignupPage() {
               Create account
             </Button>
           </form>
+          </details>
 
           <p className="mt-6 text-sm text-ink-muted">
             Already have an account?{' '}

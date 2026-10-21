@@ -104,6 +104,23 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// Provider-created accounts begin with unverified age and no consent.
+		// Never grant reporting, SOS, identity upload, or any authenticated API
+		// before they complete the same eligibility rules as password signup.
+		if user.AccountAccessLevel == "limited" {
+			allowed := map[string]bool{
+				"/api/v1/auth/profile": true,
+				"/api/v1/auth/complete-profile": true,
+				"/api/v1/auth/logout": true,
+				"/api/v1/auth/account": true,
+			}
+			if !allowed[c.FullPath()] {
+				c.JSON(http.StatusForbidden, gin.H{"error": "profile_completion_required"})
+				c.Abort()
+				return
+			}
+		}
+
 		c.Next()
 	}
 }

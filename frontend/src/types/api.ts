@@ -48,6 +48,7 @@ export interface User {
   lastName: string
   role: Role
   status?: string
+  accountAccessLevel?: 'full' | 'limited'
   createdAt?: string
   updatedAt?: string
 }

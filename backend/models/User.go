@@ -20,6 +20,9 @@ type User struct {
 	Role          string         `gorm:"default:citizen" json:"role"`
 	UnitID        *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
 	Status        string         `gorm:"default:pending" json:"status"`
+	// Existing accounts keep full access. New social accounts start limited until
+	// their age, consent and contact details are confirmed.
+	AccountAccessLevel string `gorm:"type:varchar(16);default:full" json:"accountAccessLevel"`
 	IsSuperAdmin          bool           `gorm:"default:false" json:"isSuperAdmin"`
 	LocationSharingEnabled bool          `gorm:"default:false;index:idx_user_location_sharing" json:"locationSharingEnabled"`
 	DateOfBirth           *time.Time     `gorm:"type:date;index:idx_user_dob" json:"dateOfBirth,omitempty"`

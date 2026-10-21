@@ -44,6 +44,11 @@ func SetupRoutes(router *gin.Engine) {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/register", middleware.RateLimitAuth(), authHandler.Register)
+			auth.GET("/social/providers", middleware.RateLimitAuth(), handlers.SocialProviderConfig)
+			auth.POST("/social/challenge", middleware.RateLimitAuth(), handlers.BeginSocialLogin)
+			auth.POST("/social/exchange", middleware.RateLimitAuth(), handlers.FinishSocialLogin)
+			auth.POST("/complete-profile", middleware.AuthMiddleware(), middleware.RateLimitAuth(), handlers.CompleteSocialProfile)
+
 			auth.POST("/login", middleware.RateLimitAuth(), authHandler.Login)
 			auth.POST("/logout", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.Logout)
 			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
