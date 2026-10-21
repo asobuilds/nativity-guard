@@ -466,6 +466,7 @@ export function ReportIncidentPage() {
     setAttachments([])
     setVoiceNote(null)
     setVideoClip(null)
+    photos.forEach(photo => URL.revokeObjectURL(photo.preview))
     setPhotos([])
     setSubmitError(null)
     setStepIndex(0)
@@ -735,11 +736,13 @@ export function ReportIncidentPage() {
                   mode="voice"
                   label="Voice note"
                   onFileReady={setVoiceNote}
+                  initialFile={voiceNote}
                 />
                 <MediaRecorderField
                   mode="video"
                   label="Video clip"
                   onFileReady={setVideoClip}
+                  initialFile={videoClip}
                 />
               </div>
               <p className="text-xs text-ink-muted" role="status">

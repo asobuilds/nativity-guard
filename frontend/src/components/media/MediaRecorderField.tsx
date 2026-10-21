@@ -93,6 +93,7 @@ export function MediaRecorderField({
   presignPath,
   onCaptured,
   onFileReady,
+  initialFile,
   maxDuration = mode === 'voice' ? 30 : 60,
   maxSize = mode === 'voice' ? 5 * 1024 * 1024 : 20 * 1024 * 1024,
   label = mode === 'voice' ? 'Voice note' : 'Video clip',
@@ -103,13 +104,14 @@ export function MediaRecorderField({
   onCaptured?: (key: string) => void
   /** For case reports: hold a file locally until the case ID exists. */
   onFileReady?: (file: File | null) => void
+  initialFile?: File | null
   maxDuration?: number
   maxSize?: number
   label?: string
   className?: string
 }) {
   const { notify } = useToast()
-  const [state, setState] = useState<State>('idle')
+  const [state, setState] = useState<State>(initialFile ? 'ready' : 'idle')
   const [error, setError] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -117,7 +119,7 @@ export function MediaRecorderField({
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
-  const blobRef = useRef<Blob | null>(null)
+  const blobRef = useRef<Blob | null>(initialFile ?? null)
   const timerRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
   const liveVideoRef = useRef<HTMLVideoElement | null>(null)
