@@ -319,6 +319,36 @@ export async function postQueued<T>(path: string, body: unknown): Promise<T | { 
     throw err
   }
 }
+/**
+ * Authenticated download for private case evidence. The backend checks case
+ * permissions on every request; no JWT or private storage key enters a URL.
+ */
+export async function downloadPrivateMedia(path: string, signal?: AbortSignal): Promise<Blob> {
+  async function downloadOnce(): Promise<Response> {
+    const token = tokenStore.get()
+    try {
+      return await fetch(`${API_BASE}${path}`, {
+        method: 'GET',
+        headers: { Accept: '*/*', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        signal,
+      })
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+      throw new ApiError(0, 'Cannot reach the evidence server.', error)
+    }
+  }
+
+  let response = await downloadOnce()
+  if (response.status === 401 && await refreshAccessToken()) {
+    response = await downloadOnce()
+  }
+  if (!response.ok) {
+    const { message } = await readError(response)
+    throw new ApiError(response.status, message)
+  }
+  return response.blob()
+}
+
 export const api = {
 	get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'GET', signal }),
 	post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),

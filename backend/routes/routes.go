@@ -210,6 +210,7 @@ func SetupRoutes(router *gin.Engine) {
 			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
 			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
 			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
+			evidence.GET("/case/:caseId/:evidenceId/file", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ServeCaseEvidence)
 			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
 			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
 			evidence.PATCH("/:id/verify", middleware.AuthMiddleware(), handlers.VerifyEvidence)

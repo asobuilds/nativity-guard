@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   BadgeCheck,
   Clock,
@@ -10,6 +10,7 @@ import {
   ShieldQuestion,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { downloadPrivateMedia } from '@/lib/apiClient'
 import { formatCoord, formatDateTime, relativeTime } from '@/lib/format'
 import { Badge } from '@/components/ui/Chips'
 import { Button } from '@/components/ui/Button'
@@ -27,6 +28,53 @@ const TYPE_ICON: Record<string, typeof FileText> = {
 
 function isImage(type: string | undefined): boolean {
   return type === 'image' || type === 'photo'
+}
+
+
+/** Load media through the authenticated case route only when the user previews it. */
+function EvidenceMediaPreview({ evidence }: { evidence: Evidence }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const privateFile = evidence.fileUrl?.startsWith('evidence/')
+
+  useEffect(() => {
+    if (!privateFile) { setLoading(false); return }
+    const abort = new AbortController()
+    let objectURL: string | null = null
+    setUrl(null)
+    setError(null)
+    setLoading(true)
+    void downloadPrivateMedia(
+      `/evidence/case/${encodeURIComponent(evidence.caseId)}/${encodeURIComponent(evidence.id)}/file`,
+      abort.signal,
+    ).then(blob => {
+      if (abort.signal.aborted) return
+      objectURL = URL.createObjectURL(blob)
+      setUrl(objectURL)
+    }).catch(err => {
+      if (!abort.signal.aborted) setError(err instanceof Error ? err.message : 'Could not open this attachment.')
+    }).finally(() => { if (!abort.signal.aborted) setLoading(false) })
+    return () => {
+      abort.abort()
+      if (objectURL) URL.revokeObjectURL(objectURL)
+    }
+  }, [privateFile, evidence.caseId, evidence.id])
+
+  const source = privateFile ? url : /^https:\/\//i.test(evidence.fileUrl || '') ? evidence.fileUrl : null
+  if (loading) return <p role="status" className="text-sm text-ink-muted">Loading private evidence…</p>
+  if (error) return <p role="alert" className="text-sm text-emergency">{error}</p>
+  if (!source) return <p className="text-sm text-ink-muted">This attachment cannot be previewed here.</p>
+  if (isImage(evidence.type)) {
+    return <img src={source} alt={evidence.description || 'Case evidence'} className="mx-auto max-h-[60vh] rounded-lg object-contain" referrerPolicy="no-referrer" />
+  }
+  if (evidence.type === 'video') {
+    return <video controls playsInline src={source} className="mx-auto max-h-[60vh] w-full rounded-lg bg-black" />
+  }
+  if (evidence.type === 'audio') {
+    return <audio controls src={source} className="w-full" />
+  }
+  return <a href={source} download="case-evidence" target="_blank" rel="noreferrer noopener" className="text-sm text-signal underline">Open attachment</a>
 }
 
 /**
@@ -97,21 +145,9 @@ export function EvidenceGallery({
                 className="group relative block aspect-4/3 w-full overflow-hidden bg-surface-hi text-left"
                 aria-label={`Preview ${item.description || item.type} evidence`}
               >
-                {isImage(item.type) ? (
-                  <img
-                    src={item.fileUrl}
-                    alt={item.description || 'Case evidence'}
-                    loading="lazy"
-                    className="size-full object-cover transition-transform group-hover:scale-105"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <span className="grid size-full place-items-center text-ink-faint">
-                    <Icon className="size-7" aria-hidden />
-                  </span>
-                )}
+                <span className="grid size-full place-items-center text-ink-faint">
+                  <Icon className="size-7" aria-hidden />
+                </span>
                 <span className="absolute left-2 top-2">
                   {item.isVerified ? (
                     <Badge tone="ok" className="backdrop-blur">
@@ -170,30 +206,8 @@ export function EvidenceGallery({
             : undefined
         }
         size="lg"
-        footer={
-          preview ? (
-            <a
-              href={preview.fileUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-sm text-signal underline-offset-2 hover:underline"
-            >
-              Open original
-            </a>
-          ) : null
-        }
       >
-        {preview && isImage(preview.type) ? (
-          <img
-            src={preview.fileUrl}
-            alt={preview.description || 'Case evidence'}
-            className="mx-auto max-h-[60vh] rounded-lg object-contain"
-          />
-        ) : preview ? (
-          <p className="text-sm text-ink-muted">
-            This item is a {preview.type}. Use “Open original” to view it in a new tab.
-          </p>
-        ) : null}
+        {preview ? <EvidenceMediaPreview evidence={preview} /> : null}
       </Modal>
     </div>
   )
