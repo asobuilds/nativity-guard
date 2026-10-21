@@ -10,7 +10,7 @@ import { latestEligibleDob, MIN_SIGNUP_AGE } from '@/lib/signup'
 type TermsResponse = { version: string }
 
 export function CompleteSocialSignupPage() {
-  const { status, user, refreshProfile } = useAuth()
+  const { status, user, refreshProfile, logout } = useAuth()
   const navigate = useNavigate()
   const [firstName, setFirstName] = useState(user?.firstName === 'Community' ? '' : user?.firstName ?? '')
   const [lastName, setLastName] = useState(user?.lastName === 'Member' ? '' : user?.lastName ?? '')
@@ -75,6 +75,9 @@ export function CompleteSocialSignupPage() {
           Until this is finished, protected features stay locked. Eligibility
           rules still apply, including the minimum registration age of {MIN_SIGNUP_AGE}.
         </p>
+        <p className="mt-3 text-sm text-ink-muted">
+          For an immediate emergency, call <a href="tel:112" className="font-semibold text-signal underline">112</a> rather than relying on an incomplete account.
+        </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <Field label="First name" required>
             {props => <Input {...props} value={firstName} onChange={event => setFirstName(event.target.value)} autoComplete="given-name" required maxLength={100} />}
@@ -104,9 +107,12 @@ export function CompleteSocialSignupPage() {
             Activate citizen access
           </Button>
         </form>
-        <Link to="/explore" className="mt-5 block text-center text-sm text-signal underline">
-          Explore public features for now
-        </Link>
+        <div className="mt-5 flex flex-col items-center gap-3 text-sm">
+          <Link to="/explore" className="text-signal underline">Explore public features for now</Link>
+          <button type="button" className="text-ink-muted underline" onClick={() => { logout(); navigate('/', { replace: true }) }}>
+            Sign out and return to homepage
+          </button>
+        </div>
       </div>
     </main>
   )
