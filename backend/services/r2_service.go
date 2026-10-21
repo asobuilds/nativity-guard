@@ -65,10 +65,7 @@ func NewR2Service() (*R2Service, error) {
 	secretKey := strings.TrimSpace(os.Getenv("MEDIA_SECRET_ACCESS_KEY"))
 	bucket := strings.TrimSpace(os.Getenv("MEDIA_BUCKET"))
 	publicBase := strings.TrimRight(strings.TrimSpace(os.Getenv("MEDIA_PUBLIC_BASE")), "/")
-	region := strings.TrimSpace(os.Getenv("MEDIA_REGION"))
-	if region == "" {
-		region = "us-east-1"
-	}
+	region := resolveS3Region(endpoint, os.Getenv("MEDIA_REGION"))
 
 	if endpoint == "" || accessKey == "" || secretKey == "" || bucket == "" {
 		return nil, fmt.Errorf("media: MEDIA_ENDPOINT, MEDIA_ACCESS_KEY_ID, MEDIA_SECRET_ACCESS_KEY and MEDIA_BUCKET are required")
@@ -95,6 +92,20 @@ func NewR2Service() (*R2Service, error) {
 		bucket:     bucket,
 		publicBase: publicBase,
 	}, nil
+}
+
+
+// resolveS3Region uses Cloudflare R2's SigV4 region, regardless of the
+// bucket's physical location or an AWS-style region saved in old deployments.
+// For non-R2 endpoints (including Supabase S3), preserve the configured region.
+func resolveS3Region(endpoint, configured string) string {
+  parsed, err := url.Parse(strings.TrimSpace(endpoint))
+  if err == nil && strings.HasSuffix(strings.ToLower(parsed.Hostname()), ".r2.cloudflarestorage.com") {
+    return "auto"
+  }
+  region := strings.TrimSpace(configured)
+  if region == "" { return "us-east-1" }
+  return region
 }
 
 // R2Configured reports whether the MEDIA_* environment is present. When false the
@@ -331,42 +342,16 @@ func pathExt(name string) string {
 	return ""
 }
 
-// fixPresignedURL normalises the SigV4 region in a presigned URL. Supabase is region
-// "us-east-1"; the SDK is configured with the same region, so this is a no-op safety
-// net that keeps the signature well formed if the region is ever changed.
+// fixPresignedURL only validates the generated URL. Mutating ANY SigV4 query
+// parameter (including credential scope/region) after signing makes the URL's
+// authentication signature invalid. The signer must receive the right region
+// through resolveS3Region before it signs the request.
 func fixPresignedURL(raw string) (string, error) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "", fmt.Errorf("r2: parse presigned url: %w", err)
-	}
-	if parsed.RawQuery != "" {
-		parsed.RawQuery = replaceRegionParam(parsed.RawQuery, "auto")
-	}
-	return parsed.String(), nil
-}
-
-// replaceRegionParam rewrites the X-Amz-Credential region in a presigned query
-// string.
-func replaceRegionParam(rawQuery string, region string) string {
-	if rawQuery == "" {
-		return rawQuery
-	}
-	parts := strings.Split(rawQuery, "&")
-	for i, p := range parts {
-		if strings.HasPrefix(p, "X-Amz-Credential=") {
-			parts[i] = replaceCredentialRegion(p, region)
-		}
-	}
-	return strings.Join(parts, "&")
-}
-
-func replaceCredentialRegion(param string, region string) string {
-	value := strings.TrimPrefix(param, "X-Amz-Credential=")
-	segs := strings.Split(value, "/")
-	if len(segs) >= 4 {
-		segs[3] = region
-	}
-	return "X-Amz-Credential=" + strings.Join(segs, "/")
+  parsed, err := url.Parse(raw)
+  if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+    return "", fmt.Errorf("r2: invalid presigned URL")
+  }
+  return raw, nil
 }
 
 func normalizeMetadata(metadata map[string]string) map[string]string {
