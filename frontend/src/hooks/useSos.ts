@@ -34,7 +34,7 @@ export function useSendSos() {
     // become stale, and a queued response must not masquerade as a sent alert.
     // A real receipt is returned only after the server confirms persistence.
     mutationFn: (input: SendSosInput) =>
-      api.post<{ message: string; sos: SosAlert; escalationTime: string }>('/sos/send', input),
+      api.post<{ message: string; sos: SosAlert; escalationTime: string; mediaAttachmentStatus?: string; mediaAttachmentWarning?: string }>('/sos/send', input),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: sosKey })
       void client.invalidateQueries({ queryKey: ['sos'] })

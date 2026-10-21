@@ -39,7 +39,7 @@ export function SosPage() {
   const [priority, setPriority] = useState<'high' | 'critical'>('high')
   const [unitId, setUnitId] = useState('')
   const [hideLocation, setHideLocation] = useState(false)
-  const [receipt, setReceipt] = useState<{ trackingId: string; status: string } | null>(null)
+  const [receipt, setReceipt] = useState<{ trackingId: string; status: string; attachmentWarning?: string } | null>(null)
   const alerts = useMySos()
   const units = useUnits()
   const send = useSendSos()
@@ -114,7 +114,7 @@ export function SosPage() {
         ...(videoKey ? { videoKey } : {}),
         ...(hideLocation ? { hideLocation: true } : {}),
       })
-      setReceipt({ trackingId: resp.sos.id, status: resp.sos.status })
+      setReceipt({ trackingId: resp.sos.id, status: resp.sos.status, attachmentWarning: resp.mediaAttachmentWarning })
       setConfirming(false)
       setContacts('')
       setMedical('')
@@ -180,6 +180,11 @@ export function SosPage() {
               <p className="mt-1 text-xs text-ink-muted">
                 A receipt does not mean a unit has been dispatched — check the status below.
               </p>
+              {receipt.attachmentWarning ? (
+                <p className="mt-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn" role="alert">
+                  {receipt.attachmentWarning}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="font-mono text-sm font-semibold tracking-wider text-ink tabular-nums">
                   {receipt.trackingId}
