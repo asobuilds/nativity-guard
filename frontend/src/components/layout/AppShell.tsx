@@ -1,4 +1,4 @@
-﻿import { Suspense, useEffect, useState, type ReactNode } from 'react'
+﻿import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -28,6 +28,7 @@ import { Logo } from '@/components/brand/Logo'
 import { NotificationBell } from './NotificationBell'
 import { AppBackground } from './AppBackground'
 import type { Role } from '@/types/api'
+import { MOBILE_PRIMARY_ROUTES } from '@/lib/mobileNav'
 
 
 interface NavItem {
@@ -125,7 +126,7 @@ function NavItems({
               title="Coming in a later milestone"
               className={cn(
                 'flex cursor-not-allowed items-center gap-3 rounded-lg text-ink-faint',
-                variant === 'sidebar' ? 'px-3 py-2 text-sm' : 'flex min-w-[72px] flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px]',
+                variant === 'sidebar' ? 'px-3 py-2 text-sm' : 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-tight',
               )}
             >
               {item.icon}
@@ -149,7 +150,7 @@ function NavItems({
             className={({ isActive }) =>
               cn(
                 'flex items-center rounded-lg transition-colors',
-                variant === 'sidebar' ? 'gap-3 px-3 py-2 text-sm' : 'flex min-w-[72px] flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px]',
+                variant === 'sidebar' ? 'gap-3 px-3 py-2 text-sm' : 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-tight',
                 isActive
                   ? 'bg-signal/10 text-signal'
                   : 'text-ink-muted hover:bg-surface-hi hover:text-ink',
@@ -171,6 +172,11 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
   const { pathname } = useLocation()
   const items = role ? NAV[role] : []
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const mobileDrawerRef = useRef<HTMLElement>(null)
+  const mobileDrawerCloseRef = useRef<HTMLButtonElement>(null)
+  const bottomItems = role
+    ? MOBILE_PRIMARY_ROUTES[role].map(path => items.find(item => item.to === path)).filter((item): item is NavItem => Boolean(item))
+    : []
 
   function closeMobileNav() {
     setMobileNavOpen(false)
@@ -182,11 +188,34 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
 
   useEffect(() => {
     if (!mobileNavOpen) return
+    const previousOverflow = document.body.style.overflow
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    document.body.style.overflow = 'hidden'
+    mobileDrawerCloseRef.current?.focus()
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMobileNavOpen(false)
+      if (event.key === 'Escape') {
+        setMobileNavOpen(false)
+        return
+      }
+      if (event.key !== 'Tab' || !mobileDrawerRef.current) return
+      const focusable = Array.from(mobileDrawerRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled])'))
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      previousFocus?.focus()
+    }
   }, [mobileNavOpen])
 
   function handleLogout() {
@@ -206,6 +235,8 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
       ) : null}
 
       <aside
+        id="app-mobile-drawer"
+        ref={mobileDrawerRef}
         className={cn(
           // Below `lg` this is a drawer. It stops 3.5rem short of the right edge so
           // the page it covers stays visible and the backdrop stays tappable,
@@ -226,6 +257,7 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
             type="button"
             className="ml-auto rounded-md p-1.5 text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink lg:hidden"
             aria-label="Close navigation"
+            ref={mobileDrawerCloseRef}
             onClick={closeMobileNav}
           >
             <X className="size-5" aria-hidden />
@@ -320,11 +352,21 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
         ) : null}
 
         <nav
-          aria-label="Primary"
-          className="mobile-nav-scroll safe-bottom-bar fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 overflow-x-auto border-t bg-surface/95 px-1 pt-1.5 backdrop-blur lg:hidden"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          aria-label="Mobile primary navigation"
+          className="safe-bottom-bar fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 items-stretch gap-1 border-t border-border bg-surface/95 px-1 pt-1.5 backdrop-blur lg:hidden"
         >
-          <NavItems items={items} variant="bottom" />
+          <NavItems items={bottomItems} variant="bottom" />
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="More navigation options"
+            aria-controls="app-mobile-drawer"
+            aria-expanded={mobileNavOpen}
+            className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] leading-tight text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-signal"
+          >
+            <Menu className="size-4" aria-hidden />
+            <span>More</span>
+          </button>
         </nav>
       </div>
     </div>

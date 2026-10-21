@@ -28,14 +28,16 @@ describe('Reference landing layout', () => {
   it('keeps the reference navigation actions and login/signup destinations', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
-        <LandingNavbar onOpen={vi.fn()} onReport={vi.fn()} />
+        <LandingNavbar onOpen={vi.fn()} onReport={vi.fn()} appearance={{ palette: 'forest', wallpaper: 'gate' }} onAppearanceChange={vi.fn()} />
       </MemoryRouter>,
     )
-    for (const label of ['Home', 'Safety Map', 'Report', 'Track Case', 'Security Units', 'About']) {
+    for (const label of ['Home', 'Safety Map', 'Report', 'Track Case', 'Explore Features', 'About']) {
       expect(html).toContain(label)
     }
     expect(html).toContain('href="/auth/login"')
     expect(html).toContain('href="/auth/signup"')
     expect(html).toContain('Search case reports')
+    expect(html).toContain('href="/explore"')
+    expect(html).toContain('Change landing page colours and wallpaper')
   })
 })

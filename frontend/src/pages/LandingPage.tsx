@@ -2,15 +2,9 @@ import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { ActionAuthModal } from '@/components/landing/ActionAuthModal'
 import { LandingNavbar, type LandingPanel } from '@/components/landing/LandingNavbar'
+import { LandingToolContent } from '@/components/landing/LandingToolContent'
+import { readLandingAppearance, saveLandingAppearance } from '@/components/landing/landingAppearance'
 import { LandingHero } from '@/components/landing/LandingHero'
-import { PublicSafetyMapSection } from '@/components/landing/PublicSafetyMapSection'
-import { CaseLifecycleSection } from '@/components/landing/CaseLifecycleSection'
-import { UnitsDirectorySection } from '@/components/landing/UnitsDirectorySection'
-import { SosSimulatorSection } from '@/components/landing/SosSimulatorSection'
-import { CommunityAlertsSection } from '@/components/landing/CommunityAlertsSection'
-import { AiSafetySandboxSection } from '@/components/landing/AiSafetySandboxSection'
-import { GovernanceSection } from '@/components/landing/GovernanceSection'
-import { FinancialTransparencySection } from '@/components/landing/FinancialTransparencySection'
 import type { ActionContext } from '@/components/landing/types'
 import '@/components/landing/referenceLanding.css'
 
@@ -49,6 +43,7 @@ function panelFromHash() {
  */
 export function LandingPage() {
   const [activeAction, setActiveAction] = useState<ActionContext | null>(null)
+  const [appearance, setAppearance] = useState(readLandingAppearance)
   const [panel, setPanel] = useState<LandingPanel | null>(panelFromHash)
 
   useEffect(() => {
@@ -101,9 +96,9 @@ export function LandingPage() {
   }
 
   return (
-    <div className="ng-ref-page">
+    <div className="ng-ref-page" data-landing-palette={appearance.palette} data-landing-wallpaper={appearance.wallpaper}>
       <div className="ng-ref-shell">
-        <LandingNavbar onOpen={openPanel} onReport={report} />
+        <LandingNavbar onOpen={openPanel} onReport={report} appearance={appearance} onAppearanceChange={value => setAppearance(saveLandingAppearance(value))} />
         <LandingHero onActionTrigger={triggerAction} onOpen={openPanel} />
       </div>
 
@@ -117,14 +112,7 @@ export function LandingPage() {
               <button type="button" onClick={closePanel} aria-label="Close panel"><X size={24} aria-hidden /></button>
             </div>
             <div className="ng-ref-modal-content">
-              {panel === 'map' && <PublicSafetyMapSection onActionTrigger={triggerAction} />}
-              {panel === 'track' && <CaseLifecycleSection onActionTrigger={triggerAction} />}
-              {panel === 'units' && <UnitsDirectorySection onActionTrigger={triggerAction} />}
-              {panel === 'sos-simulator' && <SosSimulatorSection onActionTrigger={triggerAction} />}
-              {panel === 'community-alerts' && <CommunityAlertsSection onActionTrigger={triggerAction} />}
-              {panel === 'ai-safety' && <AiSafetySandboxSection onActionTrigger={triggerAction} />}
-              {panel === 'governance' && <GovernanceSection onActionTrigger={triggerAction} />}
-              {panel === 'transparency' && <FinancialTransparencySection onActionTrigger={triggerAction} />}
+              <LandingToolContent panel={panel} onActionTrigger={triggerAction} />
             </div>
           </section>
         </div>
