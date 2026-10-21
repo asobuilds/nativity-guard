@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   CheckCircle2,
@@ -32,7 +32,7 @@ export function ActionAuthModal({
   const { login } = useAuth()
   const navigate = useNavigate()
   const { notify } = useToast()
-  const { saveAction } = usePendingAction()
+  const { saveAction, clearAction } = usePendingAction()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -64,6 +64,7 @@ export function ActionAuthModal({
         navigate(currentAction.returnUrl, { state: currentAction.payload })
       }
     } catch (cause) {
+      clearAction()
       if (cause instanceof ApiError) {
         setError(cause.message || 'Invalid credentials. Please try again.')
       } else {
@@ -90,7 +91,7 @@ export function ActionAuthModal({
       open={open}
       onClose={onClose}
       size="md"
-      title={isEmergency ? 'Official Action: Emergency SOS' : currentAction.title}
+      title={isEmergency ? 'Sign in for Emergency SOS' : currentAction.title}
     >
       <div className="space-y-4">
         {/* Context explanation banner */}
@@ -109,12 +110,19 @@ export function ActionAuthModal({
           <div className="space-y-1">
             <p className="font-semibold">{currentAction.description}</p>
             <p className="text-ink-muted leading-relaxed">
-              Nativity Guard is a legally auditable system. An authenticated account ensures that
-              case tracking, emergency dispatch, and community governance remain verified and
-              protected against false reports.
+              Signing in connects a report or SOS request to your account and helps protect private
+              records. An in-app SOS is not a confirmed emergency dispatch or response. Read the
+              published <Link to="/terms" className="text-signal underline">Terms and Privacy Notice</Link>
+              {' '}before sharing personal information.
             </p>
           </div>
         </div>
+
+        {isEmergency ? (
+          <p className="text-sm text-ink-muted">
+            For immediate emergency assistance in Nigeria, call <a href="tel:112" className="font-semibold text-emergency underline">112</a>.
+          </p>
+        ) : null}
 
         {currentAction.badgeText ? (
           <div className="flex items-center gap-2 rounded-md bg-surface-hi px-3 py-1.5 text-xs text-ink-muted">

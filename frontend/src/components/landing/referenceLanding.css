@@ -449,3 +449,35 @@
   .ng-ref-action, .ng-ref-feature-card { transition: none; }
   .ng-ref-action:hover { transform: none; }
 }
+
+
+/* Concise, factual trust links below the approved City Gate hero. */
+.ng-ref-trust-footer {
+  display: grid; gap: 14px;
+  padding: 20px clamp(18px, 4.5vw, 56px) 22px;
+  background: linear-gradient(110deg, #0b2b23, #102b29);
+  border-top: 1px solid rgba(196, 222, 205, .2);
+  color: #d5e6dc;
+}
+.ng-ref-trust-summary { display: flex; align-items: flex-start; gap: 13px; max-width: 900px; }
+.ng-ref-trust-summary > svg { flex-shrink: 0; color: #f1d08a; margin-top: 3px; }
+.ng-ref-trust-summary strong { color: #fff6dc; font-size: 14px; }
+.ng-ref-trust-summary p { margin-top: 4px; font-size: 12px; line-height: 1.65; }
+.ng-ref-trust-summary a, .ng-ref-trust-links a { color: #ffe0a0; text-decoration: underline; text-underline-offset: 3px; }
+.ng-ref-trust-links { display: flex; gap: 12px 24px; align-items: center; flex-wrap: wrap; }
+.ng-ref-trust-links a {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 0; min-height: 42px; font-size: 12px; font-weight: 700;
+}
+.ng-ref-trust-disclaimer { margin: 0; color: #a2c4b3; font-size: 11px; line-height: 1.6; }
+.ng-ref-modal-backdrop { overscroll-behavior: contain; }
+.ng-ref-modal-window { max-height: calc(100dvh - 44px); }
+.ng-ref-modal-window button:focus-visible, .ng-ref-trust-footer a:focus-visible {
+  outline: 2px solid #f4ce78; outline-offset: 3px;
+}
+@media (max-width: 650px) {
+  .ng-ref-trust-footer { padding: 18px 19px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .ng-ref-trust-links { align-items: stretch; flex-direction: column; gap: 0; }
+  .ng-ref-trust-links a { width: fit-content; }
+  .ng-ref-modal-window { max-height: 100dvh; height: 100dvh; }
+}
