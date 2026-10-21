@@ -85,7 +85,7 @@
   width: 54%;
   height: 55%;
   /* Exact City Gate pixels cropped from the approved visual reference. */
-  background: url('/images/abuja-city-gate-reference.jpg') center top / cover no-repeat;
+  background: url('/images/abuja-city-gate-reference.webp') center top / cover no-repeat;
   -webkit-mask-image:
     linear-gradient(to right, transparent, #000 17%, #000 100%),
     linear-gradient(to bottom, #000 0%, #000 75%, transparent 100%);
