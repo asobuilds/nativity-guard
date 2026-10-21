@@ -72,10 +72,29 @@
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
 }
 .ng-ref-photo {
+  /* The original skyline remains beneath the photo for wide layouts. */
   background-image: url('/images/abuja-reference-hero.svg');
   background-size: cover;
   background-position: center 28%;
   opacity: .98;
+}
+.ng-ref-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto auto;
+  width: 54%;
+  height: 55%;
+  /* Exact City Gate pixels cropped from the approved visual reference. */
+  background: url('/images/abuja-city-gate-reference.webp') center top / cover no-repeat;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 17%, #000 100%),
+    linear-gradient(to bottom, #000 0%, #000 75%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 17%, #000 100%),
+    linear-gradient(to bottom, #000 0%, #000 75%, transparent 100%);
+  mask-composite: intersect;
+  pointer-events: none;
 }
 .ng-ref-stage-shade {
   background:
@@ -216,6 +235,13 @@
   .ng-ref-brand-name { font-size: 16px; }
   .ng-ref-stage { min-height: calc(100svh - 72px); }
   .ng-ref-photo { background-position: 72% top; }
+  .ng-ref-photo::after {
+    top: 0;
+    right: -18%;
+    width: 105%;
+    height: 40%;
+    opacity: .9;
+  }
   .ng-ref-stage-shade { background: linear-gradient(90deg,rgba(2,24,19,.88),rgba(2,24,19,.42)),linear-gradient(0deg,#08251d 10%,rgba(8,38,30,.93) 50%,transparent 100%); }
   .ng-ref-stage-content { padding: 33px 19px 26px; }
   .ng-ref-headline { margin-top: 26px; font-size: clamp(32px, 7.4vw, 44px); letter-spacing: -.04em; }
