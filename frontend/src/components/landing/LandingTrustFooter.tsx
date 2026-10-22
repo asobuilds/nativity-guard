@@ -19,7 +19,7 @@ export function LandingTrustFooter() {
         <Link to="/terms">Terms of Service <ArrowUpRight size={14} aria-hidden /></Link>
         <Link to="/terms">Privacy notice &amp; your rights <ArrowUpRight size={14} aria-hidden /></Link>
       </nav>
-      <p className="ng-ref-trust-disclaimer">No government endorsement, legal accreditation or guaranteed response is claimed. Read the published policies before sharing sensitive information.</p>
+      <p className="ng-ref-trust-disclaimer">No government endorsement, legal accreditation or guaranteed response is claimed. Questions about access, correction, or deletion of personal data can be raised through the Privacy Notice and support channel. Read the published policies before sharing sensitive information.</p>
     </footer>
   )
 }
