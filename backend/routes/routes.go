@@ -357,6 +357,7 @@ func SetupRoutes(router *gin.Engine) {
 			// Attachment presign for a report (RES-020). Gated by the post's
 			// visibility, so media can only be staged for a post you can open.
 			community.POST("/posts/:id/report/presign", middleware.AuthMiddleware(), handlers.PresignReportMedia)
+			community.POST("/posts/:id/report/upload", middleware.AuthMiddleware(), handlers.UploadReportMediaFile)
 			community.GET("/reports", middleware.AuthMiddleware(), handlers.GetCommunityReports)
 			community.POST("/reports/:id/resolve", middleware.AuthMiddleware(), handlers.ResolveCommunityReport)
 		}

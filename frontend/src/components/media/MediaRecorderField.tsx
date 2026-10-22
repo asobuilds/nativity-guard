@@ -378,7 +378,10 @@ export function MediaRecorderField({
         }
       }
       if (!key && canUseFallback) {
-        const saved = await api.upload<{ key: string }>('/sos/media/upload', file)
+        const uploadEndpoint = presignPath && presignPath.includes('report')
+          ? presignPath.replace('/presign', '/upload')
+          : '/sos/media/upload'
+        const saved = await api.upload<{ key: string }>(uploadEndpoint, file)
         key = saved.key
       }
       if (!key) throw new Error('Recording was not stored. Please try again.')
