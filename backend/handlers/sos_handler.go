@@ -124,6 +124,8 @@ func SendSOSAlert(c *gin.Context) {
 		mediaAttachmentWarning = "SOS was recorded, but one or more recordings could not be linked. Review the SOS detail and contact the responder directly if needed."
 	}
 
+	extractAndStoreLocalIntelligence("sos", sos.ID.String(), sos.Description, sos.JurisdictionState, sos.JurisdictionLGA)
+
 	// Compliance audit for anonymous SOS.
 	if anon {
 		auditSvc := services.NewAuditService()

@@ -182,6 +182,8 @@ func ReportForumPost(c *gin.Context) {
 	// reasoning as SOS: the report is already recorded.
 	linkMedia(MediaParentReport, report.ID, voiceNoteKey, videoKey)
 
+	extractAndStoreLocalIntelligence("report", report.ID.String(), report.Reason, "", "")
+
 	// A report is only useful if a moderator learns about it. RES-014 made the
 	// queue work but left it pull-only (audit finding 1, §4.4); this closes that
 	// gap. The recipients are exactly the moderators who can action this report

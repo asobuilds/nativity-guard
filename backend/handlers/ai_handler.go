@@ -12,6 +12,37 @@ import (
 	"security-solution/services"
 )
 
+func extractAndStoreLocalIntelligence(sourceType, sourceID, text, defaultState, defaultLGA string) {
+	if text == "" {
+		return
+	}
+	go func() {
+		ai := services.NewAIService()
+		ext, err := ai.ExtractLocalIntelligence(text)
+		if err != nil || ext == nil || ext.Fact == "" {
+			return
+		}
+		state := ext.State
+		if state == "" {
+			state = defaultState
+		}
+		lga := ext.LGA
+		if lga == "" {
+			lga = defaultLGA
+		}
+		intel := models.LocalIntelligence{
+			State:      state,
+			LGA:        lga,
+			Fact:       ext.Fact,
+			Category:   ext.Category,
+			Confidence: ext.Confidence,
+			SourceType: sourceType,
+			SourceID:   sourceID,
+		}
+		_ = config.DB.Create(&intel).Error
+	}()
+}
+
 // callerContext builds a short factual paragraph about the caller that goes
 // into the assistant's system prompt so replies can reference their area
 // without inventing anything. Deliberately excludes email and phone.
@@ -24,14 +55,32 @@ func callerContext(user *models.User) string {
 		"- Role: " + user.Role,
 	}
 
+	var state, lga string
 	if user.UnitID != nil {
 		var unit models.SecurityUnit
 		if err := config.DB.First(&unit, "id = ?", user.UnitID).Error; err == nil {
-			area := unit.LGA
+			state = unit.State
+			lga = unit.LGA
+			area := lga
 			if area == "" {
-				area = unit.State
+				area = state
 			}
 			lines = append(lines, "- Unit: "+unit.Name+" ("+area+")")
+		}
+	}
+
+	var intel []models.LocalIntelligence
+	intelQuery := config.DB.Model(&models.LocalIntelligence{})
+	if state != "" && lga != "" {
+		intelQuery = intelQuery.Where("(state = ? AND lga = ?) OR state = ? OR lga = '' OR state = ''", state, lga, state)
+	} else if state != "" {
+		intelQuery = intelQuery.Where("state = ? OR state = ''", state)
+	}
+	_ = intelQuery.Order("created_at desc").Limit(5).Find(&intel).Error
+	if len(intel) > 0 {
+		lines = append(lines, "- Living Local Intelligence facts:")
+		for _, inf := range intel {
+			lines = append(lines, fmt.Sprintf("    · [%s] %s", inf.Category, inf.Fact))
 		}
 	}
 
