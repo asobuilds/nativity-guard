@@ -63,6 +63,7 @@ func CreateCommunityAlert(c *gin.Context) {
 		Content:   input.Content,
 		Type:      strings.ToLower(strings.TrimSpace(input.Type)),
 		Severity:  input.Severity,
+		UnitID:    userObj.UnitID,
 		Location:  input.Location,
 		Latitude:  input.Latitude,
 		Longitude: input.Longitude,
@@ -96,9 +97,9 @@ func GetCommunityAlerts(c *gin.Context) {
 		if userObj.Role == "citizen" {
 			if userObj.UnitID != nil {
 				query = query.Where(
-					"severity != ? OR location ILIKE ?",
+					"severity != ? OR unit_id = ?",
 					"critical",
-					"%"+userObj.UnitID.String()+"%",
+					*userObj.UnitID,
 				)
 			} else {
 				query = query.Where("severity != ?", "critical")
@@ -176,6 +177,8 @@ func ConfirmAlert(c *gin.Context) {
 //
 //   - The subscriber's category list must include the alert's type
 //     (or "all").
+//   - If the alert is scoped to a unit, only subscribers in that unit
+//     are notified.
 //   - If the subscriber has a location (lat/lng != 0), the alert must
 //     be within the subscriber's radius.
 //   - If the subscriber has turned alert notifications off in their
@@ -191,6 +194,13 @@ func notifyAlertSubscribers(alert models.CommunityAlert) {
 	for _, sub := range subs {
 		if !subscriptionMatchesCategory(sub.Type, alertType) {
 			continue
+		}
+
+		// Unit-scoped alerts stay inside the unit that raised them.
+		if alert.UnitID != nil {
+			if sub.UnitID == nil || *sub.UnitID != *alert.UnitID {
+				continue
+			}
 		}
 
 		hasLocation := sub.Latitude != 0 || sub.Longitude != 0

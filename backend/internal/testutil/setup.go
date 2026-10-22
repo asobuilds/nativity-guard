@@ -104,6 +104,13 @@ func SetupTestDB() error {
 		// Attachment links (RES-020). Needed so the attach path and the
 		// refcount-guarded delete can be exercised against real rows.
 		&models.MediaLink{},
+		// Communication rooms + membership + sync (RES-026).
+		&models.CommunicationRoom{},
+		&models.CommunicationRoomMember{},
+		&models.CommunicationMessage{},
+		&models.VoiceCall{},
+		&models.CommunicationSync{},
+		&models.CommunityAlert{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
 	}

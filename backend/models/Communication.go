@@ -62,7 +62,7 @@ type VoiceCall struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	RoomID      uuid.UUID      `gorm:"type:uuid;not null" json:"roomId"`
 	CallerID    uuid.UUID      `gorm:"type:uuid;not null" json:"callerId"`
-	ReceiverID  uuid.UUID      `gorm:"type:uuid" json:"receiverId"`
+	ReceiverID  *uuid.UUID     `gorm:"type:uuid" json:"receiverId,omitempty"`
 	CallType    string         `gorm:"default:group" json:"callType"`   // group, private, emergency
 	Status      string         `gorm:"default:initiated" json:"status"` // initiated, ringing, connected, ended, missed
 	StartedAt   *time.Time     `json:"startedAt"`
