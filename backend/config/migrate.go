@@ -42,6 +42,7 @@ func AutoMigrateAll() error {
 
 		&models.AIAnalysis{},
 		&models.LocalIntelligence{},
+		&models.LocalIntelligenceVote{},
 		&models.Alert{},
 		&models.Announcement{},
 		&models.News{},

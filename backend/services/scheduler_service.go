@@ -94,6 +94,7 @@ func (s *SchedulerService) RunOnce() {
 	s.EscalateStaleAppeals()
 	s.RecomputeMinorStatuses()
 	s.PurgeDeletedAccounts()
+	s.ExpireLocalIntelligence()
 
 	// Record the last successful completion so the health check can
 	// detect a stalled scheduler.
@@ -295,6 +296,28 @@ func (s *SchedulerService) AnnounceOfficerOfTheWeek() {
 // users with a super-admin-granted MinorExceptionGranted to avoid surprises.
 func (s *SchedulerService) RecomputeMinorStatuses() {
 	NewAgeService().RecomputeMinorStatuses()
+}
+
+// ExpireLocalIntelligence hard-deletes facts whose TTL window has closed,
+// along with their upvotes. LocalIntelligence is soft-deleted by default, so
+// Unscoped() is required to actually remove the row. Idempotent.
+func (s *SchedulerService) ExpireLocalIntelligence() {
+	now := time.Now().UTC()
+
+	expired := config.DB.Model(&models.LocalIntelligence{}).Select("id").
+		Where("expires_at IS NOT NULL AND expires_at <= ?", now)
+	if err := config.DB.
+		Where("intel_id IN (?)", expired).
+		Delete(&models.LocalIntelligenceVote{}).Error; err != nil {
+		log.Printf("scheduler: failed to delete expired intelligence votes: %v", err)
+	}
+
+	if err := config.DB.
+		Unscoped().
+		Where("expires_at IS NOT NULL AND expires_at <= ?", now).
+		Delete(&models.LocalIntelligence{}).Error; err != nil {
+		log.Printf("scheduler: failed to expire local intelligence: %v", err)
+	}
 }
 
 // PurgeDeletedAccounts permanently removes accounts whose deletion grace

@@ -18,7 +18,7 @@ import { useMapPOIs, type POICategory } from '@/hooks/useMapPOIs'
 import { useDirections } from '@/hooks/useDirections'
 import { useAuth } from '@/auth/AuthContext'
 import { CASE_STATUS_ORDER, statusMeta } from '@/lib/status'
-import { relativeTime } from '@/lib/format'
+import { formatDistance, formatDuration, relativeTime } from '@/lib/format'
 import type { Case } from '@/types/api'
 
 const MAP_HEIGHT = '78vh'
@@ -317,7 +317,8 @@ export function MapPage() {
                         </p>
                         {directionsRoute.data ? (
                           <p className="mt-1 text-sm font-medium text-signal">
-                            {directionsRoute.data.summary}
+                            {formatDistance(directionsRoute.data.distanceMeters)} · ETA{' '}
+                            {formatDuration(directionsRoute.data.durationSeconds)}
                           </p>
                         ) : directionsRoute.isLoading ? (
                           <p className="mt-1 text-sm text-ink-faint">Calculating route…</p>
