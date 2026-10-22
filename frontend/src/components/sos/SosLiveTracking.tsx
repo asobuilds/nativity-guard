@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { MapPin, Radio } from 'lucide-react'
 import { api } from '@/lib/apiClient'
@@ -9,6 +9,8 @@ import { MapView } from '@/components/map/MapView'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Field'
+import { directionsQueryOptions, type Route } from '@/hooks/useDirections'
+import { formatDistance, formatDuration } from '@/lib/format'
 
 interface LocationResponse { responders: ResponderLocation[]; serverTime: string }
 interface Candidate { userId: string; firstName: string; lastName: string }
@@ -106,6 +108,25 @@ export function SosLiveTracking({ sos }: { sos: SosDetail }) {
   const serverNow = locations.data ? Date.parse(locations.data.serverTime) + Math.max(0, now - locations.data.receivedAt) : now
   const fresh = active && !locations.isError ? freshResponderLocations(locations.data?.responders ?? [], serverNow) : []
   const validSOS = Number.isFinite(sos.latitude) && Math.abs(sos.latitude) <= 90 && Number.isFinite(sos.longitude) && Math.abs(sos.longitude) <= 180
+  const sosPoint = validSOS ? { lat: sos.latitude, lng: sos.longitude } : null
+
+  // One route per fresh responder, keyed on the same coords the map uses.
+  // Positions that have not moved keep their cached route (5-minute staleTime).
+  const routeQueries = useQueries({
+    queries: fresh.map((responder) =>
+      directionsQueryOptions({ lat: responder.latitude, lng: responder.longitude }, sosPoint),
+    ),
+  })
+  const primaryRoute = useMemo(() => {
+    const routes = routeQueries
+      .map((query) => query.data)
+      .filter((route): route is Route => Boolean(route))
+    if (routes.length === 0) return null
+    return routes.reduce((best, route) =>
+      route.distanceMeters < best.distanceMeters ? route : best,
+    )
+  }, [routeQueries])
+
   const markers = [
     ...(validSOS ? [{ id: 'sos', latitude: sos.latitude, longitude: sos.longitude, label: 'SOS location', detail: 'Reported emergency location', color: '#f97316' }] : []),
     ...fresh.map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, label: sos.responders.find((unit) => unit.unitId === r.unitId)?.unit?.name ?? 'Responding unit', detail: `Shared location · accuracy ${Math.round(r.accuracy)} m`, color: '#22c55e' })),
@@ -113,10 +134,17 @@ export function SosLiveTracking({ sos }: { sos: SosDetail }) {
   return (
     <Card className="space-y-4 p-5">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-ink"><MapPin className="size-4 text-signal" />Responder locations</h2>
-      <MapView mode="view" cases={[]} units={[]} markers={markers} height="36vh" showHotspots={false} showUnitCoverage={false} allowLocate={false} label="SOS and shared responder locations" />
+      <MapView mode="view" cases={[]} units={[]} markers={markers} route={primaryRoute} height="36vh" showHotspots={false} showUnitCoverage={false} allowLocate={false} label="SOS and shared responder locations" />
       <p role="status" className="text-xs text-ink-muted">{!active ? 'This SOS is closed. Live location sharing has ended.' : locations.isError ? 'Locations could not be refreshed. Previous positions are hidden.' : locations.isLoading ? 'Checking shared locations…' : fresh.length === 0 ? 'No recent shared location. A unit accepting an SOS does not confirm that an officer is travelling.' : 'Orange: SOS location. Green: shared responder position. Updates refresh every 10 seconds; positions expire after two minutes.'}</p>
       {locations.isError && active ? <Button size="sm" variant="ghost" onClick={() => void locations.refetch()}>Retry locations</Button> : null}
-      {fresh.length > 0 ? <ul className="space-y-1 text-xs text-ink-muted">{fresh.map((r) => <li key={r.id}>{sos.responders.find((unit) => unit.unitId === r.unitId)?.unit?.name ?? 'Responding unit'} · {r.latitude.toFixed(5)}, {r.longitude.toFixed(5)} · accuracy {Math.round(r.accuracy)} m</li>)}</ul> : null}
+      {fresh.length > 0 ? <ul className="space-y-1 text-xs text-ink-muted">{fresh.map((r, i) => {
+        const name = sos.responders.find((unit) => unit.unitId === r.unitId)?.unit?.name ?? 'Responding unit'
+        const route = routeQueries[i]?.data
+        const calculating = routeQueries[i]?.isLoading
+        return <li key={r.id}>
+          {name} · {route ? <>{formatDistance(route.distanceMeters)} away · ETA {formatDuration(route.durationSeconds)}</> : calculating ? 'Calculating ETA…' : 'ETA unavailable'} · {r.latitude.toFixed(5)}, {r.longitude.toFixed(5)} · accuracy {Math.round(r.accuracy)} m
+        </li>
+      })}</ul> : null}
       {sos.responders.map((r) => <div key={r.id} className="rounded-lg border border-border p-3">
         <p className="text-sm text-ink">{r.unit?.name ?? 'Unit'} · {r.assigned ? 'Officer assigned' : 'Awaiting officer assignment'}</p>
         {r.canManage && active ? <OfficerAssignment sos={sos} responder={r} /> : null}

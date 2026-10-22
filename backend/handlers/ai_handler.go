@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,46 @@ import (
 	"security-solution/models"
 	"security-solution/services"
 )
+
+// How long an extracted fact stays "alive". Higher-confidence facts live
+// longer; anything stale is filtered out of prompts and listings, then
+// hard-deleted by the scheduler at the end of its window.
+const (
+	localIntelTTLHigh   = 72 * time.Hour
+	localIntelTTLMedium = 48 * time.Hour
+	localIntelTTLLow    = 24 * time.Hour
+)
+
+func localIntelTTL(confidence string) time.Duration {
+	switch strings.ToLower(strings.TrimSpace(confidence)) {
+	case "high":
+		return localIntelTTLHigh
+	case "low":
+		return localIntelTTLLow
+	default:
+		return localIntelTTLMedium
+	}
+}
+
+// callerUnit loads the unit a user belongs to, or nil when unknown.
+func callerUnit(user *models.User) *models.SecurityUnit {
+	if user == nil || user.UnitID == nil {
+		return nil
+	}
+	var unit models.SecurityUnit
+	if err := config.DB.First(&unit, "id = ?", user.UnitID).Error; err != nil {
+		return nil
+	}
+	return &unit
+}
+
+// callerArea resolves the state/LGA a user's facts should be scoped to.
+func callerArea(user *models.User) (state, lga string) {
+	if unit := callerUnit(user); unit != nil {
+		return unit.State, unit.LGA
+	}
+	return "", ""
+}
 
 func extractAndStoreLocalIntelligence(sourceType, sourceID, text, defaultState, defaultLGA string) {
 	if text == "" {
@@ -30,6 +71,7 @@ func extractAndStoreLocalIntelligence(sourceType, sourceID, text, defaultState, 
 		if lga == "" {
 			lga = defaultLGA
 		}
+		expiresAt := time.Now().UTC().Add(localIntelTTL(ext.Confidence))
 		intel := models.LocalIntelligence{
 			State:      state,
 			LGA:        lga,
@@ -38,6 +80,7 @@ func extractAndStoreLocalIntelligence(sourceType, sourceID, text, defaultState, 
 			Confidence: ext.Confidence,
 			SourceType: sourceType,
 			SourceID:   sourceID,
+			ExpiresAt:  &expiresAt,
 		}
 		_ = config.DB.Create(&intel).Error
 	}()
@@ -56,27 +99,25 @@ func callerContext(user *models.User) string {
 	}
 
 	var state, lga string
-	if user.UnitID != nil {
-		var unit models.SecurityUnit
-		if err := config.DB.First(&unit, "id = ?", user.UnitID).Error; err == nil {
-			state = unit.State
-			lga = unit.LGA
-			area := lga
-			if area == "" {
-				area = state
-			}
-			lines = append(lines, "- Unit: "+unit.Name+" ("+area+")")
+	if unit := callerUnit(user); unit != nil {
+		state = unit.State
+		lga = unit.LGA
+		area := lga
+		if area == "" {
+			area = state
 		}
+		lines = append(lines, "- Unit: "+unit.Name+" ("+area+")")
 	}
 
 	var intel []models.LocalIntelligence
-	intelQuery := config.DB.Model(&models.LocalIntelligence{})
+	intelQuery := config.DB.Model(&models.LocalIntelligence{}).
+		Where("expires_at IS NULL OR expires_at > ?", time.Now().UTC())
 	if state != "" && lga != "" {
 		intelQuery = intelQuery.Where("(state = ? AND lga = ?) OR state = ? OR lga = '' OR state = ''", state, lga, state)
 	} else if state != "" {
 		intelQuery = intelQuery.Where("state = ? OR state = ''", state)
 	}
-	_ = intelQuery.Order("created_at desc").Limit(5).Find(&intel).Error
+	_ = intelQuery.Order("upvotes desc, created_at desc").Limit(5).Find(&intel).Error
 	if len(intel) > 0 {
 		lines = append(lines, "- Living Local Intelligence facts:")
 		for _, inf := range intel {

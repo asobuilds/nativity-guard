@@ -78,6 +78,24 @@ export function durationBetween(
   return `${days}d ${hours % 24}h`
 }
 
+/** Road distance, e.g. "850 m" or "12.4 km". */
+export function formatDistance(meters: number | undefined | null): string {
+  if (meters == null || !Number.isFinite(meters) || meters < 0) return '—'
+  if (meters < 1000) return `${Math.round(meters)} m`
+  return `${(meters / 1000).toFixed(1)} km`
+}
+
+/** Travel time, e.g. "8 min", "1 h 12 min". */
+export function formatDuration(seconds: number | undefined | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '—'
+  const mins = Math.floor(seconds / 60)
+  if (mins < 1) return 'less than a minute'
+  if (mins < 60) return `${mins} min`
+  const hours = Math.floor(mins / 60)
+  const rem = mins % 60
+  return rem === 0 ? `${hours} h` : `${hours} h ${rem} min`
+}
+
 export function initials(first?: string, last?: string): string {
   const a = first?.trim()?.[0] ?? ''
   const b = last?.trim()?.[0] ?? ''

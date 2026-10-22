@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States'
 import { SosTracker } from '@/components/sos/SosTracker'
 import { WeatherChip } from '@/components/weather/WeatherChip'
 import { LiveNewsFeed } from '@/components/news/LiveNewsFeed'
+import { LiveLocalFacts } from '@/components/intel/LiveLocalFacts'
 import { useCases } from '@/hooks/useCases'
 import { useNearbyUnits } from '@/hooks/useUnits'
 import { useLocation } from '@/hooks/useLocation'
@@ -353,6 +354,11 @@ export function CitizenHomePage() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Living Local Intelligence — unexpired facts near the citizen. */}
+      <section className="mt-4">
+        <LiveLocalFacts limit={5} />
+      </section>
 
       {/* Live news — filtered by subscription */}
       <section className="mt-4">

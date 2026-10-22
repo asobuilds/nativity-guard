@@ -40,6 +40,10 @@ func SetupRoutes(router *gin.Engine) {
 		api.POST("/directions", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.PostDirections)
 		api.GET("/map/pois", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetMapPOIs)
 
+		// Living Local Intelligence — unexpired facts and one-vote-per-user.
+		api.GET("/local-intel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLocalIntel)
+		api.POST("/local-intel/:id/upvote", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UpvoteLocalIntel)
+
 		authHandler := handlers.NewAuthHandler()
 		auth := api.Group("/auth")
 		{

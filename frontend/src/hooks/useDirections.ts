@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/apiClient'
 
 export interface RouteStep {
@@ -25,18 +25,18 @@ interface Point {
 }
 
 /**
- * A route between two points. Enabled only when both points are known.
- * Cached for 5 minutes — routes change only when a user picks a new
- * destination.
+ * Query options for a route between two points. Exposed so callers that need
+ * several routes at once (e.g. multiple responders to one SOS) can drive
+ * `useQueries` with the same cache keys and 5-minute staleness.
  */
-export function useDirections(
+export function directionsQueryOptions(
   from: Point | null,
   to: Point | null,
   profile: 'driving' | 'cycling' | 'walking' = 'driving',
 ) {
   const enabled = Boolean(from && to)
 
-  return useQuery({
+  return queryOptions({
     queryKey: [
       'directions',
       from?.lat.toFixed(5),
@@ -58,4 +58,17 @@ export function useDirections(
     staleTime: 5 * 60_000,
     retry: 1,
   })
+}
+
+/**
+ * A route between two points. Enabled only when both points are known.
+ * Cached for 5 minutes — routes change only when a user picks a new
+ * destination.
+ */
+export function useDirections(
+  from: Point | null,
+  to: Point | null,
+  profile: 'driving' | 'cycling' | 'walking' = 'driving',
+) {
+  return useQuery(directionsQueryOptions(from, to, profile))
 }

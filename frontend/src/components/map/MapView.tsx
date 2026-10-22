@@ -341,7 +341,9 @@ export function MapView({
   }
 
   const plotted = mode === 'pick' || mode === 'route' ? [] : allPoints
-  const isRoute = mode === 'route' && route != null
+  // A route can be overlaid on a live view (SOS responder tracking), not just
+  // in the dedicated route mode.
+  const isRoute = route != null
 
   if (tileFailed) {
     return (

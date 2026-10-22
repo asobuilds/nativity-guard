@@ -250,6 +250,79 @@ func TestSendEventReminders_NoReminderForCompletedEvents(t *testing.T) {
 	}
 }
 
+func TestExpireLocalIntelligenceHardDeletes(t *testing.T) {
+	s := services.NewSchedulerService()
+
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	past := time.Now().UTC().Add(-time.Hour)
+	future := time.Now().UTC().Add(time.Hour)
+	expired := models.LocalIntelligence{
+		Fact:       "Expired fact",
+		Category:   "general",
+		Confidence: "low",
+		SourceType: "report",
+		SourceID:   "expired",
+		ExpiresAt:  &past,
+	}
+	live := models.LocalIntelligence{
+		Fact:       "Live fact",
+		Category:   "general",
+		Confidence: "high",
+		SourceType: "report",
+		SourceID:   "live",
+		ExpiresAt:  &future,
+	}
+	never := models.LocalIntelligence{
+		Fact:       "Never expires",
+		Category:   "general",
+		Confidence: "medium",
+		SourceType: "report",
+		SourceID:   "never",
+	}
+	for _, intel := range []*models.LocalIntelligence{&expired, &live, &never} {
+		if err := config.DB.Create(intel).Error; err != nil {
+			t.Fatalf("create intel: %v", err)
+		}
+	}
+	if err := config.DB.Create(&models.LocalIntelligenceVote{
+		IntelID: expired.ID,
+		UserID:  uuid.New(),
+	}).Error; err != nil {
+		t.Fatalf("create vote: %v", err)
+	}
+
+	s.ExpireLocalIntelligence()
+
+	var expiredCount int64
+	if err := config.DB.Unscoped().Model(&models.LocalIntelligence{}).
+		Where("id = ?", expired.ID).Count(&expiredCount).Error; err != nil {
+		t.Fatalf("count expired: %v", err)
+	}
+	if expiredCount != 0 {
+		t.Fatalf("expired fact must be hard-deleted, still found %d row(s)", expiredCount)
+	}
+
+	var liveCount int64
+	if err := config.DB.Model(&models.LocalIntelligence{}).
+		Where("id IN ?", []uuid.UUID{live.ID, never.ID}).Count(&liveCount).Error; err != nil {
+		t.Fatalf("count live: %v", err)
+	}
+	if liveCount != 2 {
+		t.Fatalf("want 2 live facts retained, got %d", liveCount)
+	}
+
+	var voteCount int64
+	if err := config.DB.Model(&models.LocalIntelligenceVote{}).
+		Where("intel_id = ?", expired.ID).Count(&voteCount).Error; err != nil {
+		t.Fatalf("count votes: %v", err)
+	}
+	if voteCount != 0 {
+		t.Fatalf("votes for the expired fact must be removed, got %d", voteCount)
+	}
+}
+
 func ptrTime(t time.Time) *time.Time {
 	return &t
 }
