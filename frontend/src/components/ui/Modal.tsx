@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -24,27 +24,45 @@ export function Modal({
   size?: 'sm' | 'md' | 'lg'
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const headingId = useId()
 
   useEffect(() => {
     if (!open) return
-
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    closeRef.current?.focus()
 
-    // Move focus into the dialog.
-    const focusable = panelRef.current?.querySelector<HTMLElement>(
-      'input, textarea, select, button, [href], [tabindex]:not([tabindex="-1"])',
-    )
-    focusable?.focus()
-
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const focusables = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ) ?? []).filter(el => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0)
+      if (!focusables.length) {
+        event.preventDefault()
+        closeRef.current?.focus()
+        return
+      }
+      const first = focusables[0], last = focusables[focusables.length - 1]
+      if (event.shiftKey && (document.activeElement === first || !panelRef.current?.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !panelRef.current?.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = previousOverflow
+      if (previousFocus?.isConnected) previousFocus.focus()
     }
   }, [open, onClose])
 
@@ -67,7 +85,7 @@ export function Modal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={headingId}
         className={cn(
           'w-full rounded-t-panel border border-border bg-surface shadow-panel sm:rounded-panel',
           widths[size],
@@ -75,12 +93,13 @@ export function Modal({
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h2 id="modal-title" className="text-sm font-semibold text-ink">
+            <h2 id={headingId} className="text-sm font-semibold text-ink">
               {title}
             </h2>
             {description ? <p className="mt-0.5 text-xs text-ink-muted">{description}</p> : null}
           </div>
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Close dialog"

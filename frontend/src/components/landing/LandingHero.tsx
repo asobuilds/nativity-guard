@@ -36,7 +36,7 @@ export function LandingHero({ onActionTrigger, onOpen }: LandingHeroProps) {
       type: 'sos_broadcast',
       title: 'Emergency SOS',
       description: 'In-app SOS requires a verified account and does not guarantee a responder. For immediate emergency help, call 112.',
-      badgeText: 'Verified account required',
+      badgeText: 'Sign-in required',
       badgeVariant: 'emergency',
       returnUrl: '/sos',
     })
@@ -54,7 +54,7 @@ export function LandingHero({ onActionTrigger, onOpen }: LandingHeroProps) {
       <div className="ng-ref-photo" aria-hidden="true" />
       <div className="ng-ref-stage-shade" aria-hidden="true" />
       <div className="ng-ref-stage-content">
-        <span className="ng-ref-eyebrow"><ShieldCheck size={15} strokeWidth={2.2} aria-hidden /> Sovereign Community Safety Infrastructure</span>
+        <span className="ng-ref-eyebrow"><ShieldCheck size={15} strokeWidth={2.2} aria-hidden /> Community Safety & Case Tracking</span>
         <h1 className="ng-ref-headline">
           Your Community.<br />
           Your Safety. <span>Your Voice.</span>

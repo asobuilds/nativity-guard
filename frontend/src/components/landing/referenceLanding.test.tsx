@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { LandingHero } from './LandingHero'
 import { LandingNavbar } from './LandingNavbar'
+import { LandingTrustFooter } from './LandingTrustFooter'
+import { LandingQuickPanel } from './LandingQuickPanel'
 
 describe('Reference landing layout', () => {
   it('keeps exactly the three primary actions and the separate emergency entry', () => {
@@ -39,5 +41,31 @@ describe('Reference landing layout', () => {
     expect(html).toContain('Search case reports')
     expect(html).toContain('href="/explore"')
     expect(html).toContain('Change landing page colours and wallpaper')
+  })
+  it('makes the published policies, privacy rights, and emergency limitations visible', () => {
+    const html = renderToStaticMarkup(
+      <MemoryRouter><LandingTrustFooter /></MemoryRouter>,
+    )
+    expect(html).toContain('About &amp; accountability')
+    expect(html).toContain('href="/about"')
+    expect(html).toContain('href="/terms"')
+    expect(html).toContain('Privacy notice &amp; your rights')
+    expect(html).toContain('not a police force')
+    expect(html).toContain('deletion of personal data')
+    expect(html).toContain('href="tel:112"')
+    expect(html).not.toContain('Government approved')
+  })
+
+  it('labels its public quick-view dialog for assistive technology', () => {
+    const html = renderToStaticMarkup(
+      <LandingQuickPanel title="Safety Map" onClose={vi.fn()}>
+        <p>Map content</p>
+      </LandingQuickPanel>,
+    )
+    expect(html).toContain('role="dialog"')
+    expect(html).toContain('aria-modal="true"')
+    expect(html).toContain('aria-labelledby=')
+    expect(html).toContain('Close Safety Map')
+    expect(html).toContain('Map content')
   })
 })

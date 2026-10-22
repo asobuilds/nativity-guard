@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   CheckCircle2,
@@ -90,7 +90,7 @@ export function ActionAuthModal({
       open={open}
       onClose={onClose}
       size="md"
-      title={isEmergency ? 'Official Action: Emergency SOS' : currentAction.title}
+      title={isEmergency ? 'Sign in for Emergency SOS' : currentAction.title}
     >
       <div className="space-y-4">
         {/* Context explanation banner */}
@@ -109,9 +109,9 @@ export function ActionAuthModal({
           <div className="space-y-1">
             <p className="font-semibold">{currentAction.description}</p>
             <p className="text-ink-muted leading-relaxed">
-              Nativity Guard is a legally auditable system. An authenticated account ensures that
-              case tracking, emergency dispatch, and community governance remain verified and
-              protected against false reports.
+              An account lets you submit reports or SOS requests and follow available status updates.
+              Signing in does not send an SOS, verify an incident, or guarantee a response.
+              For urgent help in Nigeria, call 112.
             </p>
           </div>
         </div>
@@ -123,6 +123,10 @@ export function ActionAuthModal({
           </div>
         ) : null}
 
+        <p className="text-xs leading-relaxed text-ink-muted">
+          Read our <Link className="text-signal underline" to="/terms" onClick={onClose}>Terms and Privacy Notice</Link>
+          {' '}or learn <Link className="text-signal underline" to="/about" onClick={onClose}>about the team and platform</Link> before joining.
+        </p>
         {/* Quick Login Form */}
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           {error ? (
@@ -169,7 +173,7 @@ export function ActionAuthModal({
               className="w-full justify-center"
             >
               <Lock className="size-4" aria-hidden />
-              <span>{isEmergency ? 'Authorize Emergency SOS' : 'Sign In & Continue'}</span>
+              <span>Sign In & Continue</span>
             </Button>
 
             <div className="relative my-2 text-center text-xs text-ink-faint">
@@ -182,7 +186,7 @@ export function ActionAuthModal({
               onClick={handleGoToSignup}
               className="w-full justify-center"
             >
-              <span>Create Verified Citizen Account</span>
+              <span>Create a Citizen Account</span>
               <ArrowRight className="size-4" aria-hidden />
             </Button>
           </div>
