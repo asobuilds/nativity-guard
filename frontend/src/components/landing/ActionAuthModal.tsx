@@ -32,7 +32,7 @@ export function ActionAuthModal({
   const { login } = useAuth()
   const navigate = useNavigate()
   const { notify } = useToast()
-  const { saveAction, clearAction } = usePendingAction()
+  const { saveAction } = usePendingAction()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -64,7 +64,6 @@ export function ActionAuthModal({
         navigate(currentAction.returnUrl, { state: currentAction.payload })
       }
     } catch (cause) {
-      clearAction()
       if (cause instanceof ApiError) {
         setError(cause.message || 'Invalid credentials. Please try again.')
       } else {
@@ -110,19 +109,12 @@ export function ActionAuthModal({
           <div className="space-y-1">
             <p className="font-semibold">{currentAction.description}</p>
             <p className="text-ink-muted leading-relaxed">
-              Signing in connects a report or SOS request to your account and helps protect private
-              records. An in-app SOS is not a confirmed emergency dispatch or response. Read the
-              published <Link to="/terms" className="text-signal underline">Terms and Privacy Notice</Link>
-              {' '}before sharing personal information.
+              An account lets you submit reports or SOS requests and follow available status updates.
+              Signing in does not send an SOS, verify an incident, or guarantee a response.
+              For urgent help in Nigeria, call 112.
             </p>
           </div>
         </div>
-
-        {isEmergency ? (
-          <p className="text-sm text-ink-muted">
-            For immediate emergency assistance in Nigeria, call <a href="tel:112" className="font-semibold text-emergency underline">112</a>.
-          </p>
-        ) : null}
 
         {currentAction.badgeText ? (
           <div className="flex items-center gap-2 rounded-md bg-surface-hi px-3 py-1.5 text-xs text-ink-muted">
@@ -131,6 +123,10 @@ export function ActionAuthModal({
           </div>
         ) : null}
 
+        <p className="text-xs leading-relaxed text-ink-muted">
+          Read our <Link className="text-signal underline" to="/terms" onClick={onClose}>Terms and Privacy Notice</Link>
+          {' '}or learn <Link className="text-signal underline" to="/about" onClick={onClose}>about the team and platform</Link> before joining.
+        </p>
         {/* Quick Login Form */}
         <form onSubmit={handleSubmit} className="space-y-3 pt-1">
           {error ? (
@@ -177,7 +173,7 @@ export function ActionAuthModal({
               className="w-full justify-center"
             >
               <Lock className="size-4" aria-hidden />
-              <span>{isEmergency ? 'Authorize Emergency SOS' : 'Sign In & Continue'}</span>
+              <span>Sign In & Continue</span>
             </Button>
 
             <div className="relative my-2 text-center text-xs text-ink-faint">
@@ -190,7 +186,7 @@ export function ActionAuthModal({
               onClick={handleGoToSignup}
               className="w-full justify-center"
             >
-              <span>Create Verified Citizen Account</span>
+              <span>Create a Citizen Account</span>
               <ArrowRight className="size-4" aria-hidden />
             </Button>
           </div>

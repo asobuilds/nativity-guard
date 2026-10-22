@@ -101,7 +101,7 @@ export function TermsPage() {
         </p>
       </header>
 
-      <Card className="space-y-2 p-5">
+      <Card className="space-y-2 p-5" id="terms">
         <h2 className="text-lg font-semibold text-ink">{terms.title}</h2>
         <p className="text-xs text-ink-faint">
           Version {terms.version} · Effective{' '}
@@ -112,7 +112,7 @@ export function TermsPage() {
         </div>
       </Card>
 
-      <Card className="space-y-2 p-5">
+      <Card className="space-y-2 p-5" id="privacy">
         <h2 className="text-lg font-semibold text-ink">{privacy.title}</h2>
         <p className="text-xs text-ink-faint">
           Version {privacy.version} · Effective{' '}
