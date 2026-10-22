@@ -91,11 +91,11 @@ func AutoMigrateAll() error {
 		&models.SocialMediaPost{},
 
 		&models.CommunicationRoom{},
+		&models.CommunicationRoomMember{},
 		&models.CommunicationMessage{},
 		&models.VoiceCall{},
 		&models.CommunicationSync{},
 
-		&models.ChatMessage{},
 		&models.Report{},
 		&models.MediaLink{},
 		&models.CaseReview{},

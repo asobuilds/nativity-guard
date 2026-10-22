@@ -439,6 +439,9 @@ func SetupRoutes(router *gin.Engine) {
 			commGroup.PUT("/calls/:id/end", middleware.AuthMiddleware(), handlers.EndCall)
 			commGroup.POST("/sync", middleware.AuthMiddleware(), handlers.SyncMessages)
 			commGroup.GET("/rooms/:roomId/sync-status", middleware.AuthMiddleware(), handlers.GetSyncStatus)
+			commGroup.GET("/rooms/:roomId/members", middleware.AuthMiddleware(), handlers.GetRoomMembers)
+			commGroup.POST("/rooms/:roomId/members", middleware.AuthMiddleware(), handlers.AddRoomMember)
+			commGroup.DELETE("/rooms/:roomId/members/:userId", middleware.AuthMiddleware(), handlers.RemoveRoomMember)
 		}
 
 		sms := api.Group("/sms")

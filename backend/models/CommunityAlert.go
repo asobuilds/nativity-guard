@@ -14,6 +14,7 @@ type CommunityAlert struct {
 	Content     string         `gorm:"type:text;not null" json:"content"`
 	Type        string         `gorm:"not null" json:"type"`           // security, weather, health, community, emergency
 	Severity    string         `gorm:"default:medium" json:"severity"` // low, medium, high, critical
+	UnitID      *uuid.UUID     `gorm:"type:uuid;index" json:"unitId,omitempty"`
 	Location    string         `json:"location"`
 	Latitude    float64        `json:"latitude"`
 	Longitude   float64        `json:"longitude"`

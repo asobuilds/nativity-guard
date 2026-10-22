@@ -33,9 +33,19 @@ func CreateRoom(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
+	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only unit admins can create communication rooms"})
+		return
+	}
+
 	unitID, err := uuid.Parse(input.UnitID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	if userObj.Role != "super_admin" && (userObj.UnitID == nil || *userObj.UnitID != unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only create rooms for your unit"})
 		return
 	}
 
@@ -61,6 +71,17 @@ func CreateRoom(c *gin.Context) {
 		return
 	}
 
+	// The creator becomes the first member of the room.
+	now := time.Now()
+	member := models.CommunicationRoomMember{
+		RoomID:   room.ID,
+		UserID:   userObj.ID,
+		Role:     "admin",
+		Status:   "active",
+		JoinedAt: &now,
+	}
+	config.DB.Create(&member)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Room created successfully",
 		"room":    room,
@@ -85,6 +106,11 @@ func GetRooms(c *gin.Context) {
 
 	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view rooms"})
+		return
+	}
+
+	if userObj.Role != "super_admin" && (userObj.UnitID == nil || *userObj.UnitID != id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this unit"})
 		return
 	}
 
@@ -150,6 +176,10 @@ func SendMessage(c *gin.Context) {
 		Priority:    input.Priority,
 	}
 
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
+
 	if err := config.DB.Create(&message).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
@@ -181,6 +211,10 @@ func GetMessages(c *gin.Context) {
 		return
 	}
 	userObj := user.(*models.User)
+
+	if !roomAccessAllowed(c, userObj, id) {
+		return
+	}
 
 	// Get last sync time from query
 	lastSync := c.Query("lastSync")
@@ -248,16 +282,23 @@ func InitiateCall(c *gin.Context) {
 		return
 	}
 
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
+
 	if input.CallType == "" {
 		input.CallType = "group"
 	}
 
-	var receiverID uuid.UUID
+	// Group calls have no single receiver, so the field stays NULL.
+	var receiverID *uuid.UUID
 	if input.ReceiverID != "" {
 		parsed, err := uuid.Parse(input.ReceiverID)
-		if err == nil {
-			receiverID = parsed
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid receiver ID"})
+			return
 		}
+		receiverID = &parsed
 	}
 
 	now := time.Now()
@@ -304,11 +345,12 @@ func EndCall(c *gin.Context) {
 		return
 	}
 
-	_, exists := c.Get("user")
+	user, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+	userObj := user.(*models.User)
 
 	var call models.VoiceCall
 	if err := config.DB.First(&call, "id = ?", id).Error; err != nil {
@@ -317,6 +359,10 @@ func EndCall(c *gin.Context) {
 	}
 
 	now := time.Now()
+	if call.CallerID != userObj.ID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the call initiator can end the call"})
+		return
+	}
 	call.Status = "ended"
 	call.EndedAt = &now
 	if call.StartedAt != nil {
@@ -365,6 +411,10 @@ func SyncMessages(c *gin.Context) {
 	roomID, err := uuid.Parse(input.RoomID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+
+	if !roomAccessAllowed(c, userObj, roomID) {
 		return
 	}
 
@@ -435,6 +485,10 @@ func GetSyncStatus(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
+	if !roomAccessAllowed(c, userObj, id) {
+		return
+	}
+
 	var sync models.CommunicationSync
 	if err := config.DB.Where("user_id = ? AND room_id = ?", userObj.ID, id).Order("created_at desc").First(&sync).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -452,14 +506,185 @@ func GetSyncStatus(c *gin.Context) {
 	})
 }
 
+// GetRoomMembers lists the members of a room.
+func GetRoomMembers(c *gin.Context) {
+	roomIDStr := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+
+	userObj, ok := getAuthUser(c)
+	if !ok {
+		return
+	}
+
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
+
+	var members []models.CommunicationRoomMember
+	if err := config.DB.Preload("User").Where("room_id = ?", roomID).Order("created_at asc").Find(&members).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch room members"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"members": members})
+}
+
+// AddRoomMember adds a user to a room.
+func AddRoomMember(c *gin.Context) {
+	roomIDStr := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+
+	var input struct {
+		UserID string `json:"userId" binding:"required"`
+		Role   string `json:"role"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	targetID, err := uuid.Parse(input.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	userObj, ok := getAuthUser(c)
+	if !ok {
+		return
+	}
+
+	if !canManageRoom(c, userObj, roomID) {
+		return
+	}
+
+	// The member must belong to the room's unit.
+	var room models.CommunicationRoom
+	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+
+	var target models.User
+	if err := config.DB.First(&target, "id = ?", targetID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if target.UnitID == nil || *target.UnitID != room.UnitID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "User does not belong to this room's unit"})
+		return
+	}
+
+	role := input.Role
+	if role == "" {
+		role = "member"
+	}
+	if role != "admin" && role != "member" && role != "observer" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid member role"})
+		return
+	}
+
+	// Re-adding an existing member reactivates the row.
+	var existing models.CommunicationRoomMember
+	if err := config.DB.Where("room_id = ? AND user_id = ?", roomID, targetID).First(&existing).Error; err == nil {
+		now := time.Now()
+		existing.Status = "active"
+		existing.Role = role
+		existing.LeftAt = nil
+		existing.JoinedAt = &now
+		if err := config.DB.Save(&existing).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add room member"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Member added to room", "member": existing})
+		return
+	}
+
+	now := time.Now()
+	member := models.CommunicationRoomMember{
+		RoomID:   roomID,
+		UserID:   targetID,
+		Role:     role,
+		Status:   "active",
+		JoinedAt: &now,
+	}
+	if err := config.DB.Create(&member).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add room member"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Member added to room", "member": member})
+}
+
+// RemoveRoomMember removes a user from a room.
+func RemoveRoomMember(c *gin.Context) {
+	roomIDStr := c.Param("roomId")
+	roomID, err := uuid.Parse(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
+		return
+	}
+
+	targetID, err := uuid.Parse(c.Param("userId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	userObj, ok := getAuthUser(c)
+	if !ok {
+		return
+	}
+
+	if !canManageRoom(c, userObj, roomID) {
+		return
+	}
+
+	var member models.CommunicationRoomMember
+	if err := config.DB.Where("room_id = ? AND user_id = ?", roomID, targetID).First(&member).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Member not found"})
+		return
+	}
+
+	now := time.Now()
+	member.Status = "removed"
+	member.LeftAt = &now
+	if err := config.DB.Save(&member).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove room member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Member removed from room", "member": member})
+}
+
 // Helper functions
+
+// createEmergencyAlert raises a unit-scoped emergency alert for the room the
+// message was sent in. The alert inherits the room's unit so it is never
+// broadcast across unit boundaries.
 func createEmergencyAlert(roomID uuid.UUID, message models.CommunicationMessage) {
-	// Create emergency alert for all members in the room
+	var room models.CommunicationRoom
+	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil {
+		return
+	}
+
 	alert := models.CommunityAlert{
 		Title:     "🚨 Emergency Communication",
 		Content:   message.Message,
 		Type:      "emergency",
 		Severity:  "critical",
+		UnitID:    &room.UnitID,
+		Location:  room.Name,
 		Status:    "active",
 		CreatedBy: message.SenderID,
 	}
