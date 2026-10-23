@@ -28,9 +28,10 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-17 | P0 | Four fictional community warnings presented as live, verified advisories | Patched – awaiting QA | No fake local warnings in live panels; empty state until real authenticated feed wired |
 | NG-18 | P1 | Public blueprint fallback embeds detailed security, encryption, and governance claims despite API failure | Open | Audit claims, remove unverifiable fallback, expose data failure transparently |
 | NG-19 | P1 | AI safety sandbox contains simulation language implying validated officer credentials/services | Open | Label scenario examples; remove unverified badges and officer/response guarantees |
-| NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Open | Do not represent a default map center as visitor GPS; show location not chosen |
+| NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Patched – awaiting QA | Do not represent a default map center as visitor GPS; show location not chosen |
 | NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
+| NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
 
 ## Sequencing
 
@@ -70,6 +71,8 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 11. All nested dialogs: Escape closes only topmost modal; focus remains inside active modal and returns to correct opener.
 12. About, Terms, Privacy, links and controls: functional on desktop and mobile.
 13. Hero verified-unit count: only real active and platform-verified API records used.
+14. Report from map without location permission: never sends Nigeria-center coordinates as if captured.
+15. Run npm audit and investigate transitive vulnerabilities in a separate reviewed dependency update.
 
 ## Verification status at authoring
 
