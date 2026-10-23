@@ -14,7 +14,7 @@ Isolated GitHub Actions workflow: `.github/workflows/landing-browser-smoke.yml`,
 - Public units API failure: no sample patrols should appear
 - Mobile width 375px: navigation drawer opens and reaches the case tracking panel
 
-All API responses are **isolated CI fixtures**. The test runs against locally served source, not production, and does not call real users, security units or bank services. The unit name and policy text are clearly marked browser-test fixtures.
+The seven core smoke checks run against locally served source with **isolated API fixtures**; they never contact real users, security units or bank services. A **separate non-blocking, read-only** check visits the existing deployed homepage, opens/closes the public map panel, and reads the public About and Terms pages. That check does not send reports, trigger SOS, sign in or initiate payments. A failed live check is recorded separately and must not be presented as a passing production verification.
 
 ## Manual acceptance requirements (still mandatory)
 
