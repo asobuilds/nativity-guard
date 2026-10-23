@@ -51,3 +51,23 @@ jobs:
           }
           console.log('Review source dependency paths and deploy reachability before changes.')
           NODE
+      - name: Audit production-only dependency tree
+        run: |
+          npm audit --omit=dev --json > production-audit.json || true
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          let report
+          try { report = JSON.parse(readFileSync('production-audit.json', 'utf8')) }
+          catch { console.error('Production audit did not return valid JSON'); process.exit(1) }
+          if (report.error || !report.vulnerabilities) {
+            console.error('Production audit unavailable:', report.error?.code ?? 'unknown')
+            process.exit(1)
+          }
+          console.log('PRODUCTION_DEPENDENCY_AUDIT:', JSON.stringify(report.metadata?.vulnerabilities ?? {}))
+          for (const [name, item] of Object.entries(report.vulnerabilities)) {
+            console.log('PRODUCTION_VULNERABILITY:', JSON.stringify({
+              package: name, severity: item.severity,
+              affectedRange: item.range, fixAvailable: item.fixAvailable,
+            }))
+          }
+          NODE
