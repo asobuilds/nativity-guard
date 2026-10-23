@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { registerDialogLayer } from '@/components/ui/dialogLayer'
 
 interface LandingQuickPanelProps {
   title: string
@@ -7,64 +8,35 @@ interface LandingQuickPanelProps {
   children: ReactNode
 }
 
-/** Accessible quick-view for existing public features; no API actions are sent
- * by opening or closing the dialog. Focus is contained and restored on close.
- */
+/** Public feature quick-view. Dialog layers share one keyboard/focus manager. */
 export function LandingQuickPanel({ title, onClose, children }: LandingQuickPanelProps) {
   const dialogRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const headingId = useId()
 
   useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-
-      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ) ?? []).filter(el => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0)
-      if (!focusable.length) {
-        event.preventDefault()
-        closeRef.current?.focus()
-        return
-      }
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
-      previousFocus?.focus()
-    }
-  }, [onClose])
+    const dialog = dialogRef.current
+    if (!dialog) return
+    return registerDialogLayer(dialog, () => onCloseRef.current(), closeRef.current)
+  }, [])
 
   return (
     <div className="ng-ref-modal-backdrop" onMouseDown={event => {
-      if (event.currentTarget === event.target) onClose()
+      if (event.currentTarget === event.target) onCloseRef.current()
     }}>
-      <section ref={dialogRef} className="ng-ref-modal-window" role="dialog"
-        aria-modal="true" aria-labelledby={headingId}>
+      <section
+        ref={dialogRef}
+        className="ng-ref-modal-window"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        tabIndex={-1}
+      >
         <div className="ng-ref-modal-heading">
           <h2 id={headingId}>{title}</h2>
-          <button ref={closeRef} type="button" onClick={onClose}
+          <button ref={closeRef} type="button" onClick={() => onCloseRef.current()}
             aria-label={'Close ' + title}><X size={24} aria-hidden /></button>
         </div>
         <div className="ng-ref-modal-content">{children}</div>
