@@ -59,7 +59,7 @@ jobs:
           NG_LIVE_ORIGIN: https://nativityguard.com
         run: node scripts/landing-live-readonly.mjs
       - name: Save failure screenshot
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: landing-browser-smoke-failure
