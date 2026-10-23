@@ -33,9 +33,8 @@ export function AboutPage() {
                 Not an emergency service
               </p>
               <p className="mt-1 text-sm text-ink-muted">
-                If you need immediate help, call your local emergency number. A report or SOS sent
-                through this platform may be delayed, may not be received, and does not guarantee
-                a response.
+                For urgent help in Nigeria, call 112. A report or SOS sent through this platform
+                may be delayed, may not be received, and does not guarantee a response.
               </p>
             </div>
           </div>
@@ -46,10 +45,9 @@ export function AboutPage() {
         <CardHeader title="What Nativity Guard is" />
         <CardBody className="space-y-3 text-sm text-ink-muted">
           <p>
-            Nativity Guard is a coordination platform. It connects residents with independent
-            community security units operating in their area. A report filed here reaches the unit
-            the reporter chose, appears in that unit's queue, and stays followable from filing to
-            closure — every status change is on the record.
+            Nativity Guard is designed to help residents submit reports to participating community
+            security units and follow available status updates. Actual service coverage, receipt,
+            follow-up, and response depend on the participating unit and platform availability.
           </p>
           <p>
             It is not a security provider, an emergency service, a police force, or a dispatch
@@ -68,7 +66,8 @@ export function AboutPage() {
               </span>
               <span>
                 <strong className="text-ink">You file a report.</strong> A short description, a
-                pin on the map, the unit you want to handle it. You get a tracking ID immediately.
+                pin on the map, and an available receiving unit. A tracking ID is issued if the
+                submission succeeds.
               </span>
             </li>
             <li className="flex gap-3">
@@ -76,8 +75,8 @@ export function AboutPage() {
                 2
               </span>
               <span>
-                <strong className="text-ink">The unit triages it.</strong> An officer is assigned
-                and reviews it. You get a notification when the status changes.
+                <strong className="text-ink">A unit may review it.</strong> Depending on local
+                participation and availability, officers may provide case progress updates.
               </span>
             </li>
             <li className="flex gap-3">
@@ -85,9 +84,9 @@ export function AboutPage() {
                 3
               </span>
               <span>
-                <strong className="text-ink">Closure is approved.</strong> The officer who worked
-                the case cannot mark it finished. An administrator approves it or sends it back
-                with a reason. Two people, always.
+                <strong className="text-ink">Review and closure.</strong> Participating units
+                may apply administrative review rules before marking a case closed. Do not assume
+                that opening a report triggers a guaranteed review or physical response.
               </span>
             </li>
           </ol>
@@ -126,13 +125,18 @@ export function AboutPage() {
         <CardHeader title="Who runs Nativity Guard" />
         <CardBody className="space-y-3 text-sm text-ink-muted">
           <p>
-            The platform is operated by the Nativity Guard team. Data controller contact details
-            will be published here once legal review is complete.
+            Nativity Guard is the name used by this platform. A registered legal-entity name,
+            formal business address, and named data-controller contact have not yet been
+            independently verified for publication. Until those details are published, this page
+            should not be treated as proof of registration, accreditation, or regulatory compliance.
           </p>
           <p>
             Read the full{' '}
-            <Link to="/terms" className="text-signal hover:underline">
-              Terms of Service and Privacy Notice
+            <Link to="/terms#terms" className="text-signal hover:underline">
+              Terms of Service
+            </Link>{' '}and{' '}
+            <Link to="/terms#privacy" className="text-signal hover:underline">
+              Privacy Notice and data rights information
             </Link>
             .
           </p>
@@ -143,8 +147,8 @@ export function AboutPage() {
         <CardHeader title="Support and feedback" />
         <CardBody className="space-y-3 text-sm text-ink-muted">
           <p>
-            If you have a question, found a bug, or want to suggest an improvement, the fastest
-            way to reach the team is through the in-app feedback form.
+            The in-app feedback form requires sign-in. The support email below is published as a
+            contact channel, but successful mailbox delivery has not been independently checked.
           </p>
           <div className="flex flex-col gap-2 pt-1">
             <Link
@@ -152,7 +156,7 @@ export function AboutPage() {
               className="inline-flex items-center gap-2 text-signal hover:underline"
             >
               <MessageSquare className="size-4" aria-hidden />
-              Send feedback or report a problem
+              Sign in to send feedback or report a problem
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
             <a
@@ -172,9 +176,9 @@ export function AboutPage() {
           <div className="flex items-start gap-3">
             <Users className="mt-0.5 size-5 shrink-0 text-signal" aria-hidden />
             <p>
-              Community security units are registered and verified individually. Availability
-              varies by area — open the{' '}
-              <Link to="/map" className="text-signal hover:underline">
+              Availability of participating units varies by area. Platform verification is not
+              government approval. Open the{' '}
+              <Link to="/#map" className="text-signal hover:underline">
                 safety map
               </Link>{' '}
               to see which units operate near you.
