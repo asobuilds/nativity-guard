@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { LayerStack, wrappedTabTarget } from './dialogLayer'
+import { describe, expect, it, vi } from 'vitest'
+import { LayerStack, registerDialogLayer, wrappedTabTarget } from './dialogLayer'
 
 describe('dialog focus layer ordering', () => {
   it('routes top-layer handling to the newest open dialog', () => {
@@ -47,5 +47,88 @@ describe('keyboard navigation within active dialog', () => {
     expect(wrappedTabTarget(items, 'first-field', false)).toBeNull()
     expect(wrappedTabTarget(items, 'first-field', true)).toBeNull()
     expect(wrappedTabTarget([], null, false)).toBeNull()
+  })
+})
+
+describe('nested Escape and focus behavior (simulated DOM)', () => {
+  it('closes only the child, restores parent focus, and unlocks scrolling last', () => {
+    const events = new Map<string, (event: KeyboardEvent) => void>()
+    let active: FakeElement | null = null
+
+    class FakeElement {
+      inert = false
+      isConnected = true
+      children: FakeElement[] = []
+      attrs = new Map<string, string>()
+
+      focus() { active = this }
+      setAttribute(name: string, value: string) { this.attrs.set(name, value) }
+      removeAttribute(name: string) { this.attrs.delete(name) }
+      getAttribute(name: string) { return this.attrs.get(name) ?? null }
+      hasAttribute(name: string) { return this.attrs.has(name) }
+      getClientRects() { return [1] }
+      querySelectorAll() { return this.children }
+    }
+
+    const doc = {
+      body: { style: { overflow: 'auto' } },
+      get activeElement() { return active },
+      addEventListener: (name: string, handler: (event: KeyboardEvent) => void) => {
+        events.set(name, handler)
+      },
+      removeEventListener: (name: string) => { events.delete(name) },
+    }
+    vi.stubGlobal('HTMLElement', FakeElement)
+    vi.stubGlobal('document', doc)
+
+    const pageButton = new FakeElement()
+    const parent = new FakeElement()
+    const parentClose = new FakeElement()
+    parent.children = [parentClose]
+    const child = new FakeElement()
+    const childClose = new FakeElement()
+    child.children = [childClose]
+    let parentClosed = 0
+    let childClosed = 0
+    let unregisterParent: (() => void) | null = null
+    let unregisterChild: (() => void) | null = null
+
+    try {
+      pageButton.focus()
+      unregisterParent = registerDialogLayer(parent as unknown as HTMLElement, () => { parentClosed++ }, parentClose as unknown as HTMLElement)
+      expect(active).toBe(parentClose)
+      unregisterChild = registerDialogLayer(child as unknown as HTMLElement, () => { childClosed++ }, childClose as unknown as HTMLElement)
+      expect(parent.inert).toBe(true)
+      expect(parent.getAttribute('aria-hidden')).toBe('true')
+      expect(active).toBe(childClose)
+      expect(doc.body.style.overflow).toBe('hidden')
+
+      const keyEvent = {
+        key: 'Escape',
+        preventDefault: vi.fn(),
+        stopImmediatePropagation: vi.fn(),
+      } as unknown as KeyboardEvent
+      events.get('keydown')?.(keyEvent)
+      expect(childClosed).toBe(1)
+      expect(parentClosed).toBe(0)
+      expect(keyEvent.preventDefault).toHaveBeenCalled()
+
+      unregisterChild()
+      unregisterChild = null
+      expect(parent.inert).toBe(false)
+      expect(parent.getAttribute('aria-modal')).toBe('true')
+      expect(active).toBe(parentClose)
+      expect(doc.body.style.overflow).toBe('hidden')
+
+      unregisterParent()
+      unregisterParent = null
+      expect(doc.body.style.overflow).toBe('auto')
+      expect(active).toBe(pageButton)
+      expect(events.size).toBe(0)
+    } finally {
+      unregisterChild?.()
+      unregisterParent?.()
+      vi.unstubAllGlobals()
+    }
   })
 })
