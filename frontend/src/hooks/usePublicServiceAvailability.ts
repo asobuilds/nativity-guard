@@ -39,7 +39,13 @@ export async function probePublicService(
     })
     if (res.status >= 500) return 'unavailable'
     if (!res.ok) return 'unknown'
-    const payload: unknown = await res.json()
+    let payload: unknown
+    try {
+      payload = await res.json()
+    } catch {
+      // A static HTML fallback is not evidence that the API is down.
+      return 'unknown'
+    }
     if (!payload || typeof payload !== 'object') return 'unknown'
     const record = payload as { status?: unknown; checks?: { database?: { ok?: unknown } } }
     if (record.status === 'down' || record.checks?.database?.ok === false) return 'unavailable'
