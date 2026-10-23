@@ -53,12 +53,19 @@ jobs:
           exit 1
       - name: Test desktop, mobile, dialogs, legal view and failed APIs
         run: node scripts/landing-browser-smoke.mjs
+      - name: Check deployed public pages (read-only, non-blocking)
+        continue-on-error: true
+        env:
+          NG_LIVE_ORIGIN: https://nativityguard.com
+        run: node scripts/landing-live-readonly.mjs
       - name: Save failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: landing-browser-smoke-failure
-          path: frontend/landing-browser-smoke-failure.png
+          path: |
+            frontend/landing-browser-smoke-failure.png
+            frontend/landing-live-readonly-failure.png
           if-no-files-found: ignore
       - name: Show Vite log on failure
         if: failure()
