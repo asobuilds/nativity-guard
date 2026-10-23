@@ -13,6 +13,12 @@ const context = await browser.newContext({
 })
 const page = await context.newPage()
 const observedPolicyRequests = []
+page.on('request', request => {
+  if (request.url().includes('/terms/citizen')) {
+    const url = new URL(request.url())
+    observedPolicyRequests.push({ phase: 'started', host: url.host, path: url.pathname, kind: url.searchParams.get('kind') || 'terms' })
+  }
+})
 page.on('response', response => {
   if (response.url().includes('/terms/citizen')) {
     observedPolicyRequests.push({ status: response.status(), url: new URL(response.url()).pathname })
