@@ -1,0 +1,55 @@
+name: landing-browser-smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked application dependencies
+        run: npm ci
+      - name: Install isolated browser QA driver
+        run: npm install --no-save --package-lock=false --no-audit playwright@1.56.1
+      - name: Install Chromium for real-browser testing
+        run: npx playwright install --with-deps chromium
+      - name: Start isolated Vite server
+        env:
+          VITE_USE_MOCKS: 'false'
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/ng-landing-vite.log 2>&1 &
+          for attempt in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              echo "Vite ready on localhost"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ng-landing-vite.log
+          exit 1
+      - name: Test desktop, mobile, dialogs, legal view and failed APIs
+        run: node scripts/landing-browser-smoke.mjs
+      - name: Save failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-browser-smoke-failure
+          path: frontend/landing-browser-smoke-failure.png
+          if-no-files-found: ignore
+      - name: Show Vite log on failure
+        if: failure()
+        run: cat /tmp/ng-landing-vite.log || true
