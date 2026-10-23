@@ -82,6 +82,15 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 - See `docs/LEGAL_PUBLICATION_VERIFICATION_CHECKLIST.md` for evidence/owner requirements.
 - Previous Phase 1–2 PR #124 merged to main at 2026-10-23 09:15 UTC and Render frontend deployment is live. Phase 3 changes are on **separate draft PR #125**, not production.
 
+## Production browser observation — 23 October 2026
+
+- Real, read-only Chrome smoke testing of `https://nativityguard.com` confirmed the homepage, public Safety Map quick-view and About page loaded.
+- The existing production `/terms` route rendered its heading but stayed on **"Loading…" for more than 20 seconds**. Neither policy request had settled during the test window; the cause is not yet established.
+- **Release blocker:** cannot claim public Terms and Privacy contents are reliably available on production. This remains open until actual document content and versions load in a live browser.
+- Phase 3 draft PR #125 now renders each policy independently, displays a clear warning after 8 seconds, aborts a still-pending request after 30 seconds and offers retry. It does not insert made-up legal text.
+- These changes are draft-only until CI, review and deployment; they have **not** repaired the live site yet.
+- Backend availability, frontend API origin settings, DNS and CORS should be checked with actual browser network evidence before claiming a root cause.
+
 ## Manual acceptance matrix
 
 1. Empty /public/units: no patrol organisation or verified badge invented.
