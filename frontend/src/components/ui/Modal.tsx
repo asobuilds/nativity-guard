@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { registerDialogLayer } from './dialogLayer'
 import { cn } from '@/lib/cn'
 
 /**
@@ -26,45 +28,13 @@ export function Modal({
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const headingId = useId()
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
-    if (!open) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
-
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusables = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
-        'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
-      ) ?? []).filter(el => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0)
-      if (!focusables.length) {
-        event.preventDefault()
-        closeRef.current?.focus()
-        return
-      }
-      const first = focusables[0], last = focusables[focusables.length - 1]
-      if (event.shiftKey && (document.activeElement === first || !panelRef.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && (document.activeElement === last || !panelRef.current?.contains(document.activeElement))) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previousOverflow
-      if (previousFocus?.isConnected) previousFocus.focus()
-    }
-  }, [open, onClose])
+    if (!open || !panelRef.current) return
+    return registerDialogLayer(panelRef.current, () => onCloseRef.current(), closeRef.current)
+  }, [open])
 
   if (!open) return null
 
@@ -74,11 +44,11 @@ export function Modal({
     lg: 'max-w-2xl',
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-void/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[110] flex items-end justify-center bg-void/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) onCloseRef.current()
       }}
     >
       <div
@@ -86,8 +56,9 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
+        tabIndex={-1}
         className={cn(
-          'w-full rounded-t-panel border border-border bg-surface shadow-panel sm:rounded-panel',
+          'flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-panel border border-border bg-surface shadow-panel sm:max-h-[calc(100dvh-2rem)] sm:rounded-panel',
           widths[size],
         )}
       >
@@ -101,7 +72,7 @@ export function Modal({
           <button
             ref={closeRef}
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current()}
             aria-label="Close dialog"
             className="rounded-md p-1 text-ink-muted transition-colors hover:bg-surface-hi hover:text-ink"
           >
@@ -109,12 +80,13 @@ export function Modal({
           </button>
         </header>
 
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
 
         {footer ? (
           <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">{footer}</footer>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
