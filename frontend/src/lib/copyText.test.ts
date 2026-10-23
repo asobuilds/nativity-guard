@@ -5,7 +5,8 @@ describe('copyText', () => {
   it('reports success only after the browser confirms the write', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     expect(await copyText('123', { writeText })).toBe(true)
-    expect(writeText).toHaveBeenCalledExactlyOnceWith('123')
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(writeText).toHaveBeenCalledWith('123')
   })
 
   it('returns false when permissions reject or the API is missing', async () => {
