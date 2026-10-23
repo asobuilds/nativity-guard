@@ -17,8 +17,7 @@
 ## Data-preserving recovery: existing database only
 
 1. Sign in to the existing Render workspace.
-2. Open the existing database, not a new empty instance:
-   https://dashboard.render.com/d/dpg-dapn6bg473hc73cb8vq0-a
+2. From the Render Dashboard, open the existing `nativityguard-db` database, not a new empty instance.
 3. In its **Plan** or compute-plan settings, select a supported paid Postgres plan and review the price before approving the change.
 4. Verify that the **existing** database returns to `available` / `active` status. Do not delete it or rotate connection credentials as a first troubleshooting step.
 5. Confirm the backend can connect again and its `/health` endpoint responds. Only after the database is available should a service restart/redeploy be considered if needed.
