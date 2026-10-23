@@ -31,7 +31,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Patched – awaiting QA | Do not represent a default map center as visitor GPS; show location not chosen |
 | NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
-| NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
+| NG-23 | P1 | 6 npm advisories in development/test tools; production-only audit reported 0 | Triaged – dependency upgrades pending | Review Vitest 5.0.5 major-version upgrade path, regenerate lockfile with npm, rerun full and prod audits and CI; no forced upgrades |
 
 ## Sequencing
 
@@ -89,3 +89,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 ## Verification status at authoring
 
 GitHub source was inspected; Render showed a live frontend deployment on 2026-10-22. The live website and backend routes could not be accessed from this audit environment. Code changes on this branch do **not** prove the production deployment has been updated. CI, live API verification, external counsel for legal matters and actual browser testing remain outstanding.
+
+## Dependency advisory follow-up (23 October 2026)
+
+Full npm audit: 6 affected packages (3 moderate, 1 high, 2 critical); production-only `npm audit --omit=dev`: **0 reported advisories**. The affected set is tied to Vitest/Vite and their development dependencies, which still need review and upgrades. See `docs/FRONTEND_DEPENDENCY_AUDIT_2026-10-23.md` on the diagnostic PR branch for package names, advisories and release criteria. Browser/device acceptance remains open and these npm audit results do not validate application security.
