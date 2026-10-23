@@ -25,8 +25,18 @@ jobs:
         run: npm ci
       - name: Install isolated browser QA driver
         run: npm install --no-save --package-lock=false --no-audit playwright@1.56.1
-      - name: Install Chromium for real-browser testing
-        run: npx playwright install --with-deps chromium
+      - name: Locate real Chrome, or install Chromium
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_BROWSER_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+            echo "Using preinstalled Google Chrome"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_BROWSER_EXECUTABLE=$(command -v chromium)" >> "$GITHUB_ENV"
+            echo "Using preinstalled Chromium"
+          else
+            echo "No system Chrome found; installing browser-only Playwright Chromium"
+            npx playwright install chromium
+          fi
       - name: Start isolated Vite server
         env:
           VITE_USE_MOCKS: 'false'
