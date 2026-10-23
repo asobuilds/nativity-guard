@@ -29,7 +29,11 @@ const document = kind => ({
   version: 'qa-v1',
 })
 
-const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] })
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_BROWSER_EXECUTABLE || undefined,
+  args: ['--no-sandbox'],
+})
 const context = await browser.newContext({
   viewport: { width: 1365, height: 850 },
   serviceWorkers: 'block',
