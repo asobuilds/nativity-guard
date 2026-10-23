@@ -91,7 +91,7 @@ try {
   await check('Desktop hero renders all three primary actions', async () => {
     await landing()
     assert.equal(await page.locator('.ng-ref-action').count(), 3)
-    assert.equal(await page.getByRole('button', { name: /Emergency SOS/i }).count() > 0, true)
+    assert.match(await page.locator('.ng-ref-sos-bar').innerText(), /Emergency SOS/)
   })
 
   await check('Map dialog Escape closes and removes the hash', async () => {
