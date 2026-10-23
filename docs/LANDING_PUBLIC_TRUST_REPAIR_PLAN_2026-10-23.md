@@ -33,6 +33,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
 | NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
 | NG-24 | P1 | Terms API returned a static acceptance version potentially differing from active Terms document | Patched – awaiting Go regression checks | API response version equals the served active document version; signup acceptance remains consistent |
+| NG-25 | P0 | Existing Render Free Postgres expired on 2026-10-23, is suspended and makes backend fail startup | BLOCKED – recovery requires Render plan change | Upgrade existing database during grace period; preserve records; verify backend/API health before merges |
 
 ## Sequencing
 
@@ -90,6 +91,14 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 - Phase 3 draft PR #125 now renders each policy independently, displays a clear warning after 8 seconds, aborts a still-pending request after 30 seconds and offers retry. It does not insert made-up legal text.
 - These changes are draft-only until CI, review and deployment; they have **not** repaired the live site yet.
 - Backend availability, frontend API origin settings, DNS and CORS should be checked with actual browser network evidence before claiming a root cause.
+
+## P0 infrastructure blocker — database expired
+
+As of 2026-10-23, Nativity Guard's existing Render Free Postgres instance is suspended after expiration (suspender: billing). Backend startup repeatedly fails while resolving the database's internal hostname. The live public Terms page was observed stuck on a loading indicator because both terms requests remained pending. This is not resolved by a frontend PR.
+
+Render documentation allows a 14-day grace period to upgrade an expired Free database before deletion of its data. Recovery of the existing database and verification of backend health take priority over all other PR merges. No replacement database has been created.
+
+See `docs/RENDER_POSTGRES_EXPIRATION_RECOVERY_2026-10-23.md` for data-preserving recovery steps. The current connected Render tool does not offer changing the database compute plan; a workspace operator must use Render's dashboard. Do not place database secrets in the issue tracker.
 
 ## Manual acceptance matrix
 
