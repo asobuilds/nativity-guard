@@ -66,7 +66,7 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
     onActionTrigger({
       type: 'report_incident',
       title: 'Submit a Community Incident Report',
-      description: 'Describe what you saw and attach supporting media. Your report enters a participating unit's review queue, where available.',
+      description: 'Describe what you saw and attach supporting media. Your report enters a participating unit queue for review, where available.',
       returnUrl: '/report',
     })
   }
