@@ -190,17 +190,21 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   }, [focusPoint, locationLabel, approximatePoint])
 
   function handleReportAtLocation() {
-    // A picked point wins, then a GPS fix, then the approximate area, and
-    // only then the centre of the country.
-    const lat = pickedCoord ? pickedCoord[0] : (userLat ?? focusPoint?.[0] ?? 9.082)
-    const lng = pickedCoord ? pickedCoord[1] : (userLng ?? focusPoint?.[1] ?? 8.6753)
+    // Never replace a missing visitor location with Nigeria's map-center coordinates.
+    const lat = pickedCoord?.[0] ?? userLat ?? focusPoint?.[0] ?? null
+    const lng = pickedCoord?.[1] ?? userLng ?? focusPoint?.[1] ?? null
+    const hasLocation = lat !== null && lng !== null
     onActionTrigger({
       type: 'report_incident',
       title: 'File Incident Report',
-      description: `Authenticate to submit an official incident report${locationLabel ? ` near ${locationLabel}` : ''}. Your coordinates will be pinned.`,
-      badgeText: locationLabel ? `Pinned Location: ${locationLabel}` : 'Coordinates captured',
+      description: hasLocation
+        ? 'Sign in to begin a report. Review the selected location before submitting.'
+        : 'Sign in to begin a report. Choose the incident location on the reporting form.',
+      badgeText: hasLocation
+        ? approximatePoint ? 'Approximate area selected — confirm before reporting' : 'Map location selected'
+        : 'Incident location not yet selected',
       returnUrl: '/report',
-      payload: { lat, lng, locationLabel },
+      payload: hasLocation ? { lat, lng, locationLabel } : {},
     })
   }
 
