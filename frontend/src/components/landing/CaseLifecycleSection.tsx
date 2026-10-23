@@ -26,7 +26,7 @@ export interface CaseLifecycleSectionProps {
 }
 
 export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionProps) {
-  const { data: cases = [] } = usePublicCases()
+  const { data: cases = [], isError: casesError } = usePublicCases()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<CaseStatus | 'all'>('all')
@@ -92,8 +92,7 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
           <div>
             <h3 className="text-base font-semibold text-ink">Find a Report</h3>
             <p className="mt-0.5 text-xs text-ink-muted">
-              Enter an official tracking reference (e.g.{' '}
-              <span className="font-mono text-signal">NG-2026-00194821</span>) to check public progress.
+              Enter the tracking reference from your own report to check public updates.
             </p>
           </div>
 
@@ -123,7 +122,11 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
         {/* Search Results Display */}
         {searchQuery.trim() ? (
           <div className="mt-4 border-t border-border pt-4">
-            {searchResult ? (
+            {casesError ? (
+              <p role="alert" className="rounded-lg border border-warn/30 p-4 text-xs text-warn">
+                Public case lookup is unavailable. Please try again later; no sample case results are shown.
+              </p>
+            ) : searchResult ? (
               <div className="rounded-lg border border-signal/30 bg-signal/5 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -183,6 +186,10 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
           </div>
         ) : null}
       </Card>
+
+      {casesError ? (
+        <p role="alert" className="mt-4 text-xs text-warn">Public case records could not be loaded from the service.</p>
+      ) : null}
 
       {/* Full workflow is available on demand; tracking is the primary task. */}
       <details className="group mt-6 rounded-xl border border-border bg-surface/60">

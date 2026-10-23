@@ -36,7 +36,7 @@ interface UnitBankAccount {
 }
 
 export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySectionProps) {
-  const { data: units = [] } = usePublicUnits()
+  const { data: units = [], isError: unitsError, isPending: unitsLoading } = usePublicUnits()
   const { data: states = [] } = useGeoStates()
   const { notify } = useToast()
 
@@ -48,12 +48,14 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
   const [activeDonationUnit, setActiveDonationUnit] = useState<SecurityUnit | null>(null)
   const [bankAccounts, setBankAccounts] = useState<UnitBankAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const [accountsError, setAccountsError] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const filteredUnits = useMemo(() => {
     const q = query.trim().toLowerCase()
     return units
       .filter((u) => {
+        if (u.status !== 'active') return false
         if (selectedState !== 'all' && u.state?.toLowerCase() !== selectedState.toLowerCase()) {
           return false
         }
@@ -73,8 +75,10 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
   }, [units, query, selectedState, sortBy])
 
   async function handleOpenDonation(unit: SecurityUnit) {
+    if (!unit.isVerified) return
     setActiveDonationUnit(unit)
     setLoadingAccounts(true)
+    setAccountsError(false)
     setBankAccounts([])
     try {
       const res = await api.get<{ accounts: UnitBankAccount[] }>(
@@ -82,15 +86,8 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
       )
       setBankAccounts(res.accounts || [])
     } catch {
-      setBankAccounts([
-        {
-          id: 'acc-fallback',
-          bankName: 'First Bank of Nigeria',
-          accountNumber: '3098124571',
-          accountName: `${unit.name} Security Fund`,
-          isDefault: true,
-        },
-      ])
+      setBankAccounts([])
+      setAccountsError(true)
     } finally {
       setLoadingAccounts(false)
     }
@@ -133,14 +130,14 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
             <Building2 className="size-3.5 text-signal" aria-hidden />
-            Verified Operational Units
+            Public security unit directory
           </span>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
             Community Security Units Directory
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            Inspect autonomous community patrol groups, vigilante units, and neighborhood safety
-            associations. Support their boots-on-the-ground operations directly.
+            Browse units published by Nativity Guard. Verification is a platform status,
+            not government approval. Check a unit's identity before engaging.
           </p>
         </div>
 
@@ -209,6 +206,14 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
         </div>
       </Card>
 
+      {unitsError ? (
+        <p role="alert" className="mt-4 text-sm text-warn">Unable to load units from the service. No sample organisations are shown.</p>
+      ) : unitsLoading ? (
+        <p role="status" className="mt-4 text-sm text-ink-muted">Loading published units...</p>
+      ) : filteredUnits.length === 0 ? (
+        <p role="status" className="mt-4 text-sm text-ink-muted">No published active units match your filters.</p>
+      ) : null}
+
       {/* Unit Cards Grid */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {filteredUnits.map((unit) => (
@@ -217,7 +222,7 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
               <div className="flex items-start justify-between gap-1">
                 <span className="inline-flex items-center gap-1 rounded-full bg-ok/10 px-2 py-0.5 text-[10px] font-semibold text-ok ring-1 ring-ok/30">
                   <ShieldCheck className="size-3" aria-hidden />
-                  Verified
+                  {unit.isVerified ? 'Platform-verified' : 'Not verified'}
                 </span>
                 <span className="text-[10px] text-ink-faint tabular">
                   {unit.operationalRadius} km radius
@@ -260,9 +265,10 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
                 block
                 className="text-xs"
                 onClick={() => handleOpenDonation(unit)}
+                disabled={!unit.isVerified}
                 icon={<CreditCard className="size-3.5" />}
               >
-                Donate Directly
+                {unit.isVerified ? 'View donation details' : 'Donation unavailable'}
               </Button>
 
               <div className="grid grid-cols-2 gap-1.5">
@@ -301,8 +307,8 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
             <div className="rounded-lg border border-ok/30 bg-ok/10 p-3.5 text-xs text-ink">
               <p className="font-semibold text-ok">Direct-to-Unit Financial Model</p>
               <p className="mt-1 text-ink-muted leading-relaxed">
-                Nativity Guard never intercepts community contributions. Your transfer goes directly
-                to the official verified bank account maintained by {activeDonationUnit.name}.
+                Any details below come from the platform's unit record. Confirm ownership directly
+                with {activeDonationUnit.name} before making any transfer.
               </p>
             </div>
 
@@ -321,7 +327,7 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
                       </span>
                       {account.isDefault ? (
                         <span className="rounded bg-ok/20 px-1.5 py-0.5 text-[9px] font-bold text-ok">
-                          Official Account
+                          Primary listed account
                         </span>
                       ) : null}
                     </div>
@@ -364,7 +370,9 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
               </div>
             ) : (
               <p className="py-4 text-center text-xs text-ink-muted">
-                No bank accounts currently published by this unit.
+                {accountsError
+                  ? 'Bank details could not be loaded. Do not transfer money using unverified details.'
+                  : 'No bank account details are currently published by this unit.'}
               </p>
             )}
 

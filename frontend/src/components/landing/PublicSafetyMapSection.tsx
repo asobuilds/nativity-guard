@@ -32,8 +32,8 @@ export interface PublicSafetyMapSectionProps {
 
 export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSectionProps) {
   const { data: states = [] } = useGeoStates()
-  const { data: units = [] } = usePublicUnits()
-  const { data: publicCases = [] } = usePublicCases()
+  const { data: units = [], isError: unitsError } = usePublicUnits()
+  const { data: publicCases = [], isError: casesError } = usePublicCases()
   // `auto: false` — a visitor is never asked for GPS just by opening the
   // landing page. The position is requested when "Locate My Area" is pressed.
   const {
@@ -190,17 +190,21 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
   }, [focusPoint, locationLabel, approximatePoint])
 
   function handleReportAtLocation() {
-    // A picked point wins, then a GPS fix, then the approximate area, and
-    // only then the centre of the country.
-    const lat = pickedCoord ? pickedCoord[0] : (userLat ?? focusPoint?.[0] ?? 9.082)
-    const lng = pickedCoord ? pickedCoord[1] : (userLng ?? focusPoint?.[1] ?? 8.6753)
+    // Never replace a missing visitor location with Nigeria's map-center coordinates.
+    const lat = pickedCoord?.[0] ?? userLat ?? focusPoint?.[0] ?? null
+    const lng = pickedCoord?.[1] ?? userLng ?? focusPoint?.[1] ?? null
+    const hasLocation = lat !== null && lng !== null
     onActionTrigger({
       type: 'report_incident',
       title: 'File Incident Report',
-      description: `Authenticate to submit an official incident report${locationLabel ? ` near ${locationLabel}` : ''}. Your coordinates will be pinned.`,
-      badgeText: locationLabel ? `Pinned Location: ${locationLabel}` : 'Coordinates captured',
+      description: hasLocation
+        ? 'Sign in to begin a report. Review the selected location before submitting.'
+        : 'Sign in to begin a report. Choose the incident location on the reporting form.',
+      badgeText: hasLocation
+        ? approximatePoint ? 'Approximate area selected — confirm before reporting' : 'Map location selected'
+        : 'Incident location not yet selected',
       returnUrl: '/report',
-      payload: { lat, lng, locationLabel },
+      payload: hasLocation ? { lat, lng, locationLabel } : {},
     })
   }
 
@@ -227,8 +231,8 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
             Live Community Safety Map
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            Explore active security units covering your neighborhood, operational patrol radii, and
-            public incident records across all 36 States and the FCT.
+            Explore published security unit and incident records where available.
+            Displayed records do not imply nationwide coverage.
           </p>
         </div>
 
@@ -265,6 +269,12 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
           ) : null}
         </div>
       </div>
+
+      {(unitsError || casesError) ? (
+        <p role="alert" className="mt-4 rounded-panel border border-warn/30 p-3 text-xs text-warn">
+          Some public map data could not be loaded. No sample incidents or units are substituted.
+        </p>
+      ) : null}
 
       {/* Filter and Control Bar */}
       <Card className="mt-6 p-4">
@@ -369,7 +379,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
                 <div className="flex items-start justify-between gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-ok/10 px-2.5 py-0.5 text-[11px] font-medium text-ok ring-1 ring-ok/30">
                     <ShieldCheck className="size-3.5" aria-hidden />
-                    Verified Unit
+                    {selectedUnit.isVerified ? 'Platform-verified unit' : 'Verification pending'}
                   </span>
                   <span className="text-[11px] text-ink-faint tabular">
                     Radius: {selectedUnit.operationalRadius} km
@@ -390,7 +400,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
                       Active Roster:
                     </span>
                     <span className="font-medium text-ink tabular">
-                      {selectedUnit.totalMembers ?? '12+'} members
+                      {selectedUnit.totalMembers ?? 'Unknown'} members
                     </span>
                   </div>
 
@@ -424,18 +434,19 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
                   variant="secondary"
                   size="sm"
                   block
+                  disabled={!selectedUnit.isVerified}
                   onClick={() =>
                     onActionTrigger({
                       type: 'join_unit',
                       title: `Support ${selectedUnit.name}`,
-                      description: `Community donations go directly to ${selectedUnit.name}'s verified bank account.`,
-                      badgeText: `Direct Bank Donation`,
+                      description: `Donation details, if available, should be verified directly with ${selectedUnit.name} before payment.`,
+                      badgeText: `Published donation details`,
                       returnUrl: `/units/${selectedUnit.id}`,
                     })
                   }
                   icon={<CreditCard className="size-3.5" />}
                 >
-                  Direct Bank Donation
+                  {selectedUnit.isVerified ? 'View donation information' : 'Donation unavailable'}
                 </Button>
               </div>
             </Card>

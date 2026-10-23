@@ -14,37 +14,13 @@ export interface PlatformDonationInfo {
   purpose: string
 }
 
-const FALLBACK_SUPPORTERS: PublicSupporter[] = [
-  {
-    donorName: 'Alhaji Musa D.',
-    amount: 50000,
-    message: 'For the peace and safety of Bwari district.',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 3).toISOString(),
-  },
-  {
-    donorName: 'Anonymous Community Elder',
-    amount: 100000,
-    message: 'To support solar batteries and radios for the night patrol.',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 7).toISOString(),
-  },
-  {
-    donorName: 'Chidinma O.',
-    amount: 25000,
-    message: 'Thank you for protecting our market traders.',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 14).toISOString(),
-  },
-]
-
+/** Empty and unavailable results are not replaced with fictional donations. */
 export function usePublicSupporters() {
   return useQuery({
     queryKey: publicSupporterKeys.supporters,
     queryFn: async () => {
-      try {
-        const res = await api.get<{ supporters: PublicSupporter[] }>('/public/platform/supporters')
-        return res.supporters && res.supporters.length > 0 ? res.supporters : FALLBACK_SUPPORTERS
-      } catch {
-        return FALLBACK_SUPPORTERS
-      }
+      const res = await api.get<{ supporters: PublicSupporter[] }>('/public/platform/supporters')
+      return res.supporters ?? []
     },
     staleTime: 5 * 60_000,
     networkMode: 'offlineFirst',
