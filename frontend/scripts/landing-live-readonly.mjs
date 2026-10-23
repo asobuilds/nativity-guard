@@ -12,6 +12,17 @@ const context = await browser.newContext({
   serviceWorkers: 'block',
 })
 const page = await context.newPage()
+const observedPolicyRequests = []
+page.on('response', response => {
+  if (response.url().includes('/terms/citizen')) {
+    observedPolicyRequests.push({ status: response.status(), url: new URL(response.url()).pathname })
+  }
+})
+page.on('requestfailed', request => {
+  if (request.url().includes('/terms/citizen')) {
+    observedPolicyRequests.push({ url: new URL(request.url()).pathname, failure: request.failure()?.errorText })
+  }
+})
 const checked = []
 async function verify(name, action) {
   await action()
@@ -56,6 +67,8 @@ try {
   console.log(`Live read-only checks passed: ${checked.length}`)
 } catch (error) {
   console.error('LIVE READ-ONLY CHECK FAILED after:', checked.join(', '))
+  console.error('Observed policy requests:', JSON.stringify(observedPolicyRequests))
+  console.error('Rendered public page:', (await page.locator('main').innerText().catch(() => 'No main found')).slice(0, 700))
   console.error(error)
   await page.screenshot({ path: 'landing-live-readonly-failure.png', fullPage: true }).catch(() => {})
   process.exitCode = 1
