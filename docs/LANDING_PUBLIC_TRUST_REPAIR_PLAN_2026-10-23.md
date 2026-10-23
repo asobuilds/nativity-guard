@@ -13,7 +13,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-02 | P0 | Unit donation modal substitutes a specific bank account on API failure | Patched – awaiting QA | On error, show no bank details and clear warning; do not enable donation for unverified units |
 | NG-03 | P0 | Fictional supporter wall and donations shown as confirmed | Patched – awaiting QA | Only server records appear; no data/error states disclosed |
 | NG-04 | P0 | SOS demo claims automatic dispatch, responder arrival, live GPS, benchmarks, and guarantees without independent evidence | Patched – awaiting QA | Guidance explicitly states non-emergency-service status; sign-in not confused with dispatch; call 112 advised |
-| NG-05 | P1 | Nested donation dialogs may allow a single Escape press to close both child and parent; focus may leak | Open | Automated keyboard test + manual nested-modal check on desktop and mobile |
+| NG-05 | P1 | Nested donation dialogs may allow a single Escape press to close both child and parent; focus may leak | Patched – awaiting browser QA | Shared dialog stack, child portal, topmost Escape/Tab manager and unit tests; manual desktop/mobile checks remain |
 | NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Open | Both /terms documents load when API works; transparent failure state; published versions confirmed |
 | NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Open | Publish verified entity, contact and responsible controller details after legal review |
 | NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Review | Substantiate every strong statement or mark as a design goal; no false guarantees |
@@ -55,6 +55,18 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 ### Phase 4 — sign-in readiness
 - Only after Phases 1–3 are reviewed, continue sign-in UX refactor.
 - **Done when:** CI, deployment health checks and real-device smoke tests pass.
+
+## Phase 2 implementation notes
+
+- The public quick panel and shared app Modal now register with a centralized dialog stack.
+- Shared keyboard handling directs Escape and Tab only to the topmost open dialog.
+- Child Modal renders in a body portal above the landing quick panel, preventing nested clipping.
+- Background dialogs become inert and `aria-hidden` until the top dialog closes.
+- Focus returns to the parent dialog's action trigger before the parent scroll lock is released.
+- Focus management does not restart solely because an inline close callback changes identity.
+- Mobile shared modal now scrolls within dynamic viewport height (`dvh`), with overscroll containment.
+- New Vitest coverage checks order, Tab wrapping and a simulated nested Escape/focus/scroll sequence.
+- Still required: real browser inspection on Chrome, Firefox, mobile Chrome and Safari; check repeated open/close, nested donate modal, Back/Forward and touch/keyboard behavior.
 
 ## Manual acceptance matrix
 
