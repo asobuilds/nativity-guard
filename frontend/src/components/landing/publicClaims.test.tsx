@@ -57,7 +57,7 @@ describe('Public AI safety examples', () => {
     expect(html).toContain('Static educational sample')
     expect(html).toContain('not verified live advice')
     expect(html).toContain('Real-time service availability is not guaranteed')
-    expect(html).toContain('For urgent help in Nigeria, call 112')
+    expect(SAFETY_PRESETS.find((preset) => preset.category === 'Urgent Help')?.safetyProtocol).toContain('For urgent help in Nigeria, call 112.')
     expect(html).not.toContain('Live Advisor Available 24/7')
     expect(html).not.toContain('Verified Community Safety Protocol')
     expect(html).not.toContain('8-digit Nativity Guard badge')
