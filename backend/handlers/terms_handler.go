@@ -37,7 +37,7 @@ func GetTermsForRole(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{
         "document": doc,
-        "version":  content.TermsVersion,
+        "version":  doc.Version,
     })
 }
 
