@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/Button'
 import {
   usePlatformDonationInfo,
   usePublicSupporters,
-  type PlatformDonationInfo,
 } from '@/hooks/usePublicSupporters'
 import type { ActionContext } from './types'
 
