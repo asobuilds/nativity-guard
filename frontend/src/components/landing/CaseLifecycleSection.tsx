@@ -65,8 +65,8 @@ export function CaseLifecycleSection({ onActionTrigger }: CaseLifecycleSectionPr
   function handleReportNew() {
     onActionTrigger({
       type: 'report_incident',
-      title: 'File an Official Incident Report',
-      description: 'Describe what you saw, attach media evidence, and dispatch to your local security unit queue.',
+      title: 'Submit a Community Incident Report',
+      description: 'Describe what you saw and attach supporting media. Your report enters a participating unit queue for review, where available.',
       returnUrl: '/report',
     })
   }

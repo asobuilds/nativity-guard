@@ -6,6 +6,29 @@ import { LandingHero } from './LandingHero'
 import { LandingNavbar } from './LandingNavbar'
 import { LandingTrustFooter } from './LandingTrustFooter'
 import { LandingQuickPanel } from './LandingQuickPanel'
+import { CommunityAlertsSection } from './CommunityAlertsSection'
+import { panelFromHash, PANEL_TO_HASH, PANEL_TITLES } from './landingPanels'
+
+describe('Public pop-ups and transparency', () => {
+  it('maintains the original deep links for each quick-view feature', () => {
+    for (const [panel, hash] of Object.entries(PANEL_TO_HASH)) {
+      expect(panelFromHash('#' + hash)).toBe(panel)
+      expect(PANEL_TITLES[panel as keyof typeof PANEL_TITLES]).toBeTruthy()
+    }
+    expect(panelFromHash('#track')).toBe('track')
+    expect(panelFromHash('#unknown')).toBeNull()
+    expect(panelFromHash('#%E0%A4%A')).toBeNull()
+  })
+
+  it('never presents illustrative community notices as live verified emergencies', () => {
+    const html = renderToStaticMarkup(<CommunityAlertsSection onActionTrigger={vi.fn()} />)
+    expect(html).toContain('Alert Preview')
+    expect(html).toContain('Demonstration only')
+    expect(html).toContain('not live notices')
+    expect(html).not.toContain('Live Verified Security Advisories')
+    expect(html).not.toContain('Severe Flash Flood Warning along Gurara River')
+  })
+})
 
 describe('Reference landing layout', () => {
   it('keeps exactly the three primary actions and the separate emergency entry', () => {

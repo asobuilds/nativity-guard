@@ -47,6 +47,7 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
   // Direct Bank Donation Modal State
   const [activeDonationUnit, setActiveDonationUnit] = useState<SecurityUnit | null>(null)
   const [bankAccounts, setBankAccounts] = useState<UnitBankAccount[]>([])
+  const [bankAccountsError, setBankAccountsError] = useState<string | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
@@ -76,31 +77,31 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
     setActiveDonationUnit(unit)
     setLoadingAccounts(true)
     setBankAccounts([])
+    setBankAccountsError(null)
     try {
       const res = await api.get<{ accounts: UnitBankAccount[] }>(
         `/public/units/${unit.id}/bank-accounts`
       )
       setBankAccounts(res.accounts || [])
     } catch {
-      setBankAccounts([
-        {
-          id: 'acc-fallback',
-          bankName: 'First Bank of Nigeria',
-          accountNumber: '3098124571',
-          accountName: `${unit.name} Security Fund`,
-          isDefault: true,
-        },
-      ])
+      // Never invent payment details when the public banking endpoint is unavailable.
+      setBankAccounts([])
+      setBankAccountsError('Account details are temporarily unavailable. No payment information can be shown or verified right now.')
     } finally {
       setLoadingAccounts(false)
     }
   }
 
-  function handleCopy(text: string, key: string) {
-    void navigator.clipboard.writeText(text)
-    setCopiedKey(key)
-    notify('Account number copied to clipboard', 'success')
-    setTimeout(() => setCopiedKey(null), 2500)
+  async function handleCopy(text: string, key: string) {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      notify('Account number copied to clipboard', 'success')
+      setTimeout(() => setCopiedKey(null), 2500)
+    } catch {
+      notify('Cannot copy on this device. Please select the number manually.', 'error')
+    }
   }
 
   function handleEnlist(unit: SecurityUnit) {
@@ -301,13 +302,17 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
             <div className="rounded-lg border border-ok/30 bg-ok/10 p-3.5 text-xs text-ink">
               <p className="font-semibold text-ok">Direct-to-Unit Financial Model</p>
               <p className="mt-1 text-ink-muted leading-relaxed">
-                Nativity Guard never intercepts community contributions. Your transfer goes directly
-                to the official verified bank account maintained by {activeDonationUnit.name}.
+                Account details below are supplied by the listed unit. Independently confirm
+                the payee and bank information with the unit before transferring money.
               </p>
             </div>
 
             {loadingAccounts ? (
-              <p className="py-6 text-center text-xs text-ink-muted">Loading verified bank details...</p>
+              <p className="py-6 text-center text-xs text-ink-muted">Loading unit-listed bank details...</p>
+            ) : bankAccountsError ? (
+              <p role="alert" className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">
+                {bankAccountsError}
+              </p>
             ) : bankAccounts.length > 0 ? (
               <div className="space-y-3">
                 {bankAccounts.map((account) => (

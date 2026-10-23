@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ActionAuthModal } from '@/components/landing/ActionAuthModal'
 import { LANDING_FEATURES, LandingNavbar, type LandingPanel } from '@/components/landing/LandingNavbar'
 import { LandingToolContent } from '@/components/landing/LandingToolContent'
+import { LandingTrustFooter } from '@/components/landing/LandingTrustFooter'
 import { readLandingAppearance, saveLandingAppearance } from '@/components/landing/landingAppearance'
 import type { ActionContext } from '@/components/landing/types'
 import '@/components/landing/referenceLanding.css'
@@ -34,7 +35,12 @@ export function ExploreFeaturesPage() {
       <div className="ng-ref-shell">
         <LandingNavbar onOpen={open} onReport={report} appearance={appearance} onAppearanceChange={value => setAppearance(saveLandingAppearance(value))} />
         <main className="ng-ref-features-main">
-          <Link to="/explore" className="ng-ref-feature-back"><ArrowLeft size={18} aria-hidden /> {selected ? 'All features' : 'Explore Nativity Guard'}</Link>
+          <nav className="ng-ref-feature-breadcrumbs" aria-label="Feature navigation">
+            <Link to="/" className="ng-ref-feature-back"><ArrowLeft size={18} aria-hidden /> Back to homepage</Link>
+            {(selected || feature) && (
+              <Link to="/explore" className="ng-ref-feature-back">All features</Link>
+            )}
+          </nav>
           <div className="ng-ref-features-intro">
             <span className="ng-ref-feature-eyebrow"><ShieldCheck size={16} aria-hidden /> Community safety tools</span>
             <h1>{selected ? selected.title : 'Explore everything Nativity Guard offers'}</h1>
@@ -64,6 +70,7 @@ export function ExploreFeaturesPage() {
           )}
           <div className="ng-ref-feature-note"><BookOpen size={18} aria-hidden /><p>Public information may be limited to protect personal privacy. Emergency services: dial <a href="tel:112">112</a>. In-app SOS is not a guaranteed dispatch service.</p></div>
         </main>
+        <LandingTrustFooter />
       </div>
       <ActionAuthModal open={Boolean(activeAction)} action={activeAction} onClose={() => setActiveAction(null)} />
     </div>
