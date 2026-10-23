@@ -197,7 +197,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
     onActionTrigger({
       type: 'report_incident',
       title: 'File Incident Report',
-      description: `Authenticate to submit an official incident report${locationLabel ? ` near ${locationLabel}` : ''}. Your coordinates will be pinned.`,
+      description: `Sign in to submit a community incident report${locationLabel ? ` near ${locationLabel}` : ''}. Your coordinates will be pinned.`,
       badgeText: locationLabel ? `Pinned Location: ${locationLabel}` : 'Coordinates captured',
       returnUrl: '/report',
       payload: { lat, lng, locationLabel },
@@ -208,7 +208,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
     onActionTrigger({
       type: 'join_unit',
       title: `Apply to Join ${unit.name}`,
-      description: `Official unit membership requires a verified citizen account. Background verification applies.`,
+      description: `Unit membership requires account checks. Access depends on the unit's eligibility and approval process.`,
       badgeText: `Unit: ${unit.name} (${unit.lga}, ${unit.state})`,
       returnUrl: `/units/${unit.id}`,
       payload: { unitId: unit.id, unitName: unit.name },
@@ -428,7 +428,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
                     onActionTrigger({
                       type: 'join_unit',
                       title: `Support ${selectedUnit.name}`,
-                      description: `Community donations go directly to ${selectedUnit.name}'s verified bank account.`,
+                      description: `Before donating to ${selectedUnit.name}, independently confirm the payee and bank details with the unit.`,
                       badgeText: `Direct Bank Donation`,
                       returnUrl: `/units/${selectedUnit.id}`,
                     })
@@ -447,7 +447,7 @@ export function PublicSafetyMapSection({ onActionTrigger }: PublicSafetyMapSecti
               <h3 className="mt-3 text-sm font-semibold text-ink">Explore Security Units</h3>
               <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
                 Select any unit marker or use the filters above to view its operational radius,
-                command roster, and direct verified donation details.
+                command roster, and unit-listed donation details.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-1.5">
                 {filteredUnits.slice(0, 3).map((u) => (

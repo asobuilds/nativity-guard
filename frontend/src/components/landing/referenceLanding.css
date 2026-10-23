@@ -472,3 +472,11 @@
 @media (max-width: 650px) {
   .ng-ref-trust-footer { padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px)); }
 }
+
+/* Dedicated feature pages must always offer a visible return to the landing page. */
+.ng-ref-feature-breadcrumbs {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 22px;
+}
+.ng-ref-feature-breadcrumbs a:focus-visible {
+  outline: 3px solid #f4ce78; outline-offset: 3px;
+}

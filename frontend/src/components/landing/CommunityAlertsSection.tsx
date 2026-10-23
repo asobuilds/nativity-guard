@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { relativeTime } from '@/lib/format'
 import type { CommunityAlert } from '@/types/community'
 import type { ActionContext } from './types'
 
@@ -18,49 +17,37 @@ export interface CommunityAlertsSectionProps {
   onActionTrigger: (action: ActionContext) => void
 }
 
+/** Illustrations, never presented as real incidents or active warnings.
+ * Replace with audited backend data before claiming live alert coverage. */
 const SAMPLE_COMMUNITY_ALERTS: CommunityAlert[] = [
   {
-    id: 'alert-01',
-    title: 'Severe Flash Flood Warning along Gurara River Basin',
-    description:
-      'Heavy rainfall upstream has caused river bank overflow along Sector 5 farmland. Residents are advised to avoid night foot crossings.',
+    id: 'demo-weather',
+    title: 'Example: Severe weather advisory',
+    description: 'A verified warning would explain the affected area, source, and recommended precautions.',
     severity: 'urgent',
-    location: 'Bwari Central, Abuja FCT',
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    confirmations: 42,
+    location: 'Example location only',
+    createdAt: '2026-01-01T00:00:00Z',
+    confirmations: 0,
   },
   {
-    id: 'alert-02',
-    title: 'Night Travel Advisory: Bypass Junction Road Maintenance',
-    description:
-      'Heavy construction equipment operating between 10 PM and 5 AM. Security patrol units stationed at North Diversion.',
+    id: 'demo-road',
+    title: 'Example: Local road disruption',
+    description: 'A verified community notice could outline an area closure and where to find official updates.',
     severity: 'caution',
-    location: 'Kubwa Phase 4, Abuja FCT',
-    createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    confirmations: 19,
+    location: 'Example location only',
+    createdAt: '2026-01-01T00:00:00Z',
+    confirmations: 0,
   },
   {
-    id: 'alert-03',
-    title: 'Community Safety Meeting & Security Levy Review',
-    description:
-      'Quarterly gathering of neighborhood residents and registered vigilante leaders at Town Hall this Saturday 10 AM.',
+    id: 'demo-meeting',
+    title: 'Example: Community safety meeting',
+    description: 'An approved announcement could state the meeting location, organizer, and how to participate.',
     severity: 'info',
-    location: 'Sabon Gari, Zaria, Kaduna',
-    createdAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    confirmations: 31,
-  },
-  {
-    id: 'alert-04',
-    title: 'Reported Cattle Encroachment on Community Green Belt',
-    description:
-      'Peace committee mediators deployed to resolve boundary misunderstanding amicably between farming families and herders.',
-    severity: 'caution',
-    location: 'Keffi South, Nasarawa',
-    createdAt: new Date(Date.now() - 3600000 * 30).toISOString(),
-    confirmations: 26,
+    location: 'Example location only',
+    createdAt: '2026-01-01T00:00:00Z',
+    confirmations: 0,
   },
 ]
-
 export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSectionProps) {
   const [severityFilter, setSeverityFilter] = useState<'all' | 'urgent' | 'caution' | 'info'>('all')
 
@@ -74,8 +61,8 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
       type: 'subscribe_alerts',
       title: 'Subscribe to Local Emergency Broadcasts',
       description:
-        'Register your phone number to receive instant SMS dispatches, weather warnings, and local security notices.',
-      badgeText: 'Instant Phone Notifications',
+        'Sign in to manage alert notifications, where available in your community.',
+      badgeText: 'Notification preferences',
       returnUrl: '/subscriptions',
     })
   }
@@ -86,7 +73,7 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
       title: 'Broadcast Community Safety Advisory',
       description:
         'Community security alerts must be verified by local unit command to prevent alarmism.',
-      badgeText: 'Verified Advisory',
+      badgeText: 'Unit review required',
       returnUrl: '/alerts',
     })
   }
@@ -97,14 +84,13 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
             <Radio className="size-3.5 text-signal" aria-hidden />
-            Real-Time Community Alerts
+            Alert Preview — Examples Only
           </span>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Live Verified Security Advisories
+            How Community Advisories May Appear
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            Stay informed with verified alerts broadcast by community elders, unit commanders, and
-            local weather monitors across your LGA.
+            These sample cards demonstrate alert categories. They are not live notices, verified warnings, or reports of real events. Never rely on these examples for safety decisions.
           </p>
         </div>
 
@@ -139,7 +125,7 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
               : 'bg-surface-hi text-ink-muted hover:text-ink'
           }`}
         >
-          All Notices ({SAMPLE_COMMUNITY_ALERTS.length})
+          All Examples ({SAMPLE_COMMUNITY_ALERTS.length})
         </button>
 
         <button
@@ -152,7 +138,7 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
           }`}
         >
           <Flame className="size-3" />
-          Urgent Notices
+          Urgent Examples
         </button>
 
         <button
@@ -219,9 +205,7 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
                     {alert.severity}
                   </span>
 
-                  <span className="text-[11px] text-ink-faint">
-                    {relativeTime(alert.createdAt)}
-                  </span>
+                  <span className="text-[11px] text-ink-faint">Demonstration only</span>
                 </div>
 
                 <h3 className="mt-3 text-sm font-semibold text-ink leading-snug">
@@ -243,7 +227,7 @@ export function CommunityAlertsSection({ onActionTrigger }: CommunityAlertsSecti
                   onClick={handleSubscribe}
                   className="text-signal hover:underline text-[11px] font-medium"
                 >
-                  Receive phone alerts →
+                  Notification settings →
                 </button>
               </div>
             </Card>
