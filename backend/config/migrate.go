@@ -75,6 +75,7 @@ func AutoMigrateAll() error {
 		&models.SystemSettings{},
 		&models.SystemBackup{},
 		&models.UserOnboarding{},
+		&models.UserLocation{},
 
 		&models.PeaceCommittee{},
 		&models.CommitteeMember{},
