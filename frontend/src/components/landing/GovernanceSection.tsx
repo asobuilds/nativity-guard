@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
-  AlertOctagon,
-  CheckCircle2,
+  AlertCircle,
   FileCheck2,
   Scale,
   Shield,
@@ -11,7 +10,6 @@ import {
   Vote,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
 import { usePublicBlueprint } from '@/hooks/usePublicBlueprint'
 import type { ActionContext } from './types'
 
@@ -19,274 +17,145 @@ export interface GovernanceSectionProps {
   onActionTrigger: (action: ActionContext) => void
 }
 
-interface CardinalRule {
-  id: string
-  title: string
-  subtitle: string
-  description: string
-  badge: string
-  icon: typeof Shield
-  safeguard: string
-}
-
-const CARDINAL_RULES: CardinalRule[] = [
+const GOVERNANCE_CONCEPTS = [
   {
-    id: 'compartmentalization',
-    title: 'Unit Access ≠ Case Access',
-    subtitle: 'Zero Unassigned Case Peeking',
-    description:
-      'Being a member of a security unit does not grant access to all neighborhood incidents. Officers only view cases explicitly assigned to their badge (primary, paired, or support).',
-    badge: 'Privacy Shield',
+    title: 'Controlled case access',
+    label: 'Access rules',
+    description: 'Membership in a unit should not, by itself, provide access to every report. Actual permissions depend on backend authorization rules.',
     icon: Shield,
-    safeguard: 'Protects victims against gossip, extortion, and unauthorized dossier snooping.',
   },
   {
-    id: 'two_admin_closure',
-    title: 'Two-Admin Case Closure Rule',
-    subtitle: 'No Unilateral Investigations',
-    description:
-      'An investigating officer cannot mark their own case as closed. Closure requires formal investigative sign-off and approval from at least 2 independent unit administrators.',
-    badge: 'Dual Oversight',
+    title: 'Administrative review',
+    label: 'Review workflow',
+    description: 'A case may progress through officer and administrative review stages. The published workflow is not proof that any individual case received independent review.',
     icon: FileCheck2,
-    safeguard: 'Prevents corrupt payoffs, premature dismissals, and single-point bias.',
   },
   {
-    id: 'democratic_recall',
-    title: 'Democratic Recall & Term Limits',
-    subtitle: 'Removable by Verified Members',
-    description:
-      'Unit leaders serve 12-month staggered terms (max 2 consecutive terms). Any regular admin can be recalled by 10+ verified member votes + Head Admin sign-off. Head Admins are removable by simple majority.',
-    badge: 'Auditable Recall',
+    title: 'Unit leadership',
+    label: 'Policy configuration',
+    description: 'The platform describes elections, terms and recall rules. Each unit must satisfy its active policy and eligibility requirements.',
     icon: Scale,
-    safeguard: 'Eliminates permanent vigilante warlords; leadership answers to the community.',
   },
   {
-    id: 'presumed_innocence',
-    title: 'Presumed Innocence & Suspect Rights',
-    subtitle: 'Fair Process by Code',
-    description:
-      'Citizens named as suspects have constitutional self-view rights. They view only public-safe status markers and verified timestamps—never officer identities, informant tips, or raw surveillance.',
-    badge: 'Legal Protection',
+    title: 'Privacy and fair treatment',
+    label: 'Design principle',
+    description: 'The interface aims to limit exposure of sensitive reports and personal details. Legal protections come from applicable law, not an app badge.',
     icon: UserCheck,
-    safeguard: 'Guarantees constitutional fair hearing while protecting reporting citizens.',
   },
-]
+] as const
 
-export function GovernanceSection({ onActionTrigger }: GovernanceSectionProps) {
-  const { data: blueprint } = usePublicBlueprint()
-  const [memberCount, setMemberCount] = useState<number>(35)
+/** This example does not cast votes, enroll members or certify a real election. */
+export function GovernanceSection(_props: GovernanceSectionProps) {
+  const { data: blueprint, isPending, isError } = usePublicBlueprint()
+  const [memberCount, setMemberCount] = useState(35)
 
-  // Seat band calculation based on Nativity Guard constitutional rules
-  function getSeatsForMembers(count: number): number {
-    if (count <= 20) return 5
-    if (count <= 40) return 7
-    if (count <= 70) return 9
-    return 10
-  }
-
-  const seats = getSeatsForMembers(memberCount)
-  const quorum = Math.ceil(memberCount * 0.5)
-
-  function handleTriggerVote(actionType: 'vote_election' | 'vote_revocation') {
-    onActionTrigger({
-      type: actionType,
-      title: actionType === 'vote_election' ? 'Cast Your Unit Election Ballot' : 'Initiate Democratic Recall',
-      description:
-        'Nativity Guard governance gives verified members one vote per election cycle. Authenticate your verified identity to cast your ballot.',
-      badgeText: `50% Quorum (${quorum} Votes Required)`,
-      badgeVariant: 'signal',
-      returnUrl: '/governance',
-      payload: { memberCount, requiredSeats: seats, quorum },
-    })
-  }
+  const elections = blueprint?.governance?.elections
+  const band = memberCount <= 20 ? '12-20' : memberCount <= 40 ? '21-40' : memberCount <= 70 ? '41-70' : '71-100'
+  const seats = elections?.seat_bands?.[band]
+  const quorumPercent = elections?.quorum_percent
+  const quorum = typeof quorumPercent === 'number' && quorumPercent >= 0 && quorumPercent <= 100
+    ? Math.ceil(memberCount * quorumPercent / 100)
+    : null
 
   return (
     <section id="governance" className="border-t border-border py-14">
-      {/* Section Header */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
-            <Scale className="size-3.5 text-signal" aria-hidden />
-            Constitutional Architecture
-          </span>
-          <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Elected Leadership & Anti-Vigilante Governance
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            Nativity Guard rejects vigilante violence and warlordism through strictly enforced democratic
-            rules. Unit administrators are elected, rotating, and immediately subject to recall.
-          </p>
-        </div>
-
-        <div className="pt-2 md:pt-0">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handleTriggerVote('vote_election')}
-            icon={<Vote className="size-3.5 text-signal" />}
-          >
-            Unit Voting Portal
-          </Button>
-        </div>
+      <div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
+          <Scale className="size-3.5 text-signal" aria-hidden />
+          Governance overview
+        </span>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+          Unit Governance &amp; Accountability
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
+          Explore how Nativity Guard describes permissions, reviews and unit governance.
+          Platform policy descriptions do not confer public authority, legal accreditation or guarantee fair outcomes.
+        </p>
       </div>
 
-      {/* The 4 Cardinal Rules Grid */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {CARDINAL_RULES.map((rule) => {
-          const IconComponent = rule.icon
+        {GOVERNANCE_CONCEPTS.map((concept) => {
+          const Icon = concept.icon
           return (
-            <Card
-              key={rule.id}
-              className="flex flex-col justify-between p-5 border-border hover:border-border-hi transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="grid size-9 place-items-center rounded-lg bg-surface-hi text-signal ring-1 ring-border">
-                    <IconComponent className="size-4" />
-                  </div>
-                  <span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
-                    {rule.badge}
-                  </span>
-                </div>
-
-                <h3 className="mt-4 text-sm font-bold text-ink">{rule.title}</h3>
-                <p className="text-[11px] font-medium text-signal mt-0.5">{rule.subtitle}</p>
-                <p className="mt-2.5 text-xs text-ink-muted leading-relaxed">{rule.description}</p>
+            <Card key={concept.title} className="flex flex-col p-5 border-border hover:border-border-hi transition-all">
+              <div className="flex items-center justify-between gap-2">
+                <span className="grid size-9 place-items-center rounded-lg bg-surface-hi text-signal ring-1 ring-border">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="rounded-full bg-surface-hi px-2 py-0.5 text-[10px] text-ink-muted">{concept.label}</span>
               </div>
-
-              <div className="mt-4 rounded bg-surface-hi p-2.5 border border-border">
-                <div className="flex items-start gap-1.5">
-                  <CheckCircle2 className="size-3.5 text-ok shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-ink-faint leading-normal font-medium">
-                    {rule.safeguard}
-                  </p>
-                </div>
-              </div>
+              <h3 className="mt-4 text-sm font-bold text-ink">{concept.title}</h3>
+              <p className="mt-2.5 text-xs leading-relaxed text-ink-muted">{concept.description}</p>
             </Card>
           )
         })}
       </div>
 
-      {/* Interactive Representation & Quorum Calculator */}
       <div className="mt-8 rounded-panel border border-border bg-surface p-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-border pb-4">
+        <div className="flex items-start gap-3 border-b border-border pb-4">
+          <Sliders className="mt-1 size-5 shrink-0 text-signal" aria-hidden />
           <div>
-            <div className="flex items-center gap-2">
-              <Sliders className="size-4 text-signal" />
-              <h3 className="text-base font-bold text-ink">
-                Unit Electoral Seat Band & Quorum Calculator
-              </h3>
-            </div>
-            <p className="text-xs text-ink-muted mt-1">
-              Explore how administrative seats and voting quorum dynamically scale with verified active
-              membership according to the Nativity Guard constitution.
+            <h3 className="text-base font-bold text-ink">Illustrative Council &amp; Quorum Calculator</h3>
+            <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+              This is a hypothetical example, not the membership count or election result of any real unit.
+              Figures only use the governance configuration published by the service.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-muted">Term Length:</span>
-            <span className="rounded bg-surface-hi px-2.5 py-1 text-xs font-semibold text-ink">
-              {blueprint?.governance.elections.term_months ?? 12} Months
-            </span>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-12 items-center">
-          {/* Slider & Input Controls */}
-          <div className="lg:col-span-6 space-y-4">
-            <div>
-              <div className="flex items-center justify-between text-xs font-medium text-ink mb-1.5">
-                <span>Active Verified Unit Members:</span>
-                <span className="text-sm font-bold text-signal">{memberCount} Members</span>
-              </div>
+        {isError ? (
+          <p role="alert" className="mt-5 flex items-center gap-2 text-sm text-warn">
+            <AlertCircle className="size-4" aria-hidden />
+            Published governance rules could not be loaded. No substitute policy or figures are shown.
+          </p>
+        ) : isPending ? (
+          <p role="status" className="mt-5 text-sm text-ink-muted">Loading published governance configuration...</p>
+        ) : typeof seats !== 'number' || quorum === null ? (
+          <p role="alert" className="mt-5 text-sm text-warn">
+            The service has not supplied a complete, usable policy configuration.
+          </p>
+        ) : (
+          <div className="mt-6 grid gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-6 space-y-4">
+              <label htmlFor="governance-example-members" className="flex items-center justify-between gap-2 text-xs font-medium text-ink">
+                Example eligible members
+                <strong className="text-sm text-signal">{memberCount}</strong>
+              </label>
               <input
+                id="governance-example-members"
                 type="range"
                 min="12"
                 max="100"
                 value={memberCount}
-                onChange={(e) => setMemberCount(parseInt(e.target.value, 10))}
-                className="w-full accent-signal cursor-pointer"
-                aria-label="Member count slider"
+                onChange={(event) => setMemberCount(Number(event.target.value))}
+                className="w-full accent-signal"
               />
-              <div className="flex justify-between text-[10px] text-ink-faint mt-1">
-                <span>12 (Minimum Quorum)</span>
-                <span>40</span>
-                <span>70</span>
-                <span>100 (Capped Band)</span>
+              <div className="flex justify-between text-[10px] text-ink-faint">
+                <span>12</span><span>40</span><span>70</span><span>100</span>
               </div>
+              <p className="text-xs leading-relaxed text-ink-muted">
+                Published term length: {elections?.term_months} months.
+                Figures shown here do not verify voter eligibility, active quorum rules for a specific unit,
+                or that an election is currently open.
+              </p>
             </div>
-
-            {/* Constitution Details Banner */}
-            <div className="space-y-2 rounded-lg bg-surface-hi p-3.5 border border-border text-xs text-ink-muted">
-              <div className="flex items-center justify-between">
-                <span>Staggered Election Cycle:</span>
-                <span className="font-semibold text-ink">
-                  Every {blueprint?.governance.elections.stagger_months ?? 6} Months
-                </span>
+            <div className="lg:col-span-6 grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-surface-hi p-4 text-center">
+                <Users className="mx-auto size-5 text-signal" aria-hidden />
+                <p className="mt-2 text-2xl font-black text-ink">{seats}</p>
+                <p className="text-xs text-ink-muted">Example council seats</p>
               </div>
-              <div className="flex items-center justify-between">
-                <span>Term Limits:</span>
-                <span className="font-semibold text-ink">
-                  Max {blueprint?.governance.elections.term_limit ?? 2} Consecutive Terms
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Mandatory Cooling-off:</span>
-                <span className="font-semibold text-ink">
-                  {blueprint?.governance.elections.cooling_off_months ?? 6} Months
-                </span>
+              <div className="rounded-lg border border-border bg-surface-hi p-4 text-center">
+                <Vote className="mx-auto size-5 text-signal" aria-hidden />
+                <p className="mt-2 text-2xl font-black text-ink">{quorum}</p>
+                <p className="text-xs text-ink-muted">Example quorum at {quorumPercent}%</p>
               </div>
             </div>
           </div>
-
-          {/* Real-time Computed Values */}
-          <div className="lg:col-span-6 grid grid-cols-2 gap-3 sm:gap-4">
-            <div className="rounded-lg border border-border bg-surface-hi p-4 text-center">
-              <Users className="size-5 text-signal mx-auto" />
-              <p className="mt-2 text-2xl font-black text-ink">{seats}</p>
-              <p className="text-xs font-medium text-ink-muted">Admin Council Seats</p>
-              <span className="mt-1 block text-[10px] text-ink-faint">
-                {memberCount <= 20
-                  ? 'Tier 1 (12–20 Members)'
-                  : memberCount <= 40
-                  ? 'Tier 2 (21–40 Members)'
-                  : memberCount <= 70
-                  ? 'Tier 3 (41–70 Members)'
-                  : 'Tier 4 (71–100 Members)'}
-              </span>
-            </div>
-
-            <div className="rounded-lg border border-border bg-surface-hi p-4 text-center">
-              <Vote className="size-5 text-ok mx-auto" />
-              <p className="mt-2 text-2xl font-black text-ink">{quorum}</p>
-              <p className="text-xs font-medium text-ink-muted">Quorum Votes (50%)</p>
-              <span className="mt-1 block text-[10px] text-ink-faint">
-                Required to pass resolutions
-              </span>
-            </div>
-
-            <div className="col-span-2 rounded-lg border border-border bg-surface p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertOctagon className="size-4 text-warn shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-ink">Democratic Recall Rule</p>
-                  <p className="text-[10px] text-ink-faint">
-                    Regular Admin: 10+ member votes + Head Admin sign-off | Head Admin: 50%+1 member vote
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleTriggerVote('vote_revocation')}
-                className="text-xs"
-              >
-                Recall Petition
-              </Button>
-            </div>
-          </div>
-        </div>
+        )}
+        <p className="mt-5 text-xs text-ink-faint">
+          Viewing this calculator does not start a petition, submit a vote, or give a unit permission to operate.
+        </p>
       </div>
     </section>
   )
