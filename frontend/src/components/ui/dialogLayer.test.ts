@@ -54,6 +54,7 @@ describe('nested Escape and focus behavior (simulated DOM)', () => {
   it('closes only the child, restores parent focus, and unlocks scrolling last', () => {
     const events = new Map<string, (event: KeyboardEvent) => void>()
     let active: FakeElement | null = null
+    const setActiveElement = (element: FakeElement) => { active = element }
 
     class FakeElement {
       inert = false
@@ -61,7 +62,7 @@ describe('nested Escape and focus behavior (simulated DOM)', () => {
       children: FakeElement[] = []
       attrs = new Map<string, string>()
 
-      focus() { active = this }
+      focus() { setActiveElement(this) }
       setAttribute(name: string, value: string) { this.attrs.set(name, value) }
       removeAttribute(name: string) { this.attrs.delete(name) }
       getAttribute(name: string) { return this.attrs.get(name) ?? null }
