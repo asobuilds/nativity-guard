@@ -16,7 +16,7 @@ const UNIT = {
   type: 'Example only',
 }
 
-async function mockPublicApi(page, { units = [], cases = [], bankAccounts = [] } = {}) {
+async function mockPublicApi(page, { units = [], cases = [], bankAccounts = null } = {}) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -29,7 +29,7 @@ async function mockPublicApi(page, { units = [], cases = [], bankAccounts = [] }
       : path === '/public/cases'
         ? { cases }
         : path === `/public/units/${UNIT.id}/bank-accounts`
-          ? { accounts: bankAccounts }
+          ? (bankAccounts === null ? null : { accounts: bankAccounts })
           : path === '/public/platform/supporters'
             ? { supporters: [] }
             : path === '/public/platform/donation-info'
@@ -120,6 +120,15 @@ test('an unavailable bank account endpoint does not show fabricated payment deta
   await expect(page.getByText(/Bank details could not be loaded/i)).toBeVisible()
   await expect(page.getByText('Primary listed account')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(0)
+})
+
+test('empty published bank-account list is not presented as a failed request', async ({ page }) => {
+  await mockPublicApi(page, { units: [UNIT], bankAccounts: [] })
+  await page.goto('/#units')
+  await page.getByRole('button', { name: /View donation details/i }).click()
+  await expect(page.getByRole('dialog', { name: 'Support ' + UNIT.name })).toBeVisible()
+  await expect(page.getByText(/No bank account details are currently published/i)).toBeVisible()
+  await expect(page.getByText(/Bank details could not be loaded/i)).toHaveCount(0)
 })
 
 test('public About and Terms routes do not require sign-in', async ({ page }) => {
