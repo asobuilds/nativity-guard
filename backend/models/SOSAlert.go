@@ -15,8 +15,8 @@ type SOSAlert struct {
 	LocationGeohash string      `gorm:"type:varchar(12);index:idx_sos_geohash" json:"locationGeohash,omitempty"`
 	IsAnonymous bool        `gorm:"default:false;index:idx_sos_anonymous" json:"isAnonymous"`
 	Description string         `json:"description"`
-	Status      string         `gorm:"default:pending" json:"status"` // pending, dispatched, resolved, cancelled
-	Priority    string         `gorm:"default:high" json:"priority"`  // high, medium, low
+	Status      string         `gorm:"default:pending" json:"status"` // pending, dispatched, resolved, cancelled, escalated
+	Priority    string         `gorm:"default:high" json:"priority"`  // high, medium, low, urgent
 	// Severity is distinct from Priority. Priority is the reporter's
 	// self-rated urgency (high/medium/low). Severity is the dispatch
 	// engine's own classification: "critical" allows multiple units to

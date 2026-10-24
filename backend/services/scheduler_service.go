@@ -95,6 +95,7 @@ func (s *SchedulerService) RunOnce() {
 	s.RecomputeMinorStatuses()
 	s.PurgeDeletedAccounts()
 	s.ExpireLocalIntelligence()
+	s.EscalateStaleSOS()
 
 	// Record the last successful completion so the health check can
 	// detect a stalled scheduler.
@@ -200,6 +201,84 @@ func (s *SchedulerService) RecomputeRankings() {
 // notifies all super admins. Delegates to the appeal service.
 func (s *SchedulerService) EscalateStaleAppeals() {
 	NewAppealService().EscalateStaleAppeals()
+}
+
+// EscalateStaleSOS escalates SOS alerts that have been pending for more than
+// 3 minutes and notifies the LGA head admin plus super admins.
+func (s *SchedulerService) EscalateStaleSOS() {
+	threshold := time.Now().UTC().Add(-3 * time.Minute)
+
+	var sos []models.SOSAlert
+	if err := config.DB.
+		Where("status = ? AND created_at < ?", "pending", threshold).
+		Find(&sos).Error; err != nil {
+		log.Printf("scheduler: failed to load stale SOS alerts: %v", err)
+		return
+	}
+
+	if len(sos) == 0 {
+		return
+	}
+
+	for _, sos := range sos {
+		// Mark the alert as escalated and bump priority to urgent.
+		if err := config.DB.Model(&models.SOSAlert{}).
+			Where("id = ?", sos.ID).
+			Updates(map[string]interface{}{
+				"status":   "escalated",
+				"priority": "urgent",
+			}).Error; err != nil {
+			log.Printf("scheduler: failed to escalate SOS %s: %v", sos.ID, err)
+			continue
+		}
+
+		notifTitle := "🚨 SOS Escalated"
+		notifMsg := fmt.Sprintf("SOS %s escalated to urgent — %s/%s",
+			sos.ID.String(), sos.JurisdictionLGA, sos.JurisdictionState)
+
+		// Notify LGA head admins of units matching the SOS jurisdiction.
+		if sos.JurisdictionState != "" && sos.JurisdictionLGA != "" {
+			var units []models.SecurityUnit
+			config.DB.Where("status = ? AND state = ? AND lga = ?",
+				"active", sos.JurisdictionState, sos.JurisdictionLGA).
+				Find(&units)
+
+			for _, u := range units {
+				var heads []models.User
+				config.DB.Where("unit_id = ? AND role = ? AND is_head_admin = ?",
+					u.ID, models.UnitRoleAdmin, true).
+					Find(&heads)
+				for _, h := range heads {
+					config.DB.Create(&models.Notification{
+						UserID:     h.ID,
+						Title:      notifTitle,
+						Message:    notifMsg,
+						Type:       "sos_escalation",
+						Status:     "unread",
+						EntityType: "sos",
+						EntityID:   sos.ID,
+						LinkTo:     "/sos/" + sos.ID.String(),
+					})
+				}
+			}
+		}
+
+		// Also notify every super admin.
+		var admins []models.User
+		config.DB.Where("role = ?", "super_admin").Find(&admins)
+		for _, a := range admins {
+			config.DB.Create(&models.Notification{
+				UserID:     a.ID,
+				Title:      notifTitle,
+				Message:    notifMsg,
+				Type:       "sos_escalation",
+				Status:     "unread",
+				EntityType: "sos",
+				EntityID:   sos.ID,
+				LinkTo:     "/sos/" + sos.ID.String(),
+			})
+		}
+	}
 }
 
 // AnnounceOfficerOfTheWeek picks the top-rated officer of the past 7 days
