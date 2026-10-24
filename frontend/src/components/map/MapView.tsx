@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { divIcon, type LatLngBoundsExpression, type LatLngTuple } from 'leaflet'
 import {
   Circle,
@@ -12,7 +13,7 @@ import {
 } from 'react-leaflet'
 import { LocateFixed, MapPin, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { formatCoord } from '@/lib/format'
+import { formatCoord, formatDistance, formatDuration } from '@/lib/format'
 import { activityGroups, groupCases } from '@/lib/mapGroups'
 import { priorityMeta, statusMeta } from '@/lib/status'
 import type { Case, SecurityUnit } from '@/types/api'
@@ -213,7 +214,7 @@ function CaseMarkers({
           )
         }
         return group.cases.map((caseItem) => {
-          const hex = STATUS_HEX[caseItem.status] ?? STATUS_HEX.pending
+          const hex = caseItem.id === selectedCaseId ? '#f59e0b' : '#f97316'
           const selected = caseItem.id === selectedCaseId
           return (
             <CircleMarker
@@ -229,18 +230,15 @@ function CaseMarkers({
               eventHandlers={{ click: () => onSelectCase?.(caseItem) }}
             >
               <Popup>
-                <PopupBody
-                  title={caseItem.title}
-                  subtitle={`${statusMeta(caseItem.status).label} · ${caseItem.trackingId}`}
-                  rows={[
-                    ['Priority', priorityMeta(caseItem.priorityLevel).label],
-                    [
-                      'Location',
-                      caseItem.location ||
-                        formatCoord(caseItem.latitude, caseItem.longitude),
-                    ],
-                  ]}
-                />
+                <div className="min-w-48">
+                  <p className="text-sm font-semibold text-ink">{caseItem.title}</p>
+                  <p className="text-[11px] text-ink-muted">{statusMeta(caseItem.status).label} · {caseItem.trackingId}</p>
+                  <dl className="mt-2 space-y-0.5">
+                    <div className="flex gap-2 text-[11px]"><dt className="text-ink-faint">Priority</dt><dd className="text-ink">{priorityMeta(caseItem.priorityLevel).label}</dd></div>
+                    <div className="flex gap-2 text-[11px]"><dt className="text-ink-faint">Location</dt><dd className="text-ink">{caseItem.location || formatCoord(caseItem.latitude, caseItem.longitude)}</dd></div>
+                  </dl>
+                  <p className="mt-2"><Link to={`/admin/cases/${caseItem.id}`} className="text-xs text-signal underline font-medium">View case details &rarr;</Link></p>
+                </div>
               </Popup>
             </CircleMarker>
           )
@@ -380,12 +378,25 @@ export function MapView({
           eventHandlers={{ tileerror: () => setTileFailed(true) }}
         />
 
-        {markers.filter((m) => Number.isFinite(m.latitude) && Math.abs(m.latitude) <= 90 && Number.isFinite(m.longitude) && Math.abs(m.longitude) <= 180).map((m) => (
-          <CircleMarker key={m.id} center={[m.latitude, m.longitude]} radius={9}
-            pathOptions={{ color: '#fff', weight: 2, fillColor: m.color ?? '#22c55e', fillOpacity: 1 }}>
-            <Popup><strong>{m.label}</strong>{m.detail ? <p>{m.detail}</p> : null}</Popup>
-          </CircleMarker>
-        ))}
+        {markers.filter((m) => Number.isFinite(m.latitude) && Math.abs(m.latitude) <= 90 && Number.isFinite(m.longitude) && Math.abs(m.longitude) <= 180).map((m) => {
+          const isSos = m.id === 'sos' || m.label.toLowerCase().includes('sos') || m.id.startsWith('sos')
+          const markerColor = isSos ? '#ef4444' : (m.color ?? '#22c55e')
+          return (
+            <CircleMarker key={m.id} center={[m.latitude, m.longitude]} radius={isSos ? 12 : 9}
+              pathOptions={{ color: isSos ? '#f97316' : '#fff', weight: isSos ? 3 : 2, fillColor: markerColor, fillOpacity: 1 }}>
+              <Popup>
+                <div className="min-w-44">
+                  <p className="text-sm font-semibold text-ink">{m.label}</p>
+                  {m.detail ? <p className="text-[11px] text-ink-muted mt-1">{m.detail}</p> : null}
+                  <p className="text-[11px] text-ink-faint mt-1">Coordinates: {formatCoord(m.latitude, m.longitude)}</p>
+                  {isSos ? (
+                    <p className="mt-2"><Link to="/sos" className="text-xs text-signal underline font-medium">View SOS details &rarr;</Link></p>
+                  ) : null}
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
 
         {ownPosition ? (
           <>
@@ -549,6 +560,13 @@ export function MapView({
           </Button>
         ) : null}
       </div>
+
+      {route ? (
+        <div className="absolute top-16 right-3 z-[400] rounded-lg bg-surface/95 backdrop-blur border border-signal/40 px-3 py-2 shadow-xl text-xs font-semibold text-ink flex items-center gap-2">
+          <span className="inline-block size-2 rounded-full bg-signal animate-ping" />
+          <span>Arriving in {formatDuration(route.durationSeconds)} ({formatDistance(route.distanceMeters)})</span>
+        </div>
+      ) : null}
 
       {locateError ? (
         <p className="absolute inset-x-2 bottom-2 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
