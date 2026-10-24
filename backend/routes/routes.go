@@ -329,11 +329,15 @@ func SetupRoutes(router *gin.Engine) {
 			finance.GET("/units/:id/transactions", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTransactions)
 			finance.GET("/transactions/:id", middleware.AuthMiddleware(), handlers.GetTransactionByID)
 			finance.GET("/units/:id/summary", middleware.AuthMiddleware(), handlers.GetTransactionSummary)
+			finance.GET("/units/:id/ledger/balance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLedgerBalance)
+			finance.POST("/webhook/donation", handlers.DonationWebhook)
 			finance.POST("/budgets", middleware.AuthMiddleware(), handlers.CreateBudget)
 			finance.GET("/units/:id/budgets", middleware.AuthMiddleware(), handlers.GetBudgets)
 			finance.POST("/reports", middleware.AuthMiddleware(), handlers.GenerateFinancialReport)
 			finance.GET("/units/:id/reports", middleware.AuthMiddleware(), handlers.GetFinancialReports)
 		}
+
+		api.POST("/webhooks/donation", handlers.DonationWebhook)
 
 		community := api.Group("/community")
 		{

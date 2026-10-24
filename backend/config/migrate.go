@@ -123,6 +123,7 @@ func AutoMigrateAll() error {
 		&models.LedgerSequence{},
 		&models.UnitFinancialYear{},
 		&models.PlatformDonation{},
+		&models.WebhookEvent{},
 
 		&models.OfficerScore{},
 		&models.UnitScore{},
