@@ -34,6 +34,7 @@ const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m =>
 const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
 const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
 const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
+const UnitFinancialLedgerPage = lazy(() => import('@/pages/admin/UnitFinancialLedgerPage').then(m => ({ default: m.UnitFinancialLedgerPage })))
 const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })))
 const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
@@ -229,6 +230,7 @@ export function App() {
                   <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                   <Route path="/admin/overview" element={<RequireRole roles={ADMIN_ROLES}><AdminOverviewPage /></RequireRole>} />
                   <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
+                  <Route path="/unit/finance" element={<RequireRole roles={['unit_admin', 'super_admin']}><UnitFinancialLedgerPage /></RequireRole>} />
                   <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><AdminAnalyticsPage /></RequireRole>} />
                   <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><AdminSettingsPage /></RequireRole>} />
 
