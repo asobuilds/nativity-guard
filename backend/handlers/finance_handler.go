@@ -284,7 +284,7 @@ func RejectTransaction(c *gin.Context) {
 	})
 }
 
-// GetTransactions gets all transactions for a unit
+// GetTransactions gets transactions for a unit (returns pending transactions by default)
 func GetTransactions(c *gin.Context) {
 	unitID := c.Param("id")
 	id, err := uuid.Parse(unitID)
@@ -307,8 +307,17 @@ func GetTransactions(c *gin.Context) {
 		}
 	}
 
+	statusFilter := c.Query("status")
+	if statusFilter == "" {
+		statusFilter = "pending"
+	}
+
 	var transactions []models.Transaction
-	if err := config.DB.Preload("Initiator").Preload("Approver").Where("unit_id = ?", id).Order("created_at desc").Find(&transactions).Error; err != nil {
+	query := config.DB.Preload("Initiator").Preload("Approver").Where("unit_id = ?", id)
+	if statusFilter != "all" {
+		query = query.Where("status = ?", statusFilter)
+	}
+	if err := query.Order("created_at desc").Find(&transactions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
 	}
@@ -680,4 +689,135 @@ func checkBudgetAlert(unitID uuid.UUID, category string, amount float64) {
 			config.DB.Create(&notification)
 		}
 	}
+}
+
+// GetLedgerBalance computes the net balance from FinancialLedger for a unit
+func GetLedgerBalance(c *gin.Context) {
+	unitIDParam := c.Param("id")
+	unitID, err := uuid.Parse(unitIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	var totalIn, totalOut float64
+	config.DB.Model(&models.FinancialLedger{}).
+		Select("COALESCE(SUM(CASE WHEN direction = 'in' THEN amount ELSE 0 END), 0)").
+		Where("unit_id = ? AND status = ?", unitID, "posted").
+		Scan(&totalIn)
+
+	config.DB.Model(&models.FinancialLedger{}).
+		Select("COALESCE(SUM(CASE WHEN direction = 'out' THEN amount ELSE 0 END), 0)").
+		Where("unit_id = ? AND status = ?", unitID, "posted").
+		Scan(&totalOut)
+
+	balance := totalIn - totalOut
+
+	c.JSON(http.StatusOK, gin.H{
+		"unitId":   unitID,
+		"balance":  balance,
+		"totalIn":  totalIn,
+		"totalOut": totalOut,
+		"currency": "NGN",
+	})
+}
+
+// DonationWebhook handles incoming donation webhooks idempotently
+func DonationWebhook(c *gin.Context) {
+	var input struct {
+		EventID     string  `json:"eventId" binding:"required"`
+		Provider    string  `json:"provider" binding:"required"`
+		EventType   string  `json:"eventType"`
+		UnitID      string  `json:"unitId" binding:"required"`
+		Amount      float64 `json:"amount" binding:"required"`
+		DonorName   string  `json:"donorName"`
+		DonorEmail  string  `json:"donorEmail"`
+		Reference   string  `json:"reference"`
+		Description string  `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	unitID, err := uuid.Parse(input.UnitID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	// Check idempotency in WebhookEvent table
+	var existing models.WebhookEvent
+	if err := config.DB.Where("idempotency_key = ?", input.EventID).First(&existing).Error; err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Webhook already processed (idempotent)",
+			"idempotencyKey": input.EventID,
+			"status":         "success",
+		})
+		return
+	}
+
+	now := time.Now().UTC()
+	webhookEvent := models.WebhookEvent{
+		IdempotencyKey: input.EventID,
+		Provider:       input.Provider,
+		EventType:      input.EventType,
+		Payload:        "{}",
+		Status:         "processed",
+		ProcessedAt:    &now,
+	}
+
+	if err := config.DB.Create(&webhookEvent).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "Webhook already processed"})
+		return
+	}
+
+	var adminUser models.User
+	if err := config.DB.Where("unit_id = ? AND role IN (?)", unitID, []string{"unit_admin", "super_admin"}).First(&adminUser).Error; err != nil {
+		if err := config.DB.Where("role = ?", "super_admin").First(&adminUser).Error; err != nil {
+			var anyUser models.User
+			if err := config.DB.First(&anyUser).Error; err == nil {
+				adminUser = anyUser
+			}
+		}
+	}
+	createdBy := adminUser.ID
+	if createdBy == uuid.Nil {
+		createdBy = uuid.New()
+	}
+
+	donorName := input.DonorName
+	if donorName == "" {
+		donorName = "Anonymous Donor"
+	}
+	description := input.Description
+	if description == "" {
+		description = "Donation via " + input.Provider
+	}
+
+	ledgerSvc := services.NewLedgerService()
+	entryInput := services.LedgerEntryInput{
+		UnitID:       unitID,
+		Direction:    "in",
+		EntryType:    "donation",
+		Amount:       input.Amount,
+		Counterparty: donorName,
+		Description:  description,
+		SourceType:   "donation",
+		SourceID:     &webhookEvent.ID,
+		CreatedBy:    createdBy,
+	}
+
+	ledgerEntry, err := ledgerSvc.Append(entryInput)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to append to ledger: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "Donation webhook processed successfully",
+		"ledgerEntry":  ledgerEntry,
+		"webhookEvent": webhookEvent,
+	})
 }

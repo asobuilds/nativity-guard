@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"security-solution/config"
+	"security-solution/cryptoutil"
 	"security-solution/models"
 	"security-solution/services"
 )
@@ -57,9 +58,10 @@ func AddBankAccount(c *gin.Context) {
 		}
 	}
 
-	// Check if account already exists
+	// Check if account already exists (compare against encrypted value)
 	var existing models.BankAccount
-	if err := config.DB.Where("unit_id = ? AND account_number = ?", unitID, input.AccountNumber).First(&existing).Error; err == nil {
+	encAccountNum, _ := cryptoutil.Encrypt(input.AccountNumber)
+	if err := config.DB.Where("unit_id = ? AND account_number = ?", unitID, encAccountNum).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "This bank account is already registered"})
 		return
 	}

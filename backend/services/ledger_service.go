@@ -104,6 +104,25 @@ func (s *LedgerService) appendWithRetry(entry LedgerEntryInput, remaining int) (
 		return s.appendWithRetry(entry, remaining-1)
 	}
 
+	// Trigger notification for unit admins when a FinancialLedger entry is created
+	go func(uID uuid.UUID, eType, dir string, amt float64, curr string) {
+		var admins []models.User
+		config.DB.Where("unit_id = ? AND role IN (?)", uID, []string{"unit_admin", "super_admin"}).Find(&admins)
+		for _, admin := range admins {
+			notif := models.Notification{
+				UserID:     admin.ID,
+				Title:      "New Financial Ledger Entry",
+				Message:    fmt.Sprintf("A new %s entry (%s) of %s %.2f was recorded.", eType, dir, curr, amt),
+				Type:       "finance",
+				Status:     "unread",
+				EntityType: "unit",
+				EntityID:   uID,
+				LinkTo:     fmt.Sprintf("/units/%s/ledger", uID.String()),
+			}
+			config.DB.Create(&notif)
+		}
+	}(ledger.UnitID, ledger.EntryType, ledger.Direction, ledger.Amount, ledger.Currency)
+
 	return ledger, nil
 }
 
