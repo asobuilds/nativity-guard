@@ -19,6 +19,7 @@ import {
   Settings,
   UserCircle,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -67,6 +68,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
     { to: '/admin/unit', label: 'Unit dashboard', icon: <LayoutDashboard className="size-4" /> },
+    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Units', icon: <Users className="size-4" /> },
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
@@ -84,6 +86,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
+    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
     { to: '/admin/community', label: 'Community management', icon: <ShieldAlert className="size-4" /> },
