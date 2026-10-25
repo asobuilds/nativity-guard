@@ -150,6 +150,7 @@ func SetupRoutes(router *gin.Engine) {
 			notify.POST("/register", middleware.AuthMiddleware(), handlers.RegisterDevice)
 			notify.DELETE("/unregister", middleware.AuthMiddleware(), handlers.UnregisterDevice)
 			notify.POST("/test", middleware.AuthMiddleware(), handlers.TestNotification)
+			notify.POST("/subscribe", middleware.AuthMiddleware(), handlers.SubscribePush)
 		}
 
 		cases := api.Group("/cases")
