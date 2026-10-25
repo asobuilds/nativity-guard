@@ -100,3 +100,5 @@ rebrand-scan.txt
 frontend/dist/
 backend/main
 backend/main.exe
+frontend/playwright-report/
+frontend/test-results/
