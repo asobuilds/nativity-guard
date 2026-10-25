@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -178,16 +181,31 @@ func GetMapPOIs(c *gin.Context) {
 		}
 	}
 
+	cacheKey := fmt.Sprintf("map:pois:%.3f:%.3f:%d:%s", lat, lng, radius, strings.Join(categories, ","))
+	if val, err := services.GetCache(cacheKey); err == nil {
+		var cached gin.H
+		if json.Unmarshal([]byte(val), &cached) == nil {
+			c.JSON(http.StatusOK, cached)
+			return
+		}
+	}
+
 	items, err := services.NewPOIService().GetPOIs(lat, lng, radius, categories)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"items":    items,
 		"count":    len(items),
 		"radius":   radius,
 		"location": gin.H{"latitude": lat, "longitude": lng},
-	})
+	}
+
+	if respBytes, err := json.Marshal(response); err == nil {
+		services.SetCache(cacheKey, string(respBytes), 30*time.Minute)
+	}
+
+	c.JSON(http.StatusOK, response)
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -700,6 +701,15 @@ func GetLedgerBalance(c *gin.Context) {
 		return
 	}
 
+	cacheKey := "ledger:balance:" + unitID.String()
+	if val, err := services.GetCache(cacheKey); err == nil {
+		var cached gin.H
+		if json.Unmarshal([]byte(val), &cached) == nil {
+			c.JSON(http.StatusOK, cached)
+			return
+		}
+	}
+
 	var totalIn, totalOut float64
 	config.DB.Model(&models.FinancialLedger{}).
 		Select("COALESCE(SUM(CASE WHEN direction = 'in' THEN amount ELSE 0 END), 0)").
@@ -713,13 +723,19 @@ func GetLedgerBalance(c *gin.Context) {
 
 	balance := totalIn - totalOut
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"unitId":   unitID,
 		"balance":  balance,
 		"totalIn":  totalIn,
 		"totalOut": totalOut,
 		"currency": "NGN",
-	})
+	}
+
+	if respBytes, err := json.Marshal(response); err == nil {
+		services.SetCache(cacheKey, string(respBytes), 5*time.Minute)
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // DonationWebhook handles incoming donation webhooks idempotently
@@ -746,6 +762,8 @@ func DonationWebhook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
 		return
 	}
+
+	services.DeleteCache("ledger:balance:" + unitID.String())
 
 	// Check idempotency in WebhookEvent table
 	var existing models.WebhookEvent
