@@ -74,7 +74,7 @@ func TestPresignSOSMedia_RejectsOversize(t *testing.T) {
 		t.Fatalf("want 400 for an oversize voice note, got %d %s", recorder.Code, recorder.Body.String())
 	}
 
-	// A video inside the cap passes validation and reaches the storage step.
+	// A video inside the cap passes validation and returns local fallback upload endpoint.
 	within := map[string]any{
 		"filename":    "clip.mp4",
 		"contentType": "video/mp4",
@@ -83,8 +83,8 @@ func TestPresignSOSMedia_RejectsOversize(t *testing.T) {
 	}
 	ctx, recorder = mediaContext(t, "POST", "/sos/media/presign", nil, adult, within)
 	PresignSOSMedia(ctx)
-	if recorder.Code != http.StatusServiceUnavailable {
-		t.Fatalf("a video within the cap must pass validation and reach the storage step, got %d %s",
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("a video within the cap must pass validation and return local fallback, got %d %s",
 			recorder.Code, recorder.Body.String())
 	}
 }
