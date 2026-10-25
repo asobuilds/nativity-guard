@@ -1,8 +1,30 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('SOS and Incident Workflow E2E', () => {
-  test('Citizen submits SOS and Admin views it in dashboard', async ({ page }) => {
-    // 1. Mock API responses for citizen SOS submission
+  test('Citizen submits SOS and Admin views it in dashboard', async ({ page, context }) => {
+    // 1. Grant geolocation permissions
+    await context.grantPermissions(['geolocation'])
+    await context.setGeolocation({ latitude: 6.5244, longitude: 3.3792 })
+
+    // 2. Mock login API response so citizen@example.com login succeeds
+    await page.route('**/auth/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          token: 'mock-citizen-token',
+          user: {
+            id: 'citizen-1',
+            email: 'citizen@example.com',
+            role: 'citizen',
+            firstName: 'Test',
+            lastName: 'Citizen',
+          },
+        }),
+      })
+    })
+
+    // Mock SOS submission API
     await page.route('**/api/v1/sos', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
@@ -17,6 +39,7 @@ test.describe('SOS and Incident Workflow E2E', () => {
               longitude: 3.3792,
               createdAt: new Date().toISOString(),
             },
+            mediaAttachmentWarning: null,
           }),
         })
       } else {
@@ -46,35 +69,39 @@ test.describe('SOS and Incident Workflow E2E', () => {
       })
     })
 
-    // 2. Load SOS page as citizen (using mock storageState or login)
-    await page.context().addCookies([
-      {
-        name: 'ng_token',
-        value: 'mock-citizen-token',
-        domain: 'localhost',
-        path: '/',
-      },
-    ])
-    await page.addInitScript(() => {
-      window.localStorage.setItem(
-        'ng_user',
-        JSON.stringify({ id: 'citizen-1', email: 'citizen@example.com', role: 'citizen', firstName: 'Test', lastName: 'Citizen' })
-      )
-    })
+    // 3. Navigate to login page
+    await page.goto('/auth/login')
 
+    // Fill login form using label selectors
+    await page.getByLabel('Email').fill('citizen@example.com')
+    await page.getByLabel('Password').fill('password123')
+    await page.getByRole('button', { name: /sign in/i }).click()
+
+    // Wait for redirect to home/dashboard
+    await page.waitForURL('/')
+
+    // 4. Navigate to SOS page
     await page.goto('/sos')
+    await expect(page.locator('h1')).toContainText('Emergency SOS')
 
-    // Fill SOS form
-    await page.fill('input[id*="lat"]', '6.5244')
-    await page.fill('input[id*="lng"]', '3.3792')
-
-    // Click submit emergency request button
-    const submitBtn = page.getByRole('button', { name: /send emergency request|confirm emergency|request emergency/i })
-    if (await submitBtn.isVisible()) {
-      await submitBtn.click()
+    // Ensure latitude and longitude inputs are populated or use geolocation button
+    const locateBtn = page.getByRole('button', { name: /use my location/i })
+    if (await locateBtn.isVisible()) {
+      await locateBtn.click()
     }
+    await page.getByLabel('Latitude').fill('6.5244')
+    await page.getByLabel('Longitude').fill('3.3792')
 
-    // 3. Switch context to admin and verify admin dashboard/cases
+    // Click Prepare SOS
+    await page.getByRole('button', { name: /prepare sos/i }).click()
+
+    // Confirm SOS in modal
+    await page.getByRole('button', { name: /confirm and send sos/i }).click()
+
+    // Verify receipt appears
+    await expect(page.getByText('Emergency request received')).toBeVisible()
+
+    // 5. Switch to admin session and verify admin cases
     await page.evaluate(() => {
       window.localStorage.setItem(
         'ng_user',
