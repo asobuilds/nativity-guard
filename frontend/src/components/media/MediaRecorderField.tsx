@@ -352,7 +352,7 @@ export function MediaRecorderField({
         const presign = await api.post<PresignEvidenceResponse>(presignPath, {
           filename, contentType: uploadType, sizeBytes: file.size, sha256,
         })
-        if (!presign.uploadUrl) {
+        if (!presign.uploadUrl || presign.uploadUrl.startsWith('/')) {
           canUseFallback = true
         } else {
           try {
