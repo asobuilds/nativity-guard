@@ -340,6 +340,13 @@ func SetupRoutes(router *gin.Engine) {
 
 		api.POST("/webhooks/donation", handlers.DonationWebhook)
 
+		unitsGroup := api.Group("/units")
+		{
+			unitsGroup.GET("/:id/landmarks", middleware.AuthMiddleware(), handlers.GetUnitLandmarks)
+			unitsGroup.POST("/:id/landmarks", middleware.AuthMiddleware(), handlers.CreateUnitLandmark)
+			unitsGroup.DELETE("/:id/landmarks/:landmarkId", middleware.AuthMiddleware(), handlers.DeleteUnitLandmark)
+		}
+
 		community := api.Group("/community")
 		{
 			community.POST("/posts", middleware.AuthMiddleware(), handlers.CreateForumPost)
