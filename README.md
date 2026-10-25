@@ -129,6 +129,14 @@ Private — all rights reserved.
 ## Live SOS Responder Tracking
 The SOS detail screen supports explicit officer assignment and foreground location sharing. See the responder-tracking guide for permissions, additive migration, API contracts and verification steps.
 
+### Unit Financial Ledger & Performance Caching
+- **Bank Account Encryption**: AES-GCM encryption of bank account numbers via `cryptoutil.Encrypt()` on save and automatic decryption on read.
+- **Webhook Idempotency & Donation Processing**: Idempotent payment webhooks (`WebhookEvent`) creating immutable `FinancialLedger` entries (`Direction="in"`, `EntryType="donation"`).
+- **Balance & Transactions APIs**: `GET /units/:id/ledger/balance` and `GET /units/:id/transactions` (pending transactions).
+- **Alive Map Routing & Custom Landmarks**: OSRM routing integration with polyline rendering, floating HUD ETA badges, and unit custom landmarks ("Safe House", "Known Hotspot", "Checkpoint").
+- **Web Push Notifications**: Real-time browser push notifications via service worker (`sw.js`) and VAPID webpush-go dispatching.
+- **Redis Performance Caching**: Cache-aside pattern for community feeds, unit ledger balances, and map POIs with robust graceful fallback when Redis is offline.
+
 ### Responsive Navigation and Public Artwork (October 2026)
 Authenticated navigation uses a dismissible slide-out drawer below the `lg` breakpoint; the close (X) control, menu button, backdrop, and bottom navigation share that breakpoint. At `lg` and wider, the sidebar remains docked. The carved-mask artwork on public landing/onboarding pages and all five selectable themes are retained. PR #63 addresses the responsive navigation regression; browser-based device/role acceptance testing is still required and CI success alone does not establish visual correctness.
 

@@ -124,6 +124,16 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 ---
 
+## Regression Guards
+
+1. **Bank Account Encryption**: Bank account numbers must always be encrypted using `cryptoutil.Encrypt()` before saving to `bank_accounts` and decrypted via `AfterFind`. Never store plaintext account numbers.
+2. **Webhook Idempotency**: Payment webhooks must check `WebhookEvent` table for idempotency keys before processing or appending ledger entries.
+3. **Map POIs & Custom Landmarks**: Map POI layers and unit custom landmarks ("Safe House", "Known Hotspot", "Checkpoint") must be rendered correctly via `POILayer` and `MapView`.
+4. **Web Push Notifications**: Creating a `Notification` record must trigger `dispatchWebPush` to active `PushSubscription` endpoints without blocking request handlers.
+5. **Redis Caching & Graceful Fallback**: All Redis cache interactions must incorporate graceful fallback so database operations succeed seamlessly even if Redis is offline.
+
+---
+
 ## Working rules
 
 1. Inspect before modifying.
