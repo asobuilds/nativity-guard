@@ -22,6 +22,7 @@ import { POILayer } from './POILayer'
 import { RouteLayer } from './RouteLayer'
 import type { POI, POICategory } from '@/hooks/useMapPOIs'
 import type { Route } from '@/hooks/useDirections'
+import type { UnitLandmark } from '@/hooks/useUnitLandmarks'
 
 /**
  * The one map in the product.
@@ -97,6 +98,7 @@ export interface MapViewProps {
   autoRecenter?: boolean
   pois?: POI[]
   hiddenPOICategories?: Set<POICategory>
+  customLandmarks?: UnitLandmark[]
   route?: Route | null
   className?: string
   label?: string
@@ -270,6 +272,7 @@ export function MapView({
   autoRecenter = true,
   pois = [],
   hiddenPOICategories,
+  customLandmarks = [],
   route = null,
   className,
   label = 'Map of cases and security units',
@@ -424,7 +427,7 @@ export function MapView({
           </>
         ) : null}
 
-        {pois.length > 0 ? <POILayer items={pois} hidden={hiddenPOICategories} /> : null}
+        {(pois.length > 0 || (customLandmarks && customLandmarks.length > 0)) ? <POILayer items={pois} hidden={hiddenPOICategories} customLandmarks={customLandmarks} /> : null}
 
         {isRoute ? <RouteLayer route={route!} /> : null}
 

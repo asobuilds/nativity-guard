@@ -12,6 +12,7 @@ func AutoMigrateAll() error {
 		&models.User{},
 		&models.UserPreferences{},
 		&models.SecurityUnit{},
+		&models.UnitLandmark{},
 		&models.Officer{},
 		&models.GovernmentIDVerification{},
 		&models.IdentityVerification{},
