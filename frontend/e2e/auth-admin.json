@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "ng_token",
+      "value": "mock-admin-token",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1800000000,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "ng_user",
+          "value": "{\"id\":\"admin-1\",\"email\":\"admin@example.com\",\"role\":\"unit_admin\",\"firstName\":\"Test\",\"lastName\":\"Admin\",\"unitId\":\"unit-1\"}"
+        }
+      ]
+    }
+  ]
+}
