@@ -352,23 +352,27 @@ export function MediaRecorderField({
         const presign = await api.post<PresignEvidenceResponse>(presignPath, {
           filename, contentType: uploadType, sizeBytes: file.size, sha256,
         })
-        try {
-          const response = await fetch(presign.uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': uploadType,
-              'x-amz-meta-sha256': sha256,
-              'x-amz-meta-original-filename': filename,
-            },
-            body: file,
-          })
-          if (!response.ok) {
-            if (response.status === 403 || response.status >= 500) canUseFallback = true
-            else throw new Error(`Storage refused upload (HTTP ${response.status}).`)
-          } else key = presign.key
-        } catch (error) {
-          if (error instanceof TypeError) canUseFallback = true
-          else throw error
+        if (!presign.uploadUrl) {
+          canUseFallback = true
+        } else {
+          try {
+            const response = await fetch(presign.uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': uploadType,
+                'x-amz-meta-sha256': sha256,
+                'x-amz-meta-original-filename': filename,
+              },
+              body: file,
+            })
+            if (!response.ok) {
+              if (response.status === 403 || response.status >= 500) canUseFallback = true
+              else throw new Error(`Storage refused upload (HTTP ${response.status}).`)
+            } else key = presign.key
+          } catch (error) {
+            if (error instanceof TypeError) canUseFallback = true
+            else throw error
+          }
         }
       } catch (error) {
         if (ApiError.isNetwork(error) || (error instanceof ApiError && error.status === 503)) {
@@ -380,9 +384,11 @@ export function MediaRecorderField({
       if (!key && canUseFallback) {
         const uploadEndpoint = presignPath && presignPath.includes('report')
           ? presignPath.replace('/presign', '/upload')
-          : '/sos/media/upload'
-        const saved = await api.upload<{ key: string }>(uploadEndpoint, file)
-        key = saved.key
+          : (presignPath && presignPath.includes('/case/')
+              ? presignPath.replace('/presign', '/file')
+              : '/sos/media/upload')
+        const saved = await api.upload<{ key?: string; evidence?: { fileURL: string } }>(uploadEndpoint, file)
+        key = saved.key ?? saved.evidence?.fileURL ?? null
       }
       if (!key) throw new Error('Recording was not stored. Please try again.')
       onCaptured(key)

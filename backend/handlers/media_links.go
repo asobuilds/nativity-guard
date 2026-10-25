@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -121,7 +122,8 @@ func presignMedia(c *gin.Context, prefix string) {
 	}
 
 	now := time.Now().UTC()
-	key := path.Join(strings.TrimSuffix(prefix, "/"), now.Format("2006"), now.Format("01"), sha+ext)
+	dirName := strings.TrimSuffix(prefix, "/")
+	key := filepath.ToSlash(filepath.Join(dirName, now.Format("2006"), now.Format("01"), sha+ext))
 
 	expiresAt := time.Now().UTC().Add(presignTTL)
 	uploadURL, err := r2.PresignPut(c.Request.Context(), key, contentType, input.SizeBytes, map[string]string{
