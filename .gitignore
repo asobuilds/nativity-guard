@@ -102,3 +102,4 @@ backend/main
 backend/main.exe
 frontend/playwright-report/
 frontend/test-results/
+frontend/.env
