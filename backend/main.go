@@ -31,6 +31,8 @@ func main() {
         log.Fatalf("auto-migration failed: %v", err)
     }
 
+	services.InitRedis()
+
     // Seed the current terms documents so /api/v1/terms/:role always has content.
     // Must run OUTSIDE the error check — it's a normal boot step, not a fallback.
     services.EnsureTermsSeeded()
