@@ -311,8 +311,8 @@ func CreateUnit(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can create units"})
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only super admins can create units"})
 		return
 	}
 
@@ -467,8 +467,8 @@ func UpdateUnit(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can update units"})
+	if !callerIsHeadAdminOfUnit(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the unit's head admin can update this unit"})
 		return
 	}
 
@@ -606,6 +606,28 @@ func UpdateUnit(c *gin.Context) {
 		"message": "Unit updated successfully",
 		"unit":    unit,
 	})
+}
+
+// callerIsHeadAdminOfUnit reports whether the caller may update the given
+// unit. Super admins bypass the membership lookup; everyone else must be an
+// active head admin of that exact unit.
+func callerIsHeadAdminOfUnit(user *models.User, unitID uuid.UUID) bool {
+	if user == nil {
+		return false
+	}
+	if user.IsSuperAdmin || user.Role == "super_admin" {
+		return true
+	}
+
+	var membership models.UnitMembership
+	err := config.DB.
+		Where("unit_id = ? AND user_id = ? AND status = ?",
+			unitID, user.ID, models.MembershipActive).
+		First(&membership).Error
+	if err != nil {
+		return false
+	}
+	return membership.IsHeadAdmin
 }
 
 // Helper functions
