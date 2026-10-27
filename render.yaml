@@ -23,6 +23,8 @@ services:
         sync: false
       - key: SMS_WEBHOOK_SECRET
         sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
       - key: ALLOWED_ORIGINS
         value: https://nativityguard.com,https://www.nativityguard.com,https://nativityguard-frontend.onrender.com
       - key: MEDIA_REQUIRE_REMOTE

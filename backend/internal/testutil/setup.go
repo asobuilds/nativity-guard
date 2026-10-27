@@ -70,6 +70,7 @@ func SetupTestDB() error {
 		&models.UnitScore{},
 		&models.FinancialLedger{},
 		&models.LedgerSequence{},
+		&models.WebhookEvent{},
 		&models.UnitFinancialYear{},
 		&models.PlatformDonation{},
 		&models.BankAccount{},
