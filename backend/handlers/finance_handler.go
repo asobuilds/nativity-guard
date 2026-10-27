@@ -1,9 +1,16 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -740,6 +747,19 @@ func GetLedgerBalance(c *gin.Context) {
 
 // DonationWebhook handles incoming donation webhooks idempotently
 func DonationWebhook(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot read request body"})
+		return
+	}
+
+	if !verifyDonationWebhookSignature(c.GetHeader("X-Webhook-Signature"), body) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid webhook signature"})
+		return
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+
 	var input struct {
 		EventID     string  `json:"eventId" binding:"required"`
 		Provider    string  `json:"provider" binding:"required"`
@@ -838,4 +858,22 @@ func DonationWebhook(c *gin.Context) {
 		"ledgerEntry":  ledgerEntry,
 		"webhookEvent": webhookEvent,
 	})
+}
+
+// verifyDonationWebhookSignature checks the HMAC-SHA256 signature of the raw
+// request body. It fails closed when WEBHOOK_SECRET is not configured.
+func verifyDonationWebhookSignature(provided string, body []byte) bool {
+	secret := strings.TrimSpace(os.Getenv("WEBHOOK_SECRET"))
+	if secret == "" {
+		return false
+	}
+
+	providedMAC, err := hex.DecodeString(strings.ToLower(strings.TrimSpace(provided)))
+	if err != nil {
+		return false
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	return hmac.Equal(mac.Sum(nil), providedMAC)
 }
