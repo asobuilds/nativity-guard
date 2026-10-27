@@ -87,6 +87,9 @@ func main() {
 	scheduler := services.NewSchedulerService()
 	scheduler.Start(1 * time.Hour)
 
+	// Local news has its own cadence and must not change the hourly jobs above.
+	scheduler.StartLocalNewsFetcher(30 * time.Minute)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

@@ -48,6 +48,7 @@ func AutoMigrateAll() error {
 		&models.Announcement{},
 		&models.News{},
 		&models.NewsAlert{},
+		&models.LocalNewsArticle{},
 
 		&models.SOSAlert{},
 		&models.SOSResponder{},

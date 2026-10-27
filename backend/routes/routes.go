@@ -31,6 +31,7 @@ func SetupRoutes(router *gin.Engine) {
 		api.GET("/public/blueprint", handlers.GetBlueprint)
 		api.GET("/public/units/:id/auth", handlers.GetPublicUnitAuth)
 		api.POST("/invites/validate", middleware.RateLimitAuth(), handlers.ValidateInvite)
+		api.GET("/news/local", middleware.RateLimitGeneral(), handlers.GetLocalNews)
 
 		// Live external data â€” weather, news, directions, POIs.
 		api.GET("/weather/current", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetWeatherNow)
