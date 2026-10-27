@@ -608,9 +608,9 @@ func UpdateUnit(c *gin.Context) {
 	})
 }
 
-// callerIsHeadAdminOfUnit reports whether the caller may update the given
+// callerIsHeadAdminOfUnit reports whether the caller may act for the given
 // unit. Super admins bypass the membership lookup; everyone else must be an
-// active head admin of that exact unit.
+// active, verified head admin of that exact unit.
 func callerIsHeadAdminOfUnit(user *models.User, unitID uuid.UUID) bool {
 	if user == nil {
 		return false
@@ -621,7 +621,7 @@ func callerIsHeadAdminOfUnit(user *models.User, unitID uuid.UUID) bool {
 
 	var membership models.UnitMembership
 	err := config.DB.
-		Where("unit_id = ? AND user_id = ? AND status = ?",
+		Where("unit_id = ? AND user_id = ? AND status = ? AND verified_at IS NOT NULL",
 			unitID, user.ID, models.MembershipActive).
 		First(&membership).Error
 	if err != nil {

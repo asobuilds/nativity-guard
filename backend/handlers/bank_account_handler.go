@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/cryptoutil"
@@ -273,7 +277,7 @@ func RecordDonation(c *gin.Context) {
 		DonorName     string  `json:"donorName" binding:"required"`
 		DonorEmail    string  `json:"donorEmail"`
 		DonorPhone    string  `json:"donorPhone"`
-		Amount        float64 `json:"amount" binding:"required"`
+		Amount        float64 `json:"amount"`
 		PaymentMethod string  `json:"paymentMethod"`
 		Reference     string  `json:"reference"`
 		Notes         string  `json:"notes"`
@@ -297,83 +301,102 @@ func RecordDonation(c *gin.Context) {
 		return
 	}
 
-	// Anyone can record a donation (citizen or admin)
-	// But if admin, they can confirm immediately
+	var unit models.SecurityUnit
+	if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
+		return
+	}
 
+	if !callerIsHeadAdminOfUnit(userObj, unit.ID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the unit's verified head admin can record donations"})
+		return
+	}
+
+	if !validDonationAmount(input.Amount) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "amount must be a positive integer"})
+		return
+	}
+
+	input.Reference = strings.TrimSpace(input.Reference)
+	if input.Reference == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reference is required"})
+		return
+	}
+
+	input.PaymentMethod = strings.TrimSpace(input.PaymentMethod)
+	if input.PaymentMethod == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "paymentMethod is required"})
+		return
+	}
+
+	now := time.Now()
 	donation := models.Donation{
-		UnitID:        unitID,
+		ID:            uuid.New(),
+		UnitID:        unit.ID,
 		DonorName:     input.DonorName,
 		DonorEmail:    input.DonorEmail,
 		DonorPhone:    input.DonorPhone,
 		Amount:        input.Amount,
 		PaymentMethod: input.PaymentMethod,
 		Reference:     input.Reference,
-		Status:        "pending",
-		DonationDate:  time.Now(),
+		Status:        "confirmed",
+		DonationDate:  now,
 		Notes:         input.Notes,
+		ConfirmedBy:   &userObj.ID,
+		ConfirmedAt:   &now,
+	}
+	transaction := models.Transaction{
+		UnitID:            unit.ID,
+		Type:              "donation",
+		Category:          "income",
+		Amount:            input.Amount,
+		Description:       "Donation from " + input.DonorName,
+		InitiatedBy:       userObj.ID,
+		ApprovedBy:        &userObj.ID,
+		ApprovalCount:     1,
+		RequiredApprovals: 1,
+		Status:            "approved",
+		TransactionDate:   now,
+		PaymentMethod:     input.PaymentMethod,
+		ReferenceID:       input.Reference,
 	}
 
-	if donation.PaymentMethod == "" {
-		donation.PaymentMethod = "bank_transfer"
-	}
-
-	if err := config.DB.Create(&donation).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record donation"})
-		return
-	}
-
-	// If user is admin, auto-confirm
-	if userObj.Role == "super_admin" || userObj.Role == "unit_admin" {
-		now := time.Now()
-		donation.Status = "confirmed"
-		donation.ConfirmedBy = &userObj.ID
-		donation.ConfirmedAt = &now
-		config.DB.Save(&donation)
-
-		// Create transaction record
-		transaction := models.Transaction{
-			UnitID:            unitID,
-			Type:              "donation",
-			Category:          "income",
-			Amount:            input.Amount,
-			Description:       "Donation from " + input.DonorName,
-			InitiatedBy:       userObj.ID,
-			ApprovedBy:        &userObj.ID,
-			ApprovalCount:     1,
-			RequiredApprovals: 1,
-			Status:            "approved",
-			TransactionDate:   time.Now(),
-			PaymentMethod:     input.PaymentMethod,
-			ReferenceID:       input.Reference,
+	ledgerSvc := services.NewLedgerService()
+	var ledger *models.FinancialLedger
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&donation).Error; err != nil {
+			return err
 		}
-		config.DB.Create(&transaction)
-
-		// Stamp the immutable ledger
-		ledgerSvc := services.NewLedgerService()
-		donationID := donation.ID
-		_, _ = ledgerSvc.Append(services.LedgerEntryInput{
-			UnitID:       unitID,
+		if err := tx.Create(&transaction).Error; err != nil {
+			return err
+		}
+		var err error
+		ledger, err = ledgerSvc.AppendTx(tx, services.LedgerEntryInput{
+			UnitID:       unit.ID,
 			Direction:    "in",
 			EntryType:    "donation",
 			Amount:       input.Amount,
 			Counterparty: input.DonorName,
 			Description:  "Donation from " + input.DonorName,
 			SourceType:   "donation",
-			SourceID:     &donationID,
+			SourceID:     &donation.ID,
 			CreatedBy:    userObj.ID,
 		})
-
-		c.JSON(http.StatusCreated, gin.H{
-			"message":  "Donation recorded and confirmed",
-			"donation": donation,
-		})
+		return err
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record donation"})
 		return
 	}
+	ledgerSvc.NotifyAdmins(ledger)
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":  "Donation recorded successfully. Awaiting confirmation.",
+		"message":  "Donation recorded and confirmed",
 		"donation": donation,
 	})
+}
+
+func validDonationAmount(amount float64) bool {
+	return !math.IsNaN(amount) && !math.IsInf(amount, 0) && amount > 0 && math.Trunc(amount) == amount
 }
 
 // ConfirmDonation confirms a donation (admin only)
@@ -392,14 +415,14 @@ func ConfirmDonation(c *gin.Context) {
 	}
 	userObj := user.(*models.User)
 
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can confirm donations"})
-		return
-	}
-
 	var donation models.Donation
 	if err := config.DB.First(&donation, "id = ?", donationID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Donation not found"})
+		return
+	}
+
+	if !callerIsHeadAdminOfUnit(userObj, donation.UnitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the unit's verified head admin can confirm donations"})
 		return
 	}
 
@@ -408,55 +431,76 @@ func ConfirmDonation(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != donation.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to confirm this donation"})
-			return
-		}
-	}
-
-	now := time.Now()
-	donation.Status = "confirmed"
-	donation.ConfirmedBy = &userObj.ID
-	donation.ConfirmedAt = &now
-
-	if err := config.DB.Save(&donation).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm donation"})
+	if !validDonationAmount(donation.Amount) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Donation amount is invalid"})
 		return
 	}
 
-	// Create transaction record
-	transaction := models.Transaction{
-		UnitID:            donation.UnitID,
-		Type:              "donation",
-		Category:          "income",
-		Amount:            donation.Amount,
-		Description:       "Donation from " + donation.DonorName,
-		InitiatedBy:       userObj.ID,
-		ApprovedBy:        &userObj.ID,
-		ApprovalCount:     1,
-		RequiredApprovals: 1,
-		Status:            "approved",
-		TransactionDate:   time.Now(),
-		PaymentMethod:     donation.PaymentMethod,
-		ReferenceID:       donation.Reference,
-	}
-	config.DB.Create(&transaction)
-
-	// Stamp the immutable ledger
 	ledgerSvc := services.NewLedgerService()
-	donationID = donation.ID
-	_, _ = ledgerSvc.Append(services.LedgerEntryInput{
-		UnitID:       donation.UnitID,
-		Direction:    "in",
-		EntryType:    "donation",
-		Amount:       donation.Amount,
-		Counterparty: donation.DonorName,
-		Description:  "Donation from " + donation.DonorName,
-		SourceType:   "donation",
-		SourceID:     &donationID,
-		CreatedBy:    userObj.ID,
-	})
+	var transaction models.Transaction
+	var ledger *models.FinancialLedger
+	alreadyConfirmed := false
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var locked models.Donation
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked, "id = ?", donationID).Error; err != nil {
+			return err
+		}
+		if locked.Status != "pending" {
+			alreadyConfirmed = true
+			return nil
+		}
+
+		now := time.Now()
+		locked.Status = "confirmed"
+		locked.ConfirmedBy = &userObj.ID
+		locked.ConfirmedAt = &now
+		if err := tx.Save(&locked).Error; err != nil {
+			return err
+		}
+		donation = locked
+
+		transaction = models.Transaction{
+			UnitID:            donation.UnitID,
+			Type:              "donation",
+			Category:          "income",
+			Amount:            donation.Amount,
+			Description:       "Donation from " + donation.DonorName,
+			InitiatedBy:       userObj.ID,
+			ApprovedBy:        &userObj.ID,
+			ApprovalCount:     1,
+			RequiredApprovals: 1,
+			Status:            "approved",
+			TransactionDate:   now,
+			PaymentMethod:     donation.PaymentMethod,
+			ReferenceID:       donation.Reference,
+		}
+		if err := tx.Create(&transaction).Error; err != nil {
+			return err
+		}
+
+		var err error
+		ledger, err = ledgerSvc.AppendTx(tx, services.LedgerEntryInput{
+			UnitID:       donation.UnitID,
+			Direction:    "in",
+			EntryType:    "donation",
+			Amount:       donation.Amount,
+			Counterparty: donation.DonorName,
+			Description:  "Donation from " + donation.DonorName,
+			SourceType:   "donation",
+			SourceID:     &donation.ID,
+			CreatedBy:    userObj.ID,
+		})
+		return err
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm donation"})
+		return
+	}
+	if alreadyConfirmed {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Donation is no longer pending"})
+		return
+	}
+	ledgerSvc.NotifyAdmins(ledger)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "Donation confirmed successfully",
