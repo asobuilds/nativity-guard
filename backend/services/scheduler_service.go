@@ -150,6 +150,26 @@ func (s *SchedulerService) Start(interval time.Duration) {
 	}()
 }
 
+// FetchLocalNewsJob pulls the configured Nigerian news feeds into the
+// local_news_articles table.
+func (s *SchedulerService) FetchLocalNewsJob() {
+	if err := FetchNigerianNews(); err != nil {
+		log.Printf("scheduler: local news fetch failed: %v", err)
+	}
+}
+
+// StartLocalNewsFetcher runs the local news job on its own cadence so it does
+// not change the interval used by the existing scheduler jobs.
+func (s *SchedulerService) StartLocalNewsFetcher(interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.FetchLocalNewsJob()
+		}
+	}()
+}
+
 func (s *SchedulerService) CleanupExpiredSessions() {
 	if err := NewSessionService().CleanupExpired(); err != nil {
 		log.Printf("scheduler: session cleanup failed: %v", err)
