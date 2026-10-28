@@ -84,9 +84,9 @@ func SetupRoutes(router *gin.Engine) {
 
 		otp := api.Group("/otp")
 		{
-			otp.POST("/send", middleware.RateLimitOTP(), handlers.SendOTP)
-			otp.POST("/verify", middleware.RateLimitOTP(), handlers.VerifyOTP)
-			otp.POST("/resend", middleware.RateLimitOTP(), handlers.ResendOTP)
+			otp.POST("/send", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.SendOTP)
+			otp.POST("/verify", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.VerifyOTP)
+			otp.POST("/resend", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.ResendOTP)
 		}
 
 		units := api.Group("/units")
