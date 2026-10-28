@@ -135,7 +135,7 @@ func GetAlertByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"alert": alert})
 }
 
-// ConfirmAlert confirms an alert (admin only).
+// ConfirmAlert confirms an alert (head admin of its unit or super admin only).
 func ConfirmAlert(c *gin.Context) {
 	id := c.Param("id")
 	alertID, err := uuid.Parse(id)
@@ -144,22 +144,28 @@ func ConfirmAlert(c *gin.Context) {
 		return
 	}
 
+	var alert models.CommunityAlert
+	if err := config.DB.First(&alert, "id = ?", alertID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Alert not found"})
+		return
+	}
+
 	user, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can confirm alerts"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
-	var alert models.CommunityAlert
-	if err := config.DB.First(&alert, "id = ?", alertID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Alert not found"})
-		return
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		if alert.UnitID == nil || !callerIsHeadAdminOfUnit(userObj, *alert.UnitID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the head admin of this alert's unit may confirm it"})
+			return
+		}
 	}
 
 	now := time.Now()
