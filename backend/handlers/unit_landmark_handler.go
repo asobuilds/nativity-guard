@@ -19,6 +19,27 @@ func GetUnitLandmarks(c *gin.Context) {
 		return
 	}
 
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
+
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		var membership models.UnitMembership
+		if err := config.DB.
+			Where("unit_id = ? AND user_id = ? AND status = ?", unitID, userObj.ID, models.MembershipActive).
+			First(&membership).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not a member of this unit"})
+			return
+		}
+	}
+
 	var landmarks []models.UnitLandmark
 	if err := config.DB.Where("unit_id = ?", unitID).Order("created_at desc").Find(&landmarks).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch unit landmarks"})

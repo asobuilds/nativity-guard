@@ -56,6 +56,7 @@ func SetupTestDB() error {
 		&models.Notification{},
 		&models.UnitAuth{},
 		&models.UnitInvite{},
+		&models.UnitLandmark{},
 		&models.UnitAdminSeat{},
 		&models.UnitAdminElection{},
 		&models.AdminVote{},
