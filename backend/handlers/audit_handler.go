@@ -5,53 +5,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"security-solution/config"
 	"security-solution/models"
 )
-
-// LogActivity logs user activity
-func LogActivity(c *gin.Context) {
-	var input struct {
-		ActivityType string `json:"activityType" binding:"required"`
-		Description  string `json:"description"`
-		Device       string `json:"device"`
-		Location     string `json:"location"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	activity := models.ActivityLog{
-		UserID:       userObj.ID,
-		SessionID:    uuid.New().String(),
-		ActivityType: input.ActivityType,
-		Description:  input.Description,
-		IPAddress:    c.ClientIP(),
-		Device:       input.Device,
-		Location:     input.Location,
-	}
-
-	if err := config.DB.Create(&activity).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log activity"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message":  "Activity logged",
-		"activity": activity,
-	})
-}
 
 // GetActivityLogs gets user activity logs
 func GetActivityLogs(c *gin.Context) {
@@ -117,51 +74,6 @@ func GetAuditLogs(c *gin.Context) {
 	})
 }
 
-// CreateAuditLog creates an audit log entry
-func CreateAuditLog(c *gin.Context) {
-	var input struct {
-		Action     string `json:"action" binding:"required"`
-		EntityType string `json:"entityType" binding:"required"`
-		EntityID   string `json:"entityId" binding:"required"`
-		OldValue   string `json:"oldValue"`
-		NewValue   string `json:"newValue"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj := user.(*models.User)
-
-	auditLog := models.AuditLog{
-		UserID:     userObj.ID,
-		Action:     input.Action,
-		EntityType: input.EntityType,
-		EntityID:   input.EntityID,
-		OldValue:   input.OldValue,
-		NewValue:   input.NewValue,
-		IPAddress:  c.ClientIP(),
-		UserAgent:  c.GetHeader("User-Agent"),
-		Timestamp:  time.Now(),
-	}
-
-	if err := config.DB.Create(&auditLog).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message":  "Audit log created",
-		"auditLog": auditLog,
-	})
-}
-
 // GetSystemHealth gets system health metrics (admin only)
 func GetSystemHealth(c *gin.Context) {
 	user, exists := c.Get("user")
@@ -204,52 +116,6 @@ func GetSystemHealth(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"health": health,
-	})
-}
-
-// UpdateSystemHealth updates system health metrics
-func UpdateSystemHealth(c *gin.Context) {
-	var input struct {
-		CPUUsage       float64 `json:"cpuUsage"`
-		MemoryUsage    float64 `json:"memoryUsage"`
-		DiskUsage      float64 `json:"diskUsage"`
-		ResponseTime   float64 `json:"responseTime"`
-		DatabaseStatus string  `json:"databaseStatus"`
-		ServerStatus   string  `json:"serverStatus"`
-		Uptime         int64   `json:"uptime"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	health := models.SystemHealth{
-		CPUUsage:       input.CPUUsage,
-		MemoryUsage:    input.MemoryUsage,
-		DiskUsage:      input.DiskUsage,
-		ResponseTime:   input.ResponseTime,
-		DatabaseStatus: input.DatabaseStatus,
-		ServerStatus:   input.ServerStatus,
-		Uptime:         input.Uptime,
-		LastCheck:      time.Now(),
-	}
-
-	if health.DatabaseStatus == "" {
-		health.DatabaseStatus = "healthy"
-	}
-	if health.ServerStatus == "" {
-		health.ServerStatus = "healthy"
-	}
-
-	if err := config.DB.Create(&health).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update health"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Health updated",
-		"health":  health,
 	})
 }
 
