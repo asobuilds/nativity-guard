@@ -93,6 +93,7 @@ func SetupTestDB() error {
 		&models.AuditLog{},
 		&models.ActivityLog{},
 		&models.SystemHealth{},
+		&models.OTP{},
 		&models.SOSAlert{},
 		&models.SOSResponder{},
 		&models.CommunityEvent{},
