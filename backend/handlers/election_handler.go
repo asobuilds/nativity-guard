@@ -151,6 +151,37 @@ func GetElectionResults(c *gin.Context) {
 		return
 	}
 
+	userValue, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	userObj, ok := userValue.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
+
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		var membership models.UnitMembership
+		if err := config.DB.
+			Where("unit_id = ? AND user_id = ? AND status = ?", election.UnitID, userObj.ID, models.MembershipActive).
+			First(&membership).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not a member of this unit"})
+			return
+		}
+
+		isUnitAdmin := membership.IsHeadAdmin || membership.Role == models.UnitRoleAdmin
+		isFinalized := election.Status == "finalized" ||
+			election.Status == "finalized_low_turnout" ||
+			election.ResultFinalizedAt != nil
+
+		if !isUnitAdmin && !isFinalized {
+			c.JSON(http.StatusForbidden, gin.H{"error": "election results are not available until the election is finalized"})
+			return
+		}
+	}
+
 	var seats []models.UnitAdminSeat
 	config.DB.Where("election_id = ?", electionID).Order("seat_number ASC").Find(&seats)
 
