@@ -1,9 +1,10 @@
-﻿import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BarChart3,
+  Bell,
   Bot,
   Building2,
   FileText,
@@ -14,6 +15,7 @@ import {
   Megaphone,
   Menu,
   MessageSquare,
+  Newspaper,
   Shield,
   ShieldAlert,
   Settings,
@@ -82,6 +84,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
+    { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
+    { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },

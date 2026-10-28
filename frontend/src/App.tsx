@@ -165,8 +165,8 @@ export function App() {
                   <Route path="/sessions" element={<SessionsPage />} />
                   <Route path="/alerts" element={<RequireRole roles={['citizen', 'super_admin']}><AlertsPage /></RequireRole>} />
                   <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
-                  <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
-                  <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
+                  <Route path="/news" element={<RequireRole roles={['citizen', 'super_admin']}><NewsPage /></RequireRole>} />
+                  <Route path="/subscriptions" element={<RequireRole roles={['citizen', 'super_admin']}><SubscriptionsPage /></RequireRole>} />
                   <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/reports" element={<RequireRole roles={ADMIN_ROLES}><AdminReportsPage /></RequireRole>} />
