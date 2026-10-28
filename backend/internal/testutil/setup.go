@@ -91,6 +91,8 @@ func SetupTestDB() error {
 		&models.IdempotencyRecord{},
 		&models.AgeAudit{},
 		&models.AuditLog{},
+		&models.ActivityLog{},
+		&models.SystemHealth{},
 		&models.SOSAlert{},
 		&models.SOSResponder{},
 		&models.CommunityEvent{},

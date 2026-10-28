@@ -381,12 +381,9 @@ func SetupRoutes(router *gin.Engine) {
 
 		audit := api.Group("/audit")
 		{
-			audit.POST("/activity", middleware.AuthMiddleware(), handlers.LogActivity)
 			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
 			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
-			audit.POST("/logs", middleware.AuthMiddleware(), handlers.CreateAuditLog)
 			audit.GET("/health", middleware.AuthMiddleware(), handlers.GetSystemHealth)
-			audit.POST("/health", middleware.AuthMiddleware(), handlers.UpdateSystemHealth)
 			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
 		}
 
