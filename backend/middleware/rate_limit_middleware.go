@@ -9,15 +9,15 @@ import (
 )
 
 type rateBucket struct {
-	count     int
-	resetAt   time.Time
+	count   int
+	resetAt time.Time
 }
 
 type rateLimiter struct {
-	mu       sync.Mutex
-	buckets  map[string]*rateBucket
-	limit    int
-	window   time.Duration
+	mu      sync.Mutex
+	buckets map[string]*rateBucket
+	limit   int
+	window  time.Duration
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
@@ -70,6 +70,7 @@ var (
 	inviteLimiter  = newRateLimiter(10, 1*time.Hour)    // 10 invites/hour per user
 	generalLimiter = newRateLimiter(200, 1*time.Minute) // 200 req/min per IP
 	mapLimiter     = newRateLimiter(60, 1*time.Minute)  // 60 req/min per IP
+	aiLimiter      = newRateLimiter(20, 1*time.Minute)  // 20 req/min per user or IP
 )
 
 // makeKey returns the identity used for limiting: user_id if present, otherwise client IP.
@@ -153,6 +154,18 @@ func RateLimitMap() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := "map:" + c.ClientIP()
 		if ok, wait := mapLimiter.allow(key); !ok {
+			reject(c, wait)
+			return
+		}
+		c.Next()
+	}
+}
+
+// RateLimitAI applies a tight per-identity throttle to AI endpoints.
+func RateLimitAI() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := "ai:" + makeKey(c)
+		if ok, wait := aiLimiter.allow(key); !ok {
 			reject(c, wait)
 			return
 		}
