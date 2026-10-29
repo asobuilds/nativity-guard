@@ -49,6 +49,7 @@ const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m 
 const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage').then(m => ({ default: m.SuperAnalyticsPage })))
 const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
 const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
+export const SuperAgencyManagementPage = lazy(() => import('@/pages/super/SuperAgencyManagementPage').then(m => ({ default: m.SuperAgencyManagementPage })))
 const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
 const UnitDashboardPage = lazy(() => import('@/pages/admin/UnitDashboardPage').then(m => ({ default: m.UnitDashboardPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -287,6 +288,14 @@ export function App() {
                     element={
                       <RequireRole roles={['super_admin']}>
                         <UnitsRegistryPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/super/agencies"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <SuperAgencyManagementPage />
                       </RequireRole>
                     }
                   />
