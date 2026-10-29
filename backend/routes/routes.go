@@ -487,7 +487,7 @@ func SetupRoutes(router *gin.Engine) {
 		}
 
 		observer := api.Group("/observer")
-		observer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyObserver))
+		observer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyObserver, models.RoleAgencyDivisionAdmin))
 		{
 			observer.GET("/incidents", middleware.RateLimitGeneral(), handlers.GetObserverIncidents)
 			observer.GET("/units", middleware.RateLimitGeneral(), handlers.GetObserverUnits)

@@ -41,6 +41,12 @@ interface NavItem {
   soon?: boolean
 }
 
+const AGENCY_NAV: NavItem[] = [
+  { to: '/observer/dashboard', label: 'Oversight', icon: <Shield className="size-4" /> },
+  { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+  { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
+]
+
 const NAV: Record<Role, NavItem[]> = {
   citizen: [
     { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
@@ -104,6 +110,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
   ],
+  agency_observer: AGENCY_NAV,
+  agency_division_admin: AGENCY_NAV,
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -111,6 +119,8 @@ const ROLE_LABEL: Record<Role, string> = {
   officer: 'Officer',
   unit_admin: 'Unit admin',
   super_admin: 'Super admin',
+  agency_observer: 'Agency observer',
+  agency_division_admin: 'Agency division admin',
 }
 
 function NavItems({
