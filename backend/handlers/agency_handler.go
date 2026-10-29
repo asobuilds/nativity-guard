@@ -35,8 +35,29 @@ type agencyTenantInput struct {
 }
 
 type assignAgencyDivisionAdminInput struct {
-	UserID string `json:"userId" binding:"required"`
+	UserID string `json:"userId"`
+	Email  string `json:"email"`
 	Rank   string `json:"rank"`
+}
+
+type agencyTenantAdminSummary struct {
+	UserID    uuid.UUID `json:"userId"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
+	Phone     string    `json:"phone"`
+	Rank      string    `json:"rank"`
+}
+
+type agencyTenantItem struct {
+	ID           uuid.UUID                 `json:"id"`
+	AgencyType   string                    `json:"agencyType"`
+	State        string                    `json:"state"`
+	LGA          string                    `json:"lga"`
+	DivisionName string                    `json:"divisionName"`
+	CreatedAt    time.Time                 `json:"createdAt"`
+	UpdatedAt    time.Time                 `json:"updatedAt"`
+	Admin        *agencyTenantAdminSummary `json:"admin,omitempty"`
 }
 
 type createAgencyObserverInput struct {
@@ -101,6 +122,71 @@ func CreateAgencyTenant(c *gin.Context) {
 	})
 }
 
+// ListAgencyTenants returns all agency tenants with their assigned division admins.
+func ListAgencyTenants(c *gin.Context) {
+	var tenants []models.AgencyTenant
+	if err := config.DB.Order("created_at DESC").Find(&tenants).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agency tenants"})
+		return
+	}
+
+	tenantIDs := make([]uuid.UUID, len(tenants))
+	for i, t := range tenants {
+		tenantIDs[i] = t.ID
+	}
+
+	type adminRow struct {
+		TenantID  uuid.UUID `gorm:"column:tenant_id"`
+		UserID    uuid.UUID `gorm:"column:user_id"`
+		Email     string    `gorm:"column:email"`
+		FirstName string    `gorm:"column:first_name"`
+		LastName  string    `gorm:"column:last_name"`
+		Phone     string    `gorm:"column:phone"`
+		Rank      string    `gorm:"column:rank"`
+	}
+
+	adminMap := make(map[uuid.UUID]agencyTenantAdminSummary)
+	if len(tenantIDs) > 0 {
+		var rows []adminRow
+		err := config.DB.Table("agency_observers AS ao").
+			Select("ao.tenant_id, ao.user_id, ao.rank, u.email, u.first_name, u.last_name, u.phone").
+			Joins("JOIN users AS u ON u.id = ao.user_id").
+			Where("ao.tenant_id IN ? AND u.role = ? AND u.deleted_at IS NULL", tenantIDs, models.RoleAgencyDivisionAdmin).
+			Scan(&rows).Error
+		if err == nil {
+			for _, r := range rows {
+				adminMap[r.TenantID] = agencyTenantAdminSummary{
+					UserID:    r.UserID,
+					Email:     r.Email,
+					FirstName: r.FirstName,
+					LastName:  r.LastName,
+					Phone:     r.Phone,
+					Rank:      r.Rank,
+				}
+			}
+		}
+	}
+
+	items := make([]agencyTenantItem, len(tenants))
+	for i, t := range tenants {
+		items[i] = agencyTenantItem{
+			ID:           t.ID,
+			AgencyType:   t.AgencyType,
+			State:        t.State,
+			LGA:          t.LGA,
+			DivisionName: t.DivisionName,
+			CreatedAt:    t.CreatedAt,
+			UpdatedAt:    t.UpdatedAt,
+		}
+		if admin, ok := adminMap[t.ID]; ok {
+			adminCopy := admin
+			items[i].Admin = &adminCopy
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tenants": items})
+}
+
 // AssignAgencyDivisionAdmin assigns a user as the division admin for a tenant.
 func AssignAgencyDivisionAdmin(c *gin.Context) {
 	tenantID, err := uuid.Parse(c.Param("id"))
@@ -115,9 +201,11 @@ func AssignAgencyDivisionAdmin(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(strings.TrimSpace(input.UserID))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	rawUserID := strings.TrimSpace(input.UserID)
+
+	if email == "" && rawUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user email or userId is required"})
 		return
 	}
 
@@ -137,8 +225,20 @@ func AssignAgencyDivisionAdmin(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	var userErr error
+	if email != "" {
+		userErr = config.DB.First(&user, "LOWER(email) = ?", email).Error
+	} else {
+		userID, err := uuid.Parse(rawUserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+		userErr = config.DB.First(&user, "id = ?", userID).Error
+	}
+
+	if userErr != nil {
+		if errors.Is(userErr, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
