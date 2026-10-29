@@ -496,6 +496,7 @@ func SetupRoutes(router *gin.Engine) {
 		super := api.Group("/super")
 		super.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
 		{
+			super.GET("/agency-tenants", handlers.ListAgencyTenants)
 			super.POST("/agency-tenants", handlers.CreateAgencyTenant)
 			super.POST("/agency-tenants/:id/admin", handlers.AssignAgencyDivisionAdmin)
 		}

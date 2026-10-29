@@ -96,6 +96,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
+    { to: '/super/agencies', label: 'Agencies', icon: <Building2 className="size-4" /> },
     { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },

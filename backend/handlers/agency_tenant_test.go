@@ -464,4 +464,72 @@ func TestAgencyTenancyEndpoints(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("lists agency tenants with assigned admin", func(t *testing.T) {
+		w := agencyJSONRequest(t, server, http.MethodGet, "/api/v1/super/agency-tenants", citizenToken, nil)
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/super/agency-tenants", superToken, nil)
+		requireAgencyStatus(t, w, http.StatusOK)
+
+		var res struct {
+			Tenants []struct {
+				ID           uuid.UUID `json:"id"`
+				AgencyType   string    `json:"agencyType"`
+				DivisionName string    `json:"divisionName"`
+				Admin        *struct {
+					UserID uuid.UUID `json:"userId"`
+					Email  string    `json:"email"`
+					Rank   string    `json:"rank"`
+				} `json:"admin"`
+			} `json:"tenants"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+			t.Fatalf("decode tenants: %v", err)
+		}
+		if len(res.Tenants) < 2 {
+			t.Fatalf("expected at least 2 tenants, got %d", len(res.Tenants))
+		}
+		var foundA bool
+		for _, tenant := range res.Tenants {
+			if tenant.ID == tenantA.ID {
+				foundA = true
+				if tenant.Admin == nil {
+					t.Fatal("tenant A missing admin")
+				}
+				if tenant.Admin.UserID != citizen.ID {
+					t.Fatalf("tenant A admin userId = %s, want %s", tenant.Admin.UserID, citizen.ID)
+				}
+			}
+		}
+		if !foundA {
+			t.Fatal("tenant A not found in listing")
+		}
+	})
+
+	t.Run("assigns division admin by email", func(t *testing.T) {
+		newCitizen := testutil.MakeUser(t, models.RoleCitizen)
+		tenantC := createAgencyTenantForTest(t, server, superToken, "nscdc", "Alausa NSCDC Division")
+
+		w := agencyJSONRequest(
+			t,
+			server,
+			http.MethodPost,
+			"/api/v1/super/agency-tenants/"+tenantC.ID.String()+"/admin",
+			superToken,
+			map[string]any{
+				"email": newCitizen.Email,
+				"rank":  "Commander",
+			},
+		)
+		requireAgencyStatus(t, w, http.StatusOK)
+
+		var reloaded models.User
+		if err := testutil.GetDB().First(&reloaded, "id = ?", newCitizen.ID).Error; err != nil {
+			t.Fatalf("reload user: %v", err)
+		}
+		if reloaded.Role != models.RoleAgencyDivisionAdmin {
+			t.Fatalf("reloaded role = %s, want %s", reloaded.Role, models.RoleAgencyDivisionAdmin)
+		}
+	})
 }
