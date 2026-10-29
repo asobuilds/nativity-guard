@@ -10,4 +10,6 @@ export const MOBILE_PRIMARY_ROUTES: Record<Role, readonly string[]> = {
   officer: ['/officer/queue', '/map', '/assistant'],
   unit_admin: ['/admin/cases', '/admin/overview', '/map'],
   super_admin: ['/super/overview', '/super/units', '/map'],
+  agency_observer: ['/observer/dashboard', '/map', '/units'],
+  agency_division_admin: ['/observer/dashboard', '/map', '/units'],
 }

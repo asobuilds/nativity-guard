@@ -11,7 +11,14 @@ import type { Role } from '@/types/api'
  * `head_admin` is deliberately absent: it is `models.UnitMembership.IsHeadAdmin`, a
  * boolean on a membership, not a role a user account carries.
  */
-export const ROLES = ['citizen', 'officer', 'unit_admin', 'super_admin'] as const
+export const ROLES = [
+  'citizen',
+  'officer',
+  'unit_admin',
+  'super_admin',
+  'agency_division_admin',
+  'agency_observer',
+] as const
 
 export function isKnownRole(value: unknown): value is Role {
   return typeof value === 'string' && (ROLES as readonly string[]).includes(value)

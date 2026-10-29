@@ -15,7 +15,12 @@ import type { Role } from '@/types/api'
 const PAGE_SIZE = 20
 const ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
 const ROLE_LABEL: Record<Role, string> = {
-  citizen: 'Citizen', officer: 'Officer', unit_admin: 'Unit admin', super_admin: 'Super admin',
+  citizen: 'Citizen',
+  officer: 'Officer',
+  unit_admin: 'Unit admin',
+  super_admin: 'Super admin',
+  agency_observer: 'Agency observer',
+  agency_division_admin: 'Agency division admin',
 }
 
 export function SuperUsersPage() {

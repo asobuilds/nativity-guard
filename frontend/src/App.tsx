@@ -68,11 +68,20 @@ const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityV
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
 const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
+const ObserverDashboardPage = lazy(() => import('@/pages/observer/ObserverDashboardPage').then(m => ({ default: m.ObserverDashboardPage })))
 import type { Role } from '@/types/api'
 
-const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
+const ALL_ROLES: Role[] = [
+  'citizen',
+  'officer',
+  'unit_admin',
+  'super_admin',
+  'agency_observer',
+  'agency_division_admin',
+]
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
+const AGENCY_ROLES: Role[] = ['agency_observer', 'agency_division_admin']
 
 function PreferencesBootstrap() {
   usePreferences()
@@ -255,6 +264,15 @@ export function App() {
                     element={
                       <RequireRole roles={['super_admin']}>
                         <FeedbackQueuePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route
+                    path="/observer/dashboard"
+                    element={
+                      <RequireRole roles={AGENCY_ROLES}>
+                        <ObserverDashboardPage />
                       </RequireRole>
                     }
                   />
