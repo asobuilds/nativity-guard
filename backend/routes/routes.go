@@ -5,6 +5,7 @@ import (
 
 	"security-solution/handlers"
 	"security-solution/middleware"
+	"security-solution/models"
 )
 
 func SetupRoutes(router *gin.Engine) {
@@ -476,6 +477,20 @@ func SetupRoutes(router *gin.Engine) {
 			peace.GET("/units/:id/peace-metrics", middleware.AuthMiddleware(), handlers.GetPeaceMetrics)
 			peace.GET("/units/:id/trust-scores", middleware.AuthMiddleware(), handlers.GetTrustScores)
 			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
+		}
+
+		agency := api.Group("/agency")
+		agency.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyDivisionAdmin))
+		{
+			agency.POST("/observers", handlers.CreateAgencyObserver)
+			agency.GET("/observers", handlers.ListAgencyObservers)
+		}
+
+		super := api.Group("/super")
+		super.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
+		{
+			super.POST("/agency-tenants", handlers.CreateAgencyTenant)
+			super.POST("/agency-tenants/:id/admin", handlers.AssignAgencyDivisionAdmin)
 		}
 
 		superAdmin := api.Group("/admin")

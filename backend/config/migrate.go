@@ -10,6 +10,8 @@ func AutoMigrateAll() error {
 	log.Println("running auto-migration...")
 	err := DB.AutoMigrate(
 		&models.User{},
+		&models.AgencyTenant{},
+		&models.AgencyObserver{},
 		&models.UserPreferences{},
 		&models.SecurityUnit{},
 		&models.UnitLandmark{},
