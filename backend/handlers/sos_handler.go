@@ -24,6 +24,7 @@ func SendSOSAlert(c *gin.Context) {
 		Latitude          float64  `json:"latitude" binding:"required"`
 		Longitude         float64  `json:"longitude" binding:"required"`
 		Description       string   `json:"description"`
+		Category          string   `json:"category"`
 		UnitID            string   `json:"unitId"`
 		EmergencyContacts []string `json:"emergencyContacts"`
 		MedicalInfo       string   `json:"medicalInfo"`
@@ -39,6 +40,12 @@ func SendSOSAlert(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	category, ok := normalizeIncidentCategory(input.Category)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "category must be one of infrastructure, vandalism, disaster, fire, road_accident, or traffic"})
 		return
 	}
 
@@ -73,25 +80,26 @@ func SendSOSAlert(c *gin.Context) {
 	}
 
 	// Best-effort jurisdiction lookup so head admins in the same
-    // state/LGA can be notified at creation time.
-    var jurState, jurLGA string
-    if rec, err := services.NewGeocodingService().ReverseGeocode(input.Latitude, input.Longitude); err == nil && rec != nil {
-        jurState = rec.State
-        jurLGA = rec.LGA
-    }
+	// state/LGA can be notified at creation time.
+	var jurState, jurLGA string
+	if rec, err := services.NewGeocodingService().ReverseGeocode(input.Latitude, input.Longitude); err == nil && rec != nil {
+		jurState = rec.State
+		jurLGA = rec.LGA
+	}
 
-    sos := models.SOSAlert{
-		UserID:        userObj.ID,
-		Severity:      severity,
-		DispatchState:    "open",
+	sos := models.SOSAlert{
+		UserID:            userObj.ID,
+		Severity:          severity,
+		DispatchState:     "open",
 		JurisdictionState: jurState,
 		JurisdictionLGA:   jurLGA,
-		Latitude:    input.Latitude,
-		Longitude:   input.Longitude,
-		Description: input.Description,
-		Status:      "pending",
-		Priority:    input.Priority,
-		LocationGeohash: geohash,
+		Latitude:          input.Latitude,
+		Longitude:         input.Longitude,
+		Description:       input.Description,
+		Category:          category,
+		Status:            "pending",
+		Priority:          input.Priority,
+		LocationGeohash:   geohash,
 	}
 
 	// SOS is time-critical: even in coarse mode we keep the precise
@@ -118,7 +126,9 @@ func SendSOSAlert(c *gin.Context) {
 	linkedMedia, failedMedia := linkMedia(MediaParentSOS, sos.ID, voiceNoteKey, videoKey)
 	mediaAttachmentStatus := "none"
 	mediaAttachmentWarning := ""
-	if linkedMedia > 0 { mediaAttachmentStatus = "attached" }
+	if linkedMedia > 0 {
+		mediaAttachmentStatus = "attached"
+	}
 	if failedMedia > 0 {
 		mediaAttachmentStatus = "partial"
 		mediaAttachmentWarning = "SOS was recorded, but one or more recordings could not be linked. Review the SOS detail and contact the responder directly if needed."
@@ -148,12 +158,12 @@ func SendSOSAlert(c *gin.Context) {
 
 	// Notify nearest units
 	go func() {
-        dispatcher := services.NewSosDispatchService()
-        candidates := dispatcher.SelectCandidates(sos.Latitude, sos.Longitude)
-        dispatcher.NotifyCandidates(sos, candidates)
-        dispatcher.NotifySuperAdmins(sos, "new SOS")
-        dispatcher.NotifyJurisdictionHeads(sos)
-    }()
+		dispatcher := services.NewSosDispatchService()
+		candidates := dispatcher.SelectCandidates(sos.Latitude, sos.Longitude)
+		dispatcher.NotifyCandidates(sos, candidates)
+		dispatcher.NotifySuperAdmins(sos, "new SOS")
+		dispatcher.NotifyJurisdictionHeads(sos)
+	}()
 
 	// Start escalation timer (auto-escalate if no response in 5 minutes)
 	go startEscalationTimer(sos.ID)
@@ -164,10 +174,10 @@ func SendSOSAlert(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message":        "SOS alert recorded. Responder acknowledgement is not yet confirmed.",
-		"sos":            sos,
-		"escalationTime": "5 minutes",
-		"mediaAttachmentStatus": mediaAttachmentStatus,
+		"message":                "SOS alert recorded. Responder acknowledgement is not yet confirmed.",
+		"sos":                    sos,
+		"escalationTime":         "5 minutes",
+		"mediaAttachmentStatus":  mediaAttachmentStatus,
 		"mediaAttachmentWarning": mediaAttachmentWarning,
 	})
 }
