@@ -279,6 +279,10 @@ func (s *SchedulerService) EscalateStaleSOS() {
 						EntityID:   sos.ID,
 						LinkTo:     "/sos/" + sos.ID.String(),
 					})
+					if h.Phone != "" {
+						smsText := fmt.Sprintf("URGENT SOS in %s: %s. View: https://nativity-guard.vercel.app/sos/%s", sos.JurisdictionLGA, sos.Description, sos.ID.String())
+						go SendSMS(h.Phone, smsText)
+					}
 				}
 			}
 		}

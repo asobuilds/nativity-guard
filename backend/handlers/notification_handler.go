@@ -199,3 +199,37 @@ func DeleteNotification(c *gin.Context) {
 		"message": "Notification deleted successfully",
 	})
 }
+
+func TestPushNotification(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userObj := user.(*models.User)
+
+	var subs []models.PushSubscription
+	if err := config.DB.Where("user_id = ?", userObj.ID).Find(&subs).Error; err != nil || len(subs) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No push subscriptions found"})
+		return
+	}
+
+	title := "🔔 VAPID Test Push"
+	message := "This is a test push notification from Nativity Guard."
+
+	notification := models.Notification{
+		UserID:  userObj.ID,
+		Title:   title,
+		Message: message,
+		Type:    "test",
+		Status:  "sent",
+	}
+	config.DB.Create(&notification)
+
+	go dispatchWebPush(userObj.ID, title, message)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Test push notifications sent",
+		"count":   len(subs),
+	})
+}

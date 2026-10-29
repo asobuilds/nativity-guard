@@ -530,6 +530,7 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.GET("/feedback", handlers.ListAllFeedback)
 			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
 			superAdmin.POST("/feedback/:id/close", handlers.CloseFeedback)
+			superAdmin.POST("/push/test", handlers.TestPushNotification)
 		}
 	}
 
