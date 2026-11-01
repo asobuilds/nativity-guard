@@ -486,6 +486,14 @@ func SetupRoutes(router *gin.Engine) {
 			agency.GET("/observers", handlers.ListAgencyObservers)
 		}
 
+		// Officer safety (officer-initiated distress). Authenticated officers
+		// only; the handler resolves the officer's unit for notification scope.
+		officer := api.Group("/officer")
+		officer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleOfficer, models.RoleUnitAdmin, models.RoleSuperAdmin))
+		{
+			officer.POST("/panic", middleware.RateLimitGeneral(), handlers.TriggerPanic)
+		}
+
 		observer := api.Group("/observer")
 		observer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyObserver, models.RoleAgencyDivisionAdmin))
 		{
