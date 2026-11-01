@@ -70,6 +70,7 @@ func SetupTestDB() error {
 		&models.CounterStatement{},
 		&models.Rating{},
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.FinancialLedger{},
 		&models.LedgerSequence{},

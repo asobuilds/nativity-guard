@@ -131,6 +131,7 @@ func AutoMigrateAll() error {
 		&models.WebhookEvent{},
 
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.CounterStatement{},
 		&models.Appeal{},

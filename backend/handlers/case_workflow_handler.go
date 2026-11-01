@@ -137,11 +137,24 @@ func DispatchCase(c *gin.Context) {
 }
 
 // ArriveAtCase records the assigned officer's arrival at the case location.
+// The officer's current GPS position must be within 200 m of the case
+// coordinates; otherwise the request is rejected with 400.
 func ArriveAtCase(c *gin.Context) {
 	caseID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid case id",
+		})
+		return
+	}
+
+	var input struct {
+		Latitude  float64 `json:"latitude" binding:"required"`
+		Longitude float64 `json:"longitude" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "latitude and longitude are required",
 		})
 		return
 	}
@@ -165,6 +178,18 @@ func ArriveAtCase(c *gin.Context) {
 			"status": caseRecord.Status,
 		})
 		return
+	}
+
+	// 200 m geofence: the officer's reported position must be close enough
+	// to the case location for the arrival to be considered genuine.
+	if caseRecord.Latitude != 0 || caseRecord.Longitude != 0 {
+		distanceKm := haversine(input.Latitude, input.Longitude, caseRecord.Latitude, caseRecord.Longitude)
+		if distanceKm*1000 > 200 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "you are not within 200 m of the case location",
+			})
+			return
+		}
 	}
 
 	now := time.Now()
