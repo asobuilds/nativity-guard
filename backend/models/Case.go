@@ -14,6 +14,7 @@ type Case struct {
 	Title           string     `gorm:"not null" json:"title"`
 	Description     string     `gorm:"type:text;not null" json:"description"`
 	IncidentDate    time.Time  `json:"incidentDate"`
+	Category        string     `gorm:"type:varchar(32);index:idx_case_category" json:"category,omitempty"`
 	Location        string     `json:"location"`
 	Latitude        float64    `json:"latitude"`
 	Longitude       float64    `json:"longitude"`
@@ -23,20 +24,20 @@ type Case struct {
 	IsPublic        bool       `gorm:"default:true;index:idx_cases_public_list,priority:1" json:"isPublic"`
 
 	// NEW FIELDS FOR AUTOMATION
-	TrackingID    string     `gorm:"unique;not null" json:"trackingId"`
-	PriorityLevel string     `gorm:"default:P3" json:"priorityLevel"`
-	GISLatitude   float64    `json:"gisLatitude"`
-	GISLongitude  float64    `json:"gisLongitude"`
-	LocationGeohash string    `gorm:"type:varchar(12);index:idx_case_geohash" json:"locationGeohash,omitempty"`
-	IsAnonymous   bool      `gorm:"default:false;index:idx_case_anonymous" json:"isAnonymous"`
-	AssignedAt    *time.Time `json:"assignedAt,omitempty"`
-	DispatchedAt  *time.Time `json:"dispatchedAt,omitempty"`
-	ArrivedAt     *time.Time `json:"arrivedAt,omitempty"`
-	ClosedAt      *time.Time `json:"closedAt,omitempty"`
-	ClosedBy      *uuid.UUID `gorm:"type:uuid" json:"closedBy,omitempty"`
-	ClosedViaPlatform bool `gorm:"default:false;index:idx_case_closed_via_platform" json:"closedViaPlatform"`
-	ApprovedBy    *uuid.UUID `gorm:"type:uuid" json:"approvedBy,omitempty"`
-	FinalReport   string     `gorm:"type:text" json:"finalReport"`
+	TrackingID        string     `gorm:"unique;not null" json:"trackingId"`
+	PriorityLevel     string     `gorm:"default:P3" json:"priorityLevel"`
+	GISLatitude       float64    `json:"gisLatitude"`
+	GISLongitude      float64    `json:"gisLongitude"`
+	LocationGeohash   string     `gorm:"type:varchar(12);index:idx_case_geohash" json:"locationGeohash,omitempty"`
+	IsAnonymous       bool       `gorm:"default:false;index:idx_case_anonymous" json:"isAnonymous"`
+	AssignedAt        *time.Time `json:"assignedAt,omitempty"`
+	DispatchedAt      *time.Time `json:"dispatchedAt,omitempty"`
+	ArrivedAt         *time.Time `json:"arrivedAt,omitempty"`
+	ClosedAt          *time.Time `json:"closedAt,omitempty"`
+	ClosedBy          *uuid.UUID `gorm:"type:uuid" json:"closedBy,omitempty"`
+	ClosedViaPlatform bool       `gorm:"default:false;index:idx_case_closed_via_platform" json:"closedViaPlatform"`
+	ApprovedBy        *uuid.UUID `gorm:"type:uuid" json:"approvedBy,omitempty"`
+	FinalReport       string     `gorm:"type:text" json:"finalReport"`
 
 	CreatedAt time.Time      `gorm:"index:idx_cases_unit_created,priority:2,sort:desc;index:idx_cases_public_list,priority:3" json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

@@ -10,6 +10,8 @@ func AutoMigrateAll() error {
 	log.Println("running auto-migration...")
 	err := DB.AutoMigrate(
 		&models.User{},
+		&models.AgencyTenant{},
+		&models.AgencyObserver{},
 		&models.UserPreferences{},
 		&models.SecurityUnit{},
 		&models.UnitLandmark{},
@@ -77,6 +79,7 @@ func AutoMigrateAll() error {
 		&models.SystemSettings{},
 		&models.SystemBackup{},
 		&models.UserOnboarding{},
+		&models.UserLocation{},
 
 		&models.PeaceCommittee{},
 		&models.CommitteeMember{},
@@ -128,6 +131,7 @@ func AutoMigrateAll() error {
 		&models.WebhookEvent{},
 
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.CounterStatement{},
 		&models.Appeal{},

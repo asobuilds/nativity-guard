@@ -6,7 +6,13 @@
  * Keep this file in sync with the backend — it is the frontend's contract.
  */
 
-export type Role = 'citizen' | 'officer' | 'unit_admin' | 'super_admin'
+export type Role =
+  | 'citizen'
+  | 'officer'
+  | 'unit_admin'
+  | 'super_admin'
+  | 'agency_division_admin'
+  | 'agency_observer'
 
 /**
  * The eight states the backend case workflow actually sets.
@@ -671,4 +677,50 @@ export interface SystemHealthResponse {
 export interface UserActionResponse {
   message: string
   user: SuperAdminUser
+}
+
+/* ------------------------------------------------------------------ */
+/* Agency observer dashboard (`GET /observer/*`)                       */
+/* ------------------------------------------------------------------ */
+
+/** Location projection exposed to agency observers — no coordinates or addresses. */
+export interface ObserverLocation {
+  state: string
+  lga: string
+  ward?: string
+}
+
+/** One public-safe SOS or case row in the observer incident feed. */
+export interface ObserverIncident {
+  time: string
+  /** Incident category, or `uncategorized` when none was recorded. */
+  type: string
+  location: ObserverLocation
+  respondingUnit: string
+  status: string
+  description: string
+}
+
+/** `GET /observer/incidents` returns `{ incidents, page, limit, total }`. */
+export interface ObserverIncidentsResponse {
+  incidents: ObserverIncident[]
+  page: number
+  limit: number
+  total: number
+}
+
+/** Activity-derived summary of a responding unit inside the observer's LGA. */
+export interface ObserverUnitSummary {
+  time: string
+  type: string
+  location: ObserverLocation
+  respondingUnit: string
+  status: string
+  activeSOS: number
+  openCases: number
+}
+
+/** `GET /observer/units` returns `{ units }`. */
+export interface ObserverUnitsResponse {
+  units: ObserverUnitSummary[]
 }

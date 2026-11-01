@@ -30,6 +30,7 @@ func CreateCase(c *gin.Context) {
 		UnitID       string  `json:"unitId" binding:"required"`
 		Title        string  `json:"title" binding:"required"`
 		Description  string  `json:"description" binding:"required"`
+		Category     string  `json:"category"`
 		Latitude     float64 `json:"latitude" binding:"required"`
 		Longitude    float64 `json:"longitude" binding:"required"`
 		Location     string  `json:"location" binding:"required"`
@@ -40,6 +41,12 @@ func CreateCase(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	category, ok := normalizeIncidentCategory(input.Category)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "category must be one of infrastructure, vandalism, disaster, fire, road_accident, or traffic"})
 		return
 	}
 
@@ -69,6 +76,7 @@ func CreateCase(c *gin.Context) {
 		TrackingID:      trackingID,
 		Title:           input.Title,
 		Description:     input.Description,
+		Category:        category,
 		LocationGeohash: geohash,
 		Status:          "pending",
 		Priority:        input.Priority,

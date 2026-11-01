@@ -49,6 +49,7 @@ const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m 
 const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage').then(m => ({ default: m.SuperAnalyticsPage })))
 const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
 const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
+export const SuperAgencyManagementPage = lazy(() => import('@/pages/super/SuperAgencyManagementPage').then(m => ({ default: m.SuperAgencyManagementPage })))
 const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
 const UnitDashboardPage = lazy(() => import('@/pages/admin/UnitDashboardPage').then(m => ({ default: m.UnitDashboardPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -68,11 +69,20 @@ const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityV
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
 const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
+const ObserverDashboardPage = lazy(() => import('@/pages/observer/ObserverDashboardPage').then(m => ({ default: m.ObserverDashboardPage })))
 import type { Role } from '@/types/api'
 
-const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
+const ALL_ROLES: Role[] = [
+  'citizen',
+  'officer',
+  'unit_admin',
+  'super_admin',
+  'agency_observer',
+  'agency_division_admin',
+]
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
+const AGENCY_ROLES: Role[] = ['agency_observer', 'agency_division_admin']
 
 function PreferencesBootstrap() {
   usePreferences()
@@ -165,8 +175,8 @@ export function App() {
                   <Route path="/sessions" element={<SessionsPage />} />
                   <Route path="/alerts" element={<RequireRole roles={['citizen', 'super_admin']}><AlertsPage /></RequireRole>} />
                   <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
-                  <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
-                  <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
+                  <Route path="/news" element={<RequireRole roles={['citizen', 'super_admin']}><NewsPage /></RequireRole>} />
+                  <Route path="/subscriptions" element={<RequireRole roles={['citizen', 'super_admin']}><SubscriptionsPage /></RequireRole>} />
                   <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/reports" element={<RequireRole roles={ADMIN_ROLES}><AdminReportsPage /></RequireRole>} />
@@ -259,6 +269,15 @@ export function App() {
                     }
                   />
 
+                  <Route
+                    path="/observer/dashboard"
+                    element={
+                      <RequireRole roles={AGENCY_ROLES}>
+                        <ObserverDashboardPage />
+                      </RequireRole>
+                    }
+                  />
+
                   <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
                   <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
                   <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
@@ -269,6 +288,14 @@ export function App() {
                     element={
                       <RequireRole roles={['super_admin']}>
                         <UnitsRegistryPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/super/agencies"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <SuperAgencyManagementPage />
                       </RequireRole>
                     }
                   />

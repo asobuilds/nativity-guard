@@ -1,10 +1,11 @@
-﻿package routes
+package routes
 
 import (
 	"github.com/gin-gonic/gin"
 
 	"security-solution/handlers"
 	"security-solution/middleware"
+	"security-solution/models"
 )
 
 func SetupRoutes(router *gin.Engine) {
@@ -114,14 +115,14 @@ func SetupRoutes(router *gin.Engine) {
 			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
 			units.GET("/:id/inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitInbox)
 			units.GET("/:id/compliance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitCompliance)
-			        units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
-            units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
-            units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
-            units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
-            units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
-            units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
-            units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
-            units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
+			units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
+			units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
+			units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
+			units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
+			units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
+			units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
+			units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
+			units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
 			units.GET("/:id/access", middleware.AuthMiddleware(), handlers.GetUnitAccess)
 			units.GET("/:id/roster", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitRoster)
 		}
@@ -479,6 +480,36 @@ func SetupRoutes(router *gin.Engine) {
 			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
 		}
 
+		agency := api.Group("/agency")
+		agency.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyDivisionAdmin))
+		{
+			agency.POST("/observers", handlers.CreateAgencyObserver)
+			agency.GET("/observers", handlers.ListAgencyObservers)
+		}
+
+		// Officer safety (officer-initiated distress). Authenticated officers
+		// only; the handler resolves the officer's unit for notification scope.
+		officer := api.Group("/officer")
+		officer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleOfficer, models.RoleUnitAdmin, models.RoleSuperAdmin))
+		{
+			officer.POST("/panic", middleware.RateLimitGeneral(), handlers.TriggerPanic)
+		}
+
+		observer := api.Group("/observer")
+		observer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyObserver, models.RoleAgencyDivisionAdmin))
+		{
+			observer.GET("/incidents", middleware.RateLimitGeneral(), handlers.GetObserverIncidents)
+			observer.GET("/units", middleware.RateLimitGeneral(), handlers.GetObserverUnits)
+		}
+
+		super := api.Group("/super")
+		super.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
+		{
+			super.GET("/agency-tenants", handlers.ListAgencyTenants)
+			super.POST("/agency-tenants", handlers.CreateAgencyTenant)
+			super.POST("/agency-tenants/:id/admin", handlers.AssignAgencyDivisionAdmin)
+		}
+
 		superAdmin := api.Group("/admin")
 		superAdmin.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
 		{
@@ -514,10 +545,3 @@ func SetupRoutes(router *gin.Engine) {
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
-
-
-
-
-
-
-

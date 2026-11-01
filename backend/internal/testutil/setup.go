@@ -40,6 +40,8 @@ func SetupTestDB() error {
 
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.AgencyTenant{},
+		&models.AgencyObserver{},
 		&models.SecurityUnit{},
 		&models.UnitMembership{},
 		&models.Officer{},
@@ -68,6 +70,7 @@ func SetupTestDB() error {
 		&models.CounterStatement{},
 		&models.Rating{},
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.FinancialLedger{},
 		&models.LedgerSequence{},

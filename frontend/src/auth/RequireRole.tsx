@@ -58,6 +58,9 @@ export function homePathForRole(role: Role | null | undefined): string | null {
       return '/admin/cases'
     case 'super_admin':
       return '/super/overview'
+    case 'agency_division_admin':
+    case 'agency_observer':
+      return '/observer/dashboard'
     default:
       return null
   }

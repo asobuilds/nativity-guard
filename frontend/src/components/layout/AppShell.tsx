@@ -1,9 +1,10 @@
-﻿import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BarChart3,
+  Bell,
   Bot,
   Building2,
   FileText,
@@ -14,6 +15,7 @@ import {
   Megaphone,
   Menu,
   MessageSquare,
+  Newspaper,
   Shield,
   ShieldAlert,
   Settings,
@@ -38,6 +40,12 @@ interface NavItem {
   icon: ReactNode
   soon?: boolean
 }
+
+const AGENCY_NAV: NavItem[] = [
+  { to: '/observer/dashboard', label: 'Oversight', icon: <Shield className="size-4" /> },
+  { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+  { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
+]
 
 const NAV: Record<Role, NavItem[]> = {
   citizen: [
@@ -82,10 +90,13 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
+    { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
+    { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
+    { to: '/super/agencies', label: 'Agencies', icon: <Building2 className="size-4" /> },
     { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
@@ -100,6 +111,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
   ],
+  agency_observer: AGENCY_NAV,
+  agency_division_admin: AGENCY_NAV,
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -107,6 +120,8 @@ const ROLE_LABEL: Record<Role, string> = {
   officer: 'Officer',
   unit_admin: 'Unit admin',
   super_admin: 'Super admin',
+  agency_observer: 'Agency observer',
+  agency_division_admin: 'Agency division admin',
 }
 
 function NavItems({

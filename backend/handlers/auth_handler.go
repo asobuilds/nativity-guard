@@ -44,6 +44,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	if role := strings.TrimSpace(input.Role); role != "" && !strings.EqualFold(role, models.RoleCitizen) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "self-registration only creates citizen accounts"})
+		return
+	}
+
 	enforced := !strings.EqualFold(os.Getenv("TERMS_CONSENT_ENFORCED"), "false")
 
 	var acceptanceRows []models.TermsAcceptance
@@ -149,7 +154,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		FirstName:   input.FirstName,
 		LastName:    input.LastName,
 		Password:    input.Password,
-		Role:        "citizen",
+		Role:        models.RoleCitizen,
 		DateOfBirth: &parsedDOB,
 		MinorStatus: minorStatus,
 	}
