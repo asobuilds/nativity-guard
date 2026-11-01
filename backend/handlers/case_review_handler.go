@@ -375,6 +375,20 @@ func ApproveCaseClosure(c *gin.Context) {
 		Where("id = ?", caseRecord.ID).
 		Update("closed_via_platform", true)
 
+	// Archive linked suspects that no longer have an open case. Runs outside
+	// the closure tx because it has its own transactional unit (suspect rows
+	// + audit rows); failure here does not roll back the closure.
+	if err := services.ArchiveSuspectsForCase(caseRecord.ID, user.ID); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Case approved and closed",
+			"review":   review,
+			"status":   models.CaseStatusClosed,
+			"closedAt": now,
+			"warning":  "failed to archive linked suspects: " + err.Error(),
+		})
+		return
+	}
+
 	// Notify the reporter they can now rate the officer and unit.
 	if caseRecord.ReportedBy != uuid.Nil {
 		notification := models.Notification{

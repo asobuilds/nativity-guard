@@ -6,6 +6,27 @@ import (
 	"time"
 )
 
+// Suspect status values. "active" means the suspect is under ongoing tracking.
+// "archived" means the case(s) that linked the suspect have all closed/resolved;
+// the PII is retained for audit and re-opening but the suspect no longer appears
+// in active tracking views. "expunged" means an upheld removal request has
+// blanked the PII fields.
+const (
+	SuspectStatusActive   = "active"
+	SuspectStatusArchived = "archived"
+	SuspectStatusExpunged = "expunged"
+)
+
+// IsClosedStatus reports whether a case status counts as terminal for the
+// purpose of auto-archiving linked suspects.
+func IsClosedStatus(status string) bool {
+	switch status {
+	case CaseStatusClosed, "resolved", "cancelled":
+		return true
+	}
+	return false
+}
+
 type Suspect struct {
 	ID             uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	FirstName      string         `gorm:"not null" json:"firstName"`
@@ -76,20 +97,20 @@ func (SuspectAssociation) TableName() string {
 
 // SuspectSighting tracks when a suspect is seen
 type SuspectSighting struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	SuspectID   uuid.UUID      `gorm:"type:uuid;not null" json:"suspectId"`
-	ReportedBy  uuid.UUID      `gorm:"type:uuid;not null" json:"reportedBy"`
-	UnitID      uuid.UUID      `gorm:"type:uuid;not null" json:"unitId"`
-	Latitude    float64        `json:"latitude"`
-	Longitude   float64        `json:"longitude"`
-	Location    string         `json:"location"`
-	LocationGeohash string       `gorm:"type:varchar(12);index:idx_sighting_geohash" json:"locationGeohash,omitempty"`
-	IsAnonymous bool         `gorm:"default:false;index:idx_sighting_anonymous" json:"isAnonymous"`
-	Description string         `json:"description"`
-	Timestamp   time.Time      `json:"timestamp"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID              uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	SuspectID       uuid.UUID      `gorm:"type:uuid;not null" json:"suspectId"`
+	ReportedBy      uuid.UUID      `gorm:"type:uuid;not null" json:"reportedBy"`
+	UnitID          uuid.UUID      `gorm:"type:uuid;not null" json:"unitId"`
+	Latitude        float64        `json:"latitude"`
+	Longitude       float64        `json:"longitude"`
+	Location        string         `json:"location"`
+	LocationGeohash string         `gorm:"type:varchar(12);index:idx_sighting_geohash" json:"locationGeohash,omitempty"`
+	IsAnonymous     bool           `gorm:"default:false;index:idx_sighting_anonymous" json:"isAnonymous"`
+	Description     string         `json:"description"`
+	Timestamp       time.Time      `json:"timestamp"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 
 	Suspect  Suspect      `gorm:"foreignKey:SuspectID" json:"suspect,omitempty"`
 	Reporter User         `gorm:"foreignKey:ReportedBy" json:"reporter,omitempty"`

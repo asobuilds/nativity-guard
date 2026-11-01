@@ -52,12 +52,49 @@ func checkSuspectAccess(user *models.User, suspect *models.Suspect) bool {
 		var count int64
 		config.DB.Model(&models.SuspectCase{}).
 			Joins("JOIN cases ON cases.id = suspect_cases.case_id").
-			Where("suspect_cases.suspect_id = ? AND cases.assigned_to = ?", suspect.ID, user.ID).
+			Where("suspect_cases.suspect_id = ? AND cases.assigned_to = ? AND cases.unit_id = ?", suspect.ID, user.ID, *user.UnitID).
 			Count(&count)
 		if count > 0 {
 			return true
 		}
 		return false
+	}
+	return false
+}
+
+// canReadSuspect is the authoritative read check for any suspect-scoped
+// endpoint. It narrows checkSuspectAccess to the four roles allowed to view
+// suspect PII:
+//
+//   - super_admin: every suspect
+//   - unit_admin:  only suspects in their own unit (a pending cross-unit
+//     transfer is NOT a read grant — it stays a write-only concern)
+//   - officer:     only suspects they are personally assigned to via a case
+//     in their own unit
+//   - the linked citizen (Suspect.UserID == caller): their own active record
+//
+// Write paths must not use this — they stay gated by checkAdminAccess.
+func canReadSuspect(user *models.User, suspect *models.Suspect) bool {
+	if suspect.UserID != nil && *suspect.UserID == user.ID {
+		return true
+	}
+	if user.Role == "super_admin" {
+		return true
+	}
+	if user.Role == "unit_admin" && user.UnitID != nil {
+		return suspect.UnitID != nil && *suspect.UnitID == *user.UnitID
+	}
+	if user.Role == "officer" && user.UnitID != nil {
+		if suspect.UnitID == nil || *suspect.UnitID != *user.UnitID {
+			return false
+		}
+		var count int64
+		config.DB.Model(&models.SuspectCase{}).
+			Joins("JOIN cases ON cases.id = suspect_cases.case_id").
+			Where("suspect_cases.suspect_id = ? AND cases.assigned_to = ? AND cases.unit_id = ?",
+				suspect.ID, user.ID, *user.UnitID).
+			Count(&count)
+		return count > 0
 	}
 	return false
 }
@@ -181,7 +218,7 @@ func CreateSuspect(c *gin.Context) {
 		Email:       input.Email,
 		Address:     input.Address,
 		Description: input.Description,
-		Status:      "active",
+		Status:      models.SuspectStatusActive,
 		DangerLevel: input.DangerLevel,
 		Wanted:      input.Wanted,
 		Category:    input.Category,
@@ -231,17 +268,32 @@ func GetAllSuspects(c *gin.Context) {
 	if userObj.Role == "super_admin" {
 		query = query.Order("created_at desc")
 	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
-		query = query.Where("unit_id = ? OR (transfer_status = 'pending' AND transfer_to_unit = ?)", userObj.UnitID, userObj.UnitID).Order("created_at desc")
+		query = query.Where("unit_id = ?", userObj.UnitID).Order("created_at desc")
 	} else if userObj.Role == "officer" && userObj.UnitID != nil {
+		// Officers see only suspects they are personally assigned to via a
+		// case in their own unit — not every suspect in the unit.
 		var caseSuspectIDs []string
 		config.DB.Table("suspect_cases").
 			Joins("JOIN cases ON cases.id = suspect_cases.case_id").
-			Where("cases.assigned_to = ?", userObj.ID).
+			Where("cases.assigned_to = ? AND cases.unit_id = ?", userObj.ID, userObj.UnitID).
 			Pluck("suspect_cases.suspect_id", &caseSuspectIDs)
-		query = query.Where("unit_id = ? OR id IN (?)", userObj.UnitID, caseSuspectIDs).Order("created_at desc")
+		if len(caseSuspectIDs) == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view suspects"})
+			return
+		}
+		query = query.Where("id IN (?) AND status IN (?, ?)",
+			caseSuspectIDs, models.SuspectStatusActive, models.SuspectStatusExpunged).
+			Order("created_at desc")
 	} else {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view suspects"})
-		return
+		// Linked citizen: see their own active records only.
+		var ownCount int64
+		config.DB.Model(&models.Suspect{}).Where("user_id = ? AND status = ?", userObj.ID, models.SuspectStatusActive).Count(&ownCount)
+		if ownCount == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view suspects"})
+			return
+		}
+		query = query.Where("user_id = ? AND status = ?", userObj.ID, models.SuspectStatusActive).
+			Order("created_at desc")
 	}
 
 	if err := query.Find(&suspects).Error; err != nil {
@@ -280,7 +332,7 @@ func GetSuspectByID(c *gin.Context) {
 		return
 	}
 
-	if !checkSuspectAccess(userObj, &suspect) {
+	if !canReadSuspect(userObj, &suspect) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this suspect"})
 		return
 	}
@@ -486,13 +538,13 @@ func DeleteSuspect(c *gin.Context) {
 // ReportSighting reports a suspect sighting
 func ReportSighting(c *gin.Context) {
 	var input struct {
-		SuspectID   string  `json:"suspectId" binding:"required"`
-		Latitude    float64 `json:"latitude" binding:"required"`
-		Longitude   float64 `json:"longitude" binding:"required"`
-		Location    string  `json:"location"`
-		Description string  `json:"description"`
-		UnitID      string  `json:"unitId"`
-		HideLocation bool   `json:"hideLocation"`
+		SuspectID    string  `json:"suspectId" binding:"required"`
+		Latitude     float64 `json:"latitude" binding:"required"`
+		Longitude    float64 `json:"longitude" binding:"required"`
+		Location     string  `json:"location"`
+		Description  string  `json:"description"`
+		UnitID       string  `json:"unitId"`
+		HideLocation bool    `json:"hideLocation"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -524,6 +576,9 @@ func ReportSighting(c *gin.Context) {
 		return
 	}
 
+	// Reporting a sighting reactivates the suspect, so only a caller with
+	// read access to an active suspect may do it; a citizen's self-view is
+	// not sufficient to change tracking state.
 	if !checkSuspectAccess(userObj, &suspect) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to report sightings for this suspect"})
 		return
@@ -543,12 +598,12 @@ func ReportSighting(c *gin.Context) {
 	anon := input.HideLocation || !userObj.LocationSharingEnabled
 
 	sighting := models.SuspectSighting{
-		SuspectID:     suspectID,
-		ReportedBy:    userObj.ID,
-		UnitID:        unitID,
+		SuspectID:       suspectID,
+		ReportedBy:      userObj.ID,
+		UnitID:          unitID,
 		LocationGeohash: geohash,
-		Description:   input.Description,
-		Timestamp:     time.Now(),
+		Description:     input.Description,
+		Timestamp:       time.Now(),
 	}
 
 	if anon {
@@ -569,9 +624,10 @@ func ReportSighting(c *gin.Context) {
 		return
 	}
 
-	// Compliance audit for anonymous sightings.
+	// Sighting audit. Anonymous sightings record only the coarse geohash
+	// (no PII); precise sightings record the coordinates.
+	auditSvc := services.NewAuditService()
 	if anon {
-		auditSvc := services.NewAuditService()
 		_ = auditSvc.LogAction(
 			userObj.ID,
 			"sighting.created_anonymous",
@@ -582,9 +638,24 @@ func ReportSighting(c *gin.Context) {
 			c.ClientIP(),
 			c.Request.UserAgent(),
 		)
+	} else {
+		_ = auditSvc.LogAction(
+			userObj.ID,
+			"suspect.sighting",
+			"suspect_sighting",
+			sighting.ID.String(),
+			nil,
+			map[string]interface{}{
+				"lat":     sighting.Latitude,
+				"lon":     sighting.Longitude,
+				"geohash": geohash,
+			},
+			c.ClientIP(),
+			c.Request.UserAgent(),
+		)
 	}
 
-	suspect.Status = "active"
+	suspect.Status = models.SuspectStatusActive
 	config.DB.Save(&suspect)
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -615,7 +686,7 @@ func GetSuspectSightings(c *gin.Context) {
 		return
 	}
 
-	if !checkSuspectAccess(userObj, &suspect) {
+	if !canReadSuspect(userObj, &suspect) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view sightings for this suspect"})
 		return
 	}
@@ -653,7 +724,7 @@ func GetSuspectCases(c *gin.Context) {
 		return
 	}
 
-	if !checkSuspectAccess(userObj, &suspect) {
+	if !canReadSuspect(userObj, &suspect) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view cases for this suspect"})
 		return
 	}
@@ -736,6 +807,23 @@ func CreateSuspectAssociation(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create association"})
 		return
 	}
+
+	auditSvc := services.NewAuditService()
+	_ = auditSvc.LogAction(
+		userObj.ID,
+		"suspect.association.created",
+		"suspect_association",
+		association.ID.String(),
+		nil,
+		map[string]interface{}{
+			"suspectId":       id,
+			"targetId":        targetID,
+			"targetType":      input.TargetType,
+			"associationType": input.AssociationType,
+		},
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":     "Association created successfully",

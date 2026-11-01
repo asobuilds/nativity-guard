@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"security-solution/config"
@@ -26,16 +26,16 @@ func CreateCase(c *gin.Context) {
 	if !requireMinorApproved(c) {
 		return
 	}
-var input struct {
-		UnitID      string  `json:"unitId" binding:"required"`
-		Title       string  `json:"title" binding:"required"`
-		Description string  `json:"description" binding:"required"`
-		Latitude    float64 `json:"latitude" binding:"required"`
-		Longitude   float64 `json:"longitude" binding:"required"`
-		Location    string  `json:"location" binding:"required"`
-		Priority    string  `json:"priority"`
-		IsSOS       bool    `json:"isSOS"`
-		HideLocation bool   `json:"hideLocation"`
+	var input struct {
+		UnitID       string  `json:"unitId" binding:"required"`
+		Title        string  `json:"title" binding:"required"`
+		Description  string  `json:"description" binding:"required"`
+		Latitude     float64 `json:"latitude" binding:"required"`
+		Longitude    float64 `json:"longitude" binding:"required"`
+		Location     string  `json:"location" binding:"required"`
+		Priority     string  `json:"priority"`
+		IsSOS        bool    `json:"isSOS"`
+		HideLocation bool    `json:"hideLocation"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -61,20 +61,20 @@ var input struct {
 		priorityLevel = "P2" // High
 	}
 
-// Create case
+	// Create case
 	geohash := utils.EncodeGeohash(input.Latitude, input.Longitude, 5)
 	anon := input.HideLocation || !userObj.LocationSharingEnabled
 
 	caseObj := models.Case{
-		TrackingID:    trackingID,
-		Title:         input.Title,
-		Description:   input.Description,
+		TrackingID:      trackingID,
+		Title:           input.Title,
+		Description:     input.Description,
 		LocationGeohash: geohash,
-		Status:        "pending",
-		Priority:      input.Priority,
-		PriorityLevel: priorityLevel,
-		IsPublic:      true,
-		ReportedBy:    userObj.ID,
+		Status:          "pending",
+		Priority:        input.Priority,
+		PriorityLevel:   priorityLevel,
+		IsPublic:        true,
+		ReportedBy:      userObj.ID,
 	}
 
 	if anon {
@@ -101,7 +101,7 @@ var input struct {
 		}
 	}
 
-if err := config.DB.Create(&caseObj).Error; err != nil {
+	if err := config.DB.Create(&caseObj).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create case"})
 		return
 	}
@@ -377,7 +377,7 @@ func UpdateCaseStatus(c *gin.Context) {
 		return
 	}
 
-var caseObj models.Case
+	var caseObj models.Case
 	if err := config.DB.First(&caseObj, "id = ?", caseID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
 		return
@@ -411,6 +411,12 @@ var caseObj models.Case
 		c.ClientIP(),
 		c.Request.UserAgent(),
 	)
+
+	// Auto-archive linked suspects when the case transitions to a terminal
+	// status. Idempotent: running again from a terminal state changes nothing.
+	if models.IsClosedStatus(input.Status) && !models.IsClosedStatus(oldStatus) {
+		_ = services.ArchiveSuspectsForCase(caseID, userObj.ID)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Case status updated successfully",
