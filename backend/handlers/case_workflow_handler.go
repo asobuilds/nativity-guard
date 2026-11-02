@@ -9,6 +9,7 @@ import (
 
 	"security-solution/config"
 	"security-solution/models"
+	"security-solution/services"
 )
 
 type CaseCloseRequest struct {
@@ -276,6 +277,9 @@ func CloseCase(c *gin.Context) {
 		})
 		return
 	}
+
+	// Case is terminal: archive linked suspects that no longer have an open case.
+	_ = services.ArchiveSuspectsForCase(caseRecord.ID, officerID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "case closed successfully",

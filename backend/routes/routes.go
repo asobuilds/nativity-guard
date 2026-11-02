@@ -165,6 +165,7 @@ func SetupRoutes(router *gin.Engine) {
 			cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseTimeline)
 			cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
 			cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
+			cases.GET("/:id/suspects", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseSuspects)
 			cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
 			cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
 			cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)

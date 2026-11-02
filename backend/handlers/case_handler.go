@@ -420,6 +420,12 @@ func UpdateCaseStatus(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 
+	// Auto-archive linked suspects when the case transitions to a terminal
+	// status. Idempotent: running again from a terminal state changes nothing.
+	if models.IsClosedStatus(input.Status) && !models.IsClosedStatus(oldStatus) {
+		_ = services.ArchiveSuspectsForCase(caseID, userObj.ID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Case status updated successfully",
 		"case":    caseObj,
