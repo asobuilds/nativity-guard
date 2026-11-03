@@ -18,13 +18,15 @@ These problems are not theoretical. They are the daily reality for communities t
 
 Nativity Guard bridges this gap by providing a unified, auditable workflow that connects citizens, security units, officers, and administrators through a single path: **report ? assign ? dispatch ? investigate ? review ? close**. It is designed to promote accountability, prevent vigilantism, and keep sensitive case intelligence restricted to authorized personnel.
 
-The system introduces three capabilities that directly address the problems above:
+The system introduces five capabilities that directly address the problems above:
 
 **SOS with voice/video**: Alerts can now include voice notes and short video attachments (capped at 5 MB audio, 20 MB video), captured via the device's recorder and uploaded through a content-addressed, size-verified presign-PUT-confirm flow. The content is stored under SHA-256 hashing, so identical footage from different incidents deduplicates automatically — the store holds one copy, and a refcount tracks how many parents reference it.
 
 **Geo-scoped community feeds**: The feed is server-derived, not client-supplied. Place hierarchy follows the five-level ladder decided by the room: locality → LGA → state → country → world. A reply is allowed only inside the viewer's own place at that level. This eliminates the problem of clients sending false `state`/`lga` strings (which have been shown to repeat across jurisdictions) and ensures that geography is always derived from verified coordinates.
 
 **LGA convergence groups**: Within a single (state, LGA) channel, any verified unit member can join or leave, and head admins can post. This creates a proper audit trail for who creates posts in a given LGA, while still allowing any verified unit member to read. The read predicate is strict: a viewer at scope X sees posts whose own scope rank is ≤ X **and** whose place matches the viewer's own place at that level.
+- **Officer safety & agency oversight**: A dedicated panic endpoint records officer distress and notifies unit admins plus agency observers, while case arrival is geofence-checked to 200 m. Agency tenants (police, NSCDC, fire, FRSC) give division admins and observers LGA-scoped incident visibility without exposing citizen PII.
+- **Suspect workflow & anti-abuse**: Suspect records are visible only to super admins, the owning unit admin, the officer assigned to the case, and the linked citizen; closing a case auto-archives linked suspects, and upheld NDPA requests blank PII. Per-user rate limits, a TrustScore with a 24-hour SOS soft ban, LGA-scoped posting restrictions, hard bans, and input validation curb abuse without blocking legitimate emergencies.
 
 ## System Features
 
@@ -52,6 +54,30 @@ pending → assigned → dispatched → on_scene → investigating → pending_a
 
 Closure requires approval from at least 2 of 2–3 submitted admins. Direct officer closure is blocked.
 
+**Officer Safety**
+- `POST /officer/panic` (officer, unit admin, super admin) records an `OfficerPanic` row, writes priority notifications for the unit's admins and agency observers, and dispatches a best-effort SMS
+- `POST /cases/:id/arrive` enforces a 200 m haversine geofence around the case coordinates; arrival is rejected with 400 outside the fence and only moves `dispatched` → `on_scene`
+
+**Suspect Workflow & NDPA**
+- Every suspect-scoped read passes `canReadSuspect`: super admin, unit admin of the suspect's unit, an officer personally assigned to a linked case in that unit, or the linked citizen. A pending cross-unit transfer is not a read grant
+- Write paths remain admin-only (`checkAdminAccess`); sighting reports are officer/admin-only; associations are admin-only
+- Closing, resolving, or cancelling a case auto-archives linked suspects that have no remaining open case (`IsClosedStatus`)
+- Upheld NDPA expungements blank name, ID, photo, phone, email and address (`maskIfExpunged`), set status `expunged`, and audit `suspect.expunged`; archive, sighting and association events are audited too
+- Linked citizens get a self-view of their active cases only
+
+**Anti-Abuse & Trust**
+- Per-user limits: SOS 3/hour, cases 5/hour, community posts 10/hour (IP fallback when unauthenticated)
+- `TrustScore` starts at 100; an authorized responder marking `POST /sos/:id/false` deducts 20 (once per alert). Below 40 applies a 24-hour `SOSBannedUntil` and `/sos/send` returns 403 until it expires
+- `POST /admin/users/:id/restrict` lets a super admin or same-LGA unit admin block LGA-scoped community posts for `durationHours` (1–168, default 24)
+- `POST /admin/users/:id/ban` sets `status = banned` and revokes tokens/sessions; login and every authenticated request reject banned/suspended accounts
+- SOS descriptions, case titles/descriptions, and community titles/content are capped at 2,000 characters and reject obvious SQL-injection signatures
+
+**Agency Oversight**
+- Super admins create agency tenants (`police`, `nscdc`, `fire`, `frsc`) scoped to state + LGA + division, and assign a division admin
+- Division admins create and list observers (`POST/GET /agency/observers`); observers are bound to one tenant
+- `GET /observer/incidents` and `GET /observer/units` are restricted to the tenant's LGA and agency category: police all categories; NSCDC infrastructure/vandalism/disaster; fire fire; FRSC road accident/traffic
+- Observer payloads strip coordinates, contact details, officer identity, and PII; free-text descriptions are sanitized
+
 **Role Hierarchy**
 Super Admin (platform-level) → Unit → Head Admin (1 per unit, elected by admins) → Admin (5–10 per unit, elected by verified members) → Officer (tier: primary / paired / support) → Member (verified or provisional)
 
@@ -63,11 +89,15 @@ Super Admin (platform-level) → Unit → Head Admin (1 per unit, elected by adm
 **Security Principles**
 - JWT revocation via `jti` checked on every authenticated request
 - Refresh token rotation: one-time-use, hash-only storage
-- Rate limiting: per-IP and per-identity on auth, OTP, vote, invite
+- Rate limiting: per-IP and per-identity on auth, OTP, vote, invite, SOS, case creation, and community posts
 - Password change revokes all sessions immediately
 - Tiered case access: primary / paired / support officers; supports see less
 - Public-safe DTOs: reporter identity, officer identity, evidence internals never leak
 - Suspect self-view: active cases on profile, resolved cases in history
+- Account status enforcement: banned and suspended accounts are rejected at login and by `AuthMiddleware`
+- Suspect visibility: locked to super admin, owning unit admin, assigned officer, and the linked citizen
+- Anti-abuse: TrustScore + 24-hour SOS soft ban, LGA-scoped community restriction, hard ban
+- Input validation: 2,000-character cap plus SQL-injection signature rejection on user-authored text
 
 **Production Administration**
 The live administration surfaces are organized around real backend capabilities. Super admins have platform oversight, user/role management, identity and unit verification, feedback/support, audit, analytics, operations, Community management, and unit records. Unit admins have live case review, transfers, roster/unit operations, Community, analytics, settings, governance, map, appeals, and feedback surfaces.
@@ -88,7 +118,7 @@ Community reads and writes are live. The feed is scoped server-side to the calle
 
 **Infra**: Docker Compose for local development; Render for backend+frontend hosting; Supabase PostgreSQL for the production database; env variables stored outside the repository (never committed).
 
-**Authorization tiered**: Per-IP and per-identity rate limiting on auth, OTP, vote, and invite endpoints; JWT revocation list checked on every request; refresh token rotation (one-time-use); password change revokes all existing sessions; tiered case access controls (primary/paired/support officers see only their assigned cases).
+**Authorization tiered**: Per-IP and per-identity rate limiting on auth, OTP, vote, invite, SOS, case and community-post writes; banned/suspended accounts rejected at login and on every request; JWT revocation list checked on every request; refresh token rotation (one-time-use); password change revokes all existing sessions; tiered case access controls (primary/paired/support officers see only their assigned cases).
 
 ## Getting Started
 
