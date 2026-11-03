@@ -49,12 +49,25 @@ func SendSOSAlert(c *gin.Context) {
 		return
 	}
 
+	if err := validateText("description", input.Description, maxUserTextLength); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	user, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 	userObj := user.(*models.User)
+
+	if userObj.SOSBannedUntil != nil && time.Now().UTC().Before(*userObj.SOSBannedUntil) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":          "SOS access is temporarily suspended",
+			"sosBannedUntil": userObj.SOSBannedUntil,
+		})
+		return
+	}
 
 	if input.Priority == "" {
 		input.Priority = "high"

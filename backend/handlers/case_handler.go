@@ -50,6 +50,15 @@ func CreateCase(c *gin.Context) {
 		return
 	}
 
+	if err := validateText("title", input.Title, maxUserTextLength); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateText("description", input.Description, maxUserTextLength); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	user, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})

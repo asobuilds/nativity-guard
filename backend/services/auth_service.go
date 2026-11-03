@@ -122,6 +122,13 @@ func (s *AuthService) LoginWithJTI(identifier, password string) (string, string,
 		return "", "", nil, errors.New("invalid credentials")
 	}
 
+	// Banned and suspended accounts cannot start a new session. Pending
+	// accounts are still allowed through so they can complete onboarding
+	// (e.g. OTP verification), which requires an authenticated token.
+	if user.Status == "banned" || user.Status == "suspended" {
+		return "", "", nil, errors.New("account is not active")
+	}
+
 	token, jti, err := s.generateJWTWithJTI(&user)
 	if err != nil {
 		return "", "", nil, err

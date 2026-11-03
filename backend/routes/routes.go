@@ -158,7 +158,7 @@ func SetupRoutes(router *gin.Engine) {
 		cases := api.Group("/cases")
 		{
 			cases.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllCases)
-			cases.POST("", middleware.AuthMiddleware(), handlers.CreateCase)
+			cases.POST("", middleware.AuthMiddleware(), middleware.RateLimitCasePost(), handlers.CreateCase)
 			cases.GET("/analytics", middleware.AuthMiddleware(), handlers.GetCaseAnalytics)
 			cases.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), middleware.CanAccessCase, handlers.GetCaseByID)
 			cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.UpdateCaseStatus)
@@ -232,7 +232,8 @@ func SetupRoutes(router *gin.Engine) {
 
 		sos := api.Group("/sos")
 		{
-			sos.POST("/send", middleware.AuthMiddleware(), handlers.SendSOSAlert)
+			sos.POST("/send", middleware.AuthMiddleware(), middleware.RateLimitSOSPost(), handlers.SendSOSAlert)
+			sos.POST("/:id/false", middleware.AuthMiddleware(), handlers.MarkFalseAlert)
 			// Attachment presign (RES-020). Caller-scoped because the alert does
 			// not exist until /sos/send; the returned key is only accepted by
 			// SendSOSAlert when it is a private sos_media/ key.
@@ -352,7 +353,7 @@ func SetupRoutes(router *gin.Engine) {
 
 		community := api.Group("/community")
 		{
-			community.POST("/posts", middleware.AuthMiddleware(), handlers.CreateForumPost)
+			community.POST("/posts", middleware.AuthMiddleware(), middleware.RateLimitCommunityPost(), handlers.CreateForumPost)
 			community.GET("/posts", middleware.AuthMiddleware(), handlers.GetForumPosts)
 			community.GET("/posts/:id", middleware.AuthMiddleware(), handlers.GetForumPostByID)
 			community.POST("/replies", middleware.AuthMiddleware(), handlers.CreateForumReply)
@@ -518,6 +519,7 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.PUT("/users/:id/role", handlers.UpdateUserRole)
 			superAdmin.POST("/users/:id/suspend", handlers.SuspendUser)
 			superAdmin.POST("/users/:id/activate", handlers.ActivateUser)
+			superAdmin.POST("/users/:id/ban", handlers.BanUser)
 			superAdmin.POST("/users/:id/impersonate", handlers.ImpersonateUser)
 			superAdmin.PUT("/users/:id/age-override", handlers.AgeOverride)
 			superAdmin.POST("/stop-impersonate", handlers.StopImpersonation)
@@ -539,6 +541,14 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.GET("/feedback", handlers.ListAllFeedback)
 			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
 			superAdmin.POST("/feedback/:id/close", handlers.CloseFeedback)
+		}
+
+		// Unit admins may restrict users in their own LGA. The handler performs
+		// the admin/LGA check, so only authentication is enforced here.
+		adminModeration := api.Group("/admin")
+		adminModeration.Use(middleware.AuthMiddleware())
+		{
+			adminModeration.POST("/users/:id/restrict", handlers.RestrictUser)
 		}
 	}
 

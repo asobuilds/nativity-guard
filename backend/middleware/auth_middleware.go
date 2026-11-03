@@ -71,6 +71,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Banned and suspended accounts are locked out immediately, even if
+		// they still hold a token. Pending accounts remain usable so they can
+		// finish onboarding (OTP verification is itself an authenticated route).
+		if user.Status == "banned" || user.Status == "suspended" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+			c.Abort()
+			return
+		}
+
 		// The database user is the source of truth for authorization.
 		c.Set("user", user)
 		c.Set("user_id", userID)
