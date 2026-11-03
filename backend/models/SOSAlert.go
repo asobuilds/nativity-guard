@@ -41,6 +41,11 @@ type SOSAlert struct {
 	JurisdictionState string `gorm:"type:varchar(120);index:idx_sos_jurisdiction_state" json:"jurisdictionState,omitempty"`
 	JurisdictionLGA   string `gorm:"type:varchar(120);index:idx_sos_jurisdiction_lga"   json:"jurisdictionLga,omitempty"`
 
+	// False-alert adjudication. Set when an authorized responder marks the
+	// alert as a false alarm; the reporter's TrustScore is reduced once.
+	FalseAlert    bool       `gorm:"default:false;index:idx_sos_false_alert" json:"falseAlert"`
+	MarkedFalseAt *time.Time `json:"markedFalseAt,omitempty"`
+
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

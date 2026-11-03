@@ -11,26 +11,26 @@ import (
 )
 
 type User struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Email         string         `gorm:"unique;not null" json:"email"`
-	Phone         string         `gorm:"unique" json:"phone"`
-	FirstName     string         `gorm:"not null" json:"firstName"`
-	LastName      string         `gorm:"not null" json:"lastName"`
-	Password      string         `gorm:"not null" json:"-"`
-	Role          string         `gorm:"default:citizen" json:"role"`
-	UnitID        *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
-	Status        string         `gorm:"default:pending" json:"status"`
-	IsSuperAdmin          bool           `gorm:"default:false" json:"isSuperAdmin"`
-	LocationSharingEnabled bool          `gorm:"default:false;index:idx_user_location_sharing" json:"locationSharingEnabled"`
-	DateOfBirth           *time.Time     `gorm:"type:date;index:idx_user_dob" json:"dateOfBirth,omitempty"`
-	MinorStatus           string         `gorm:"type:varchar(16);default:'adult';index:idx_user_minor_status" json:"minorStatus"`
-	DOBVerified           bool           `gorm:"default:false;index:idx_user_dob_verified" json:"dobVerified"`
-	MinorExceptionGranted bool           `gorm:"default:false;index:idx_user_minor_exception" json:"minorExceptionGranted"`
-	GuardianID            *uuid.UUID     `gorm:"type:uuid;index:idx_user_guardian" json:"guardianId,omitempty"`
-	Impersonating *uuid.UUID     `gorm:"type:uuid" json:"impersonating,omitempty"`
-	MedicalInfo   string         `gorm:"type:text" json:"medicalInfo,omitempty"`
-	AvatarPath    string         `gorm:"type:varchar(255)" json:"avatarPath,omitempty"`
-	CoverPath     string         `gorm:"type:varchar(255)" json:"coverPath,omitempty"`
+	ID                     uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Email                  string     `gorm:"unique;not null" json:"email"`
+	Phone                  string     `gorm:"unique" json:"phone"`
+	FirstName              string     `gorm:"not null" json:"firstName"`
+	LastName               string     `gorm:"not null" json:"lastName"`
+	Password               string     `gorm:"not null" json:"-"`
+	Role                   string     `gorm:"default:citizen" json:"role"`
+	UnitID                 *uuid.UUID `gorm:"type:uuid" json:"unitId,omitempty"`
+	Status                 string     `gorm:"default:pending" json:"status"`
+	IsSuperAdmin           bool       `gorm:"default:false" json:"isSuperAdmin"`
+	LocationSharingEnabled bool       `gorm:"default:false;index:idx_user_location_sharing" json:"locationSharingEnabled"`
+	DateOfBirth            *time.Time `gorm:"type:date;index:idx_user_dob" json:"dateOfBirth,omitempty"`
+	MinorStatus            string     `gorm:"type:varchar(16);default:'adult';index:idx_user_minor_status" json:"minorStatus"`
+	DOBVerified            bool       `gorm:"default:false;index:idx_user_dob_verified" json:"dobVerified"`
+	MinorExceptionGranted  bool       `gorm:"default:false;index:idx_user_minor_exception" json:"minorExceptionGranted"`
+	GuardianID             *uuid.UUID `gorm:"type:uuid;index:idx_user_guardian" json:"guardianId,omitempty"`
+	Impersonating          *uuid.UUID `gorm:"type:uuid" json:"impersonating,omitempty"`
+	MedicalInfo            string     `gorm:"type:text" json:"medicalInfo,omitempty"`
+	AvatarPath             string     `gorm:"type:varchar(255)" json:"avatarPath,omitempty"`
+	CoverPath              string     `gorm:"type:varchar(255)" json:"coverPath,omitempty"`
 
 	// Cover photo focus — three server-side values so the adjustment
 	// follows the account across devices.
@@ -41,11 +41,21 @@ type User struct {
 	CoverPositionY int `gorm:"default:35" json:"coverPositionY"`
 	CoverZoom      int `gorm:"default:100" json:"coverZoom"`
 
-	LastLogin     *time.Time     `json:"lastLogin,omitempty"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	DeletionRequestedAt *time.Time `gorm:"index:idx_user_deletion_requested" json:"deletionRequestedAt,omitempty"`
+	LastLogin           *time.Time     `json:"lastLogin,omitempty"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	DeletionRequestedAt *time.Time     `gorm:"index:idx_user_deletion_requested" json:"deletionRequestedAt,omitempty"`
+
+	// Anti-abuse. TrustScore starts at 100 and is reduced when an officer
+	// marks a false SOS. Falling below 40 triggers a temporary SOS ban.
+	TrustScore     int        `gorm:"default:100" json:"trustScore"`
+	SOSBannedUntil *time.Time `gorm:"index:idx_user_sos_banned_until" json:"sosBannedUntil,omitempty"`
+
+	// Community posting restriction set by a unit admin for their LGA.
+	RestrictedUntil *time.Time `gorm:"index:idx_user_restricted_until" json:"restrictedUntil,omitempty"`
+	RestrictedState string     `gorm:"type:varchar(120)" json:"restrictedState,omitempty"`
+	RestrictedLGA   string     `gorm:"type:varchar(120)" json:"restrictedLga,omitempty"`
 }
 
 func (User) TableName() string {

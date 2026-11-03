@@ -221,8 +221,8 @@ func TestOTPSecurity(t *testing.T) {
 		user := testutil.MakeUser(t, "citizen")
 		if err := testutil.GetDB().Model(&models.User{}).
 			Where("id = ?", user.ID).
-			Update("status", "suspended").Error; err != nil {
-			t.Fatalf("suspend user: %v", err)
+			Update("status", "pending").Error; err != nil {
+			t.Fatalf("set user pending: %v", err)
 		}
 		token := testutil.AuthHeader(t, user)
 
@@ -246,8 +246,8 @@ func TestOTPSecurity(t *testing.T) {
 		if err := testutil.GetDB().First(&reloaded, "id = ?", user.ID).Error; err != nil {
 			t.Fatalf("reload user: %v", err)
 		}
-		if reloaded.Status != "suspended" {
-			t.Fatalf("user status = %q, want suspended", reloaded.Status)
+		if reloaded.Status != "pending" {
+			t.Fatalf("user status = %q, want pending", reloaded.Status)
 		}
 
 		w = postOTP(t, server, "/api/v1/otp/verify", token, map[string]any{"code": otp.Code}, nextOTPTestIP())

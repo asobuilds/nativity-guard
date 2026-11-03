@@ -71,6 +71,10 @@ var (
 	generalLimiter = newRateLimiter(200, 1*time.Minute) // 200 req/min per IP
 	mapLimiter     = newRateLimiter(60, 1*time.Minute)  // 60 req/min per IP
 	aiLimiter      = newRateLimiter(20, 1*time.Minute)  // 20 req/min per user or IP
+
+	sosPostLimiter       = newRateLimiter(3, 1*time.Hour)  // 3 SOS/hour per user
+	casePostLimiter      = newRateLimiter(5, 1*time.Hour)  // 5 cases/hour per user
+	communityPostLimiter = newRateLimiter(10, 1*time.Hour) // 10 posts/hour per user
 )
 
 // makeKey returns the identity used for limiting: user_id if present, otherwise client IP.
@@ -170,5 +174,46 @@ func RateLimitAI() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// rateLimitUser applies a named per-identity limit. It must run after
+// AuthMiddleware so makeKey can resolve the user_id (IP is the fallback).
+func rateLimitUser(name string, rl *rateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := name + ":" + makeKey(c)
+		if ok, wait := rl.allow(key); !ok {
+			reject(c, wait)
+			return
+		}
+		c.Next()
+	}
+}
+
+// RateLimitSOSPost limits SOS creation to 3 per user per hour.
+func RateLimitSOSPost() gin.HandlerFunc {
+	return rateLimitUser("sos", sosPostLimiter)
+}
+
+// RateLimitCasePost limits case creation to 5 per user per hour.
+func RateLimitCasePost() gin.HandlerFunc {
+	return rateLimitUser("case", casePostLimiter)
+}
+
+// RateLimitCommunityPost limits community post creation to 10 per user per hour.
+func RateLimitCommunityPost() gin.HandlerFunc {
+	return rateLimitUser("community", communityPostLimiter)
+}
+
+// ResetRateLimitersForTests clears every limiter's buckets. It exists so
+// integration tests that share one process do not inherit prior hits.
+func ResetRateLimitersForTests() {
+	for _, rl := range []*rateLimiter{
+		authLimiter, otpLimiter, voteLimiter, inviteLimiter, generalLimiter,
+		mapLimiter, aiLimiter, sosPostLimiter, casePostLimiter, communityPostLimiter,
+	} {
+		rl.mu.Lock()
+		rl.buckets = make(map[string]*rateBucket)
+		rl.mu.Unlock()
 	}
 }
