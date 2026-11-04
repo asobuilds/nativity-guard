@@ -826,3 +826,45 @@ export interface ObserverUnitSummary {
 export interface ObserverUnitsResponse {
   units: ObserverUnitSummary[]
 }
+
+/* ------------------------------------------------------------------ */
+/* Booking & renting security units for events                         */
+/* ------------------------------------------------------------------ */
+
+export type BookingStatus = 'pending' | 'accepted' | 'declined' | 'paid' | 'completed' | 'cancelled'
+
+export interface BookingRequest {
+  id: string
+  userId: string
+  unitId: string
+  eventType: string
+  eventDate: string
+  eventLocation: string
+  durationHours: number
+  guardsNeeded: number
+  status: BookingStatus
+  notes?: string
+  quotationAmount: number
+  platformFee: number
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface BookingRequestCreateInput {
+  unitId: string
+  eventType: string
+  eventDate: string
+  eventLocation: string
+  durationHours: number
+  guardsNeeded: number
+  notes?: string
+}
+
+export interface BookingResponse {
+  message?: string
+  booking: BookingRequest
+}
+
+export interface BookingListResponse {
+  bookings: BookingRequest[]
+}

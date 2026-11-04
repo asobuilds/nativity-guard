@@ -27,6 +27,8 @@ const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').the
 const WalkieTalkiePage = lazy(() => import('@/pages/officer/WalkieTalkiePage').then(m => ({ default: m.WalkieTalkiePage })))
 const TaskForceListPage = lazy(() => import('@/pages/taskforce/TaskForceListPage').then(m => ({ default: m.TaskForceListPage })))
 const TaskForcePage = lazy(() => import('@/pages/taskforce/TaskForcePage').then(m => ({ default: m.TaskForcePage })))
+const BookingRequestPage = lazy(() => import('@/pages/booking/BookingRequestPage').then(m => ({ default: m.BookingRequestPage })))
+const BookingListPage = lazy(() => import('@/pages/booking/BookingListPage').then(m => ({ default: m.BookingListPage })))
 const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })))
 const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m.UnitsPage })))
 const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
@@ -236,6 +238,23 @@ export function App() {
                     element={
                       <RequireRole roles={STAFF}>
                         <TaskForcePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route
+                    path="/bookings"
+                    element={
+                      <RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}>
+                        <BookingListPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/bookings/new"
+                    element={
+                      <RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}>
+                        <BookingRequestPage />
                       </RequireRole>
                     }
                   />

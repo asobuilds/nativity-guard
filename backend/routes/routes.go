@@ -459,6 +459,15 @@ func SetupRoutes(router *gin.Engine) {
 			taskForceGroup.POST("/:id/enlist", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.EnlistTaskForceOfficers)
 			taskForceGroup.POST("/:id/disband", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.DisbandTaskForce)
 			taskForceGroup.POST("/:id/leave", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.LeaveTaskForce)
+
+			bookings := api.Group("/bookings")
+			{
+				bookings.POST("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.CreateBooking)
+				bookings.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListBookings)
+				bookings.POST("/:id/accept", middleware.AuthMiddleware(), handlers.AcceptBooking)
+				bookings.POST("/:id/decline", middleware.AuthMiddleware(), handlers.DeclineBooking)
+				bookings.POST("/:id/mark-paid", middleware.AuthMiddleware(), handlers.MarkBookingPaid)
+			}
 		}
 
 		commGroup := api.Group("/communication")
