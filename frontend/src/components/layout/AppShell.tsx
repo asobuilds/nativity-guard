@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
+  CalendarDays,
   BarChart3,
   Bell,
   Bot,
@@ -62,6 +63,8 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
     { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+    { to: '/bookings/new', label: 'Request security', icon: <Shield className="size-4" /> },
   ],
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
@@ -72,6 +75,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
   unit_admin: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
@@ -92,6 +96,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
   super_admin: [
     { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
@@ -119,6 +124,7 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/audit', label: 'Audit & oversight', icon: <FileText className="size-4" /> },
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
   agency_observer: AGENCY_NAV,
   agency_division_admin: AGENCY_NAV,
