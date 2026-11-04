@@ -7,6 +7,7 @@ import { WalkieTalkie } from './WalkieTalkie'
  * until opened so it never competes with the SOS button or mobile nav.
  */
 export function WalkieTalkieDock({ unitId, unitName }: { unitId: string | null; unitName?: string }) {
+  const channel = unitId ? { kind: 'unit' as const, id: unitId } : null
   const [open, setOpen] = useState(false)
   if (!unitId) return null
 
@@ -30,8 +31,8 @@ export function WalkieTalkieDock({ unitId, unitName }: { unitId: string | null; 
   return (
     <div className="fixed bottom-20 left-4 z-30 w-[min(92vw,22rem)] lg:bottom-5">
       <WalkieTalkie
-        unitId={unitId}
-        unitName={unitName}
+        channel={channel}
+        channelName={unitName}
         variant="dock"
         onClose={() => setOpen(false)}
       />

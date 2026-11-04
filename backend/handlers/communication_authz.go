@@ -35,6 +35,19 @@ func canManageRoom(c *gin.Context, userObj *models.User, roomID uuid.UUID) bool 
 		return false
 	}
 
+	if room.Type == models.TaskForceRoomType {
+		taskForce, err := taskForceForRoom(roomID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task force not found"})
+			return false
+		}
+		if taskForce.Status == models.TaskForceStatusActive && userIsHeadAdminOf(userObj, taskForce.HostUnitID) {
+			return true
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the host unit's head admin can manage this channel"})
+		return false
+	}
+
 	if userObj.UnitID == nil || *userObj.UnitID != room.UnitID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return false
@@ -59,6 +72,19 @@ func roomAccessAllowed(c *gin.Context, userObj *models.User, roomID uuid.UUID) b
 	var room models.CommunicationRoom
 	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return false
+	}
+
+	if room.Type == models.TaskForceRoomType {
+		taskForce, err := taskForceForRoom(roomID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task force not found"})
+			return false
+		}
+		if taskForce.Status == models.TaskForceStatusActive && canTransmitOnTaskForce(userObj, taskForce) {
+			return true
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return false
 	}
 

@@ -3,12 +3,12 @@ import { Mic, MicOff, Radio, ShieldCheck, Volume2, VolumeX, X } from 'lucide-rea
 import { useAuth } from '@/auth/AuthContext'
 import { useWalkieTalkie } from '@/hooks/useWalkieTalkie'
 import { cn } from '@/lib/cn'
-import { formatCountdown } from '@/lib/walkie'
+import { formatCountdown, type WalkieChannel } from '@/lib/walkie'
 import { Card } from '@/components/ui/Card'
 
 interface WalkieTalkieProps {
-  unitId: string | null
-  unitName?: string
+  channel: WalkieChannel | null
+  channelName?: string
   variant?: 'page' | 'dock'
   onClose?: () => void
 }
@@ -20,7 +20,7 @@ interface WalkieTalkieProps {
  * server grants it, and releasing sends the floor back. A busy unit says who is
  * speaking instead of silently pretending to transmit.
  */
-export function WalkieTalkie({ unitId, unitName, variant = 'page', onClose }: WalkieTalkieProps) {
+export function WalkieTalkie({ channel, channelName, variant = 'page', onClose }: WalkieTalkieProps) {
   const { role } = useAuth()
   const {
     status,
@@ -35,7 +35,7 @@ export function WalkieTalkie({ unitId, unitName, variant = 'page', onClose }: Wa
     press,
     release,
     enablePlayback,
-  } = useWalkieTalkie({ unitId })
+  } = useWalkieTalkie({ channel })
 
   const connected = status !== 'disconnected' && status !== 'connecting' && status !== 'error'
   const transmitting = status === 'transmitting'
@@ -85,7 +85,7 @@ export function WalkieTalkie({ unitId, unitName, variant = 'page', onClose }: Wa
   const statusText = (() => {
     switch (status) {
       case 'connecting':
-        return 'Connecting to the unit channel…'
+        return 'Connecting to the channel…'
       case 'disconnected':
         return 'Channel offline'
       case 'error':
@@ -121,7 +121,7 @@ export function WalkieTalkie({ unitId, unitName, variant = 'page', onClose }: Wa
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-ink">Unit walkie-talkie</h2>
             <p className="truncate text-xs text-ink-muted">
-              {unitName || 'Unit channel'} ·{' '}
+              {channelName || 'Channel'} ·{' '}
               <span className={cn(connected ? 'text-signal' : 'text-ink-faint')}>
                 {connected ? `${online} online` : 'offline'}
               </span>

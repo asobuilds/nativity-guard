@@ -447,6 +447,20 @@ func SetupRoutes(router *gin.Engine) {
 			video.GET("/social/posts", middleware.AuthMiddleware(), handlers.GetSocialMediaPosts)
 		}
 
+		taskForceGroup := api.Group("/taskforce")
+		{
+			taskForceGroup.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListMyTaskForces)
+			taskForceGroup.POST("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.CreateTaskForce)
+			taskForceGroup.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForce)
+			taskForceGroup.GET("/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForceChannel)
+			taskForceGroup.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForceOfficers)
+			taskForceGroup.POST("/:id/invite", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.InviteTaskForceUnit)
+			taskForceGroup.POST("/:id/join", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.JoinTaskForce)
+			taskForceGroup.POST("/:id/enlist", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.EnlistTaskForceOfficers)
+			taskForceGroup.POST("/:id/disband", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.DisbandTaskForce)
+			taskForceGroup.POST("/:id/leave", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.LeaveTaskForce)
+		}
+
 		commGroup := api.Group("/communication")
 		{
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)

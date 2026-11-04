@@ -12,7 +12,7 @@ import {
 describe('buildWalkieURL', () => {
   it('turns a relative API base into a ws URL on the current origin', () => {
     expect(
-      buildWalkieURL('/api/v1', 'unit-1', 'token-1', {
+      buildWalkieURL('/api/v1', { kind: 'unit', id: 'unit-1' }, 'token-1', {
         protocol: 'http:',
         host: 'localhost:5173',
       }),
@@ -21,16 +21,26 @@ describe('buildWalkieURL', () => {
 
   it('uses wss for an https page and preserves an absolute base', () => {
     expect(
-      buildWalkieURL('https://api.example.com/api/v1/', 'unit-1', 'token-1', {
+      buildWalkieURL('https://api.example.com/api/v1/', { kind: 'unit', id: 'unit-1' }, 'token-1', {
         protocol: 'https:',
         host: 'nativityguard.com',
       }),
     ).toBe('wss://api.example.com/api/v1/ws?unitId=unit-1&token=token-1')
   })
 
+
+  it('builds a task-force URL with taskforceId', () => {
+    expect(
+      buildWalkieURL('/api/v1', { kind: 'taskforce', id: 'tf-1' }, 'token-1', {
+        protocol: 'https:',
+        host: 'nativityguard.com',
+      }),
+    ).toBe('wss://nativityguard.com/api/v1/ws?taskforceId=tf-1&token=token-1')
+  })
+
   it('falls back to /api/v1 when the base is empty', () => {
     expect(
-      buildWalkieURL('', 'u', 't', { protocol: 'https:', host: 'example.com' }),
+      buildWalkieURL('', { kind: 'unit', id: 'u' }, 't', { protocol: 'https:', host: 'example.com' }),
     ).toBe('wss://example.com/api/v1/ws?unitId=u&token=t')
   })
 })
