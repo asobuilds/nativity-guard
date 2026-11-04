@@ -8,10 +8,11 @@ import {
   reduceWalkie,
   type PTTStatus,
   type PTTViewState,
+  type WalkieChannel,
 } from '@/lib/walkie'
 
 export interface UseWalkieTalkieOptions {
-  unitId: string | null | undefined
+  channel: WalkieChannel | null | undefined
   enabled?: boolean
 }
 
@@ -53,9 +54,11 @@ function describeMediaError(error: unknown): string {
  * The local timer is a UX backstop that releases at the same deadline.
  */
 export function useWalkieTalkie({
-  unitId,
+  channel,
   enabled = true,
 }: UseWalkieTalkieOptions): UseWalkieTalkieResult {
+  const channelKind = channel?.kind
+  const channelId = channel?.id
   const [view, setView] = useState<PTTViewState>({ status: 'disconnected' })
   const [online, setOnline] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(60)
@@ -245,11 +248,13 @@ export function useWalkieTalkie({
   }, [stopCapture])
 
   useEffect(() => {
-    if (!enabled || !unitId) {
+    if (!enabled || !channelKind || !channelId) {
       setView({ status: 'disconnected' })
       return
     }
 
+    const kind = channelKind
+    const id = channelId
     const token = tokenStore.get()
     if (!token) {
       setView({ status: 'error', error: 'Not signed in' })
@@ -266,9 +271,11 @@ export function useWalkieTalkie({
 
       let socket: WebSocket
       try {
-        socket = new WebSocket(buildWalkieURL(API_BASE, unitId as string, token as string, window.location))
+        socket = new WebSocket(
+          buildWalkieURL(API_BASE, { kind, id }, token as string, window.location),
+        )
       } catch {
-        setView({ status: 'error', error: 'Could not open the unit channel' })
+        setView({ status: 'error', error: 'Could not open the channel' })
         return
       }
       socket.binaryType = 'arraybuffer'
@@ -326,7 +333,7 @@ export function useWalkieTalkie({
       }
       stopAudio()
     }
-  }, [enabled, unitId, handleMessage, playChunk, stopAudio])
+  }, [enabled, channelKind, channelId, handleMessage, playChunk, stopAudio])
 
   useEffect(() => {
     if (view.status !== 'transmitting' || !view.expiresAt) {
@@ -344,7 +351,7 @@ export function useWalkieTalkie({
   }, [view.status, view.expiresAt])
 
   const press = useCallback(() => {
-    if (!enabled || !unitId || holdingRef.current) return
+    if (!enabled || !channelId || holdingRef.current) return
     const status = statusRef.current
     if (status === 'requesting' || status === 'transmitting' || status === 'disconnected' || status === 'error') {
       return
@@ -370,7 +377,7 @@ export function useWalkieTalkie({
         holdingRef.current = false
         setView({ status: 'error', error: describeMediaError(error) })
       })
-  }, [enabled, unitId, ensureAudio])
+  }, [enabled, channelId, ensureAudio])
 
   const release = useCallback(() => {
     const wasHolding = holdingRef.current

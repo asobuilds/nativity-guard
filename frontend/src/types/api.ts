@@ -501,6 +501,108 @@ export interface UnitOfficersResponse {
   officers: UnitOfficer[]
 }
 
+export type TaskForceStatus = 'active' | 'disbanded'
+export type TaskForceMemberStatus = 'invited' | 'active' | 'left' | 'removed'
+export type TaskForceOfficerStatus = 'active' | 'removed'
+
+export interface TaskForce {
+  id: string
+  name: string
+  hostUnitId: string
+  status: TaskForceStatus
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
+  hostUnit?: SecurityUnit
+}
+
+export interface TaskForceMember {
+  id: string
+  taskForceId: string
+  unitId: string
+  role: 'host' | 'member' | string
+  status: TaskForceMemberStatus
+  acceptedAt?: string | null
+  unit?: SecurityUnit
+}
+
+export interface TaskForceOfficer {
+  id: string
+  taskForceId: string
+  officerId: string
+  unitId: string
+  status: TaskForceOfficerStatus
+  enlistedAt: string
+  officer?: UnitOfficer
+  unit?: SecurityUnit
+}
+
+export interface TaskForceInviteSummary {
+  id: string
+  unitId: string
+  status: string
+  expiresAt?: string | null
+}
+
+export interface TaskForceChannelInfo {
+  id: string
+  unitId: string
+  name: string
+  type: string
+  status: string
+}
+
+export interface TaskForcePttState {
+  status?: string
+  speakerId?: string
+  speakerName?: string
+  expiresAt?: string
+}
+
+export interface TaskForceDetailResponse {
+  taskForce: TaskForce
+  members: TaskForceMember[]
+  officers: TaskForceOfficer[]
+  invites: TaskForceInviteSummary[]
+  channel?: TaskForceChannelInfo
+  canManage: boolean
+  canTransmit: boolean
+  online: number
+  ptt: TaskForcePttState
+}
+
+export interface TaskForceSummary {
+  taskForce: TaskForce
+  role: string
+  membershipStatus: string
+}
+
+export interface TaskForceListResponse {
+  taskForces: TaskForceSummary[]
+}
+
+export interface TaskForceEnlistResult {
+  officerId?: string
+  status: string
+  message?: string
+}
+
+export interface TaskForceEnlistResponse {
+  results: TaskForceEnlistResult[]
+  enlisted: number
+}
+
+export interface TaskForceCreateResponse {
+  message?: string
+  taskForce: TaskForce
+}
+
+export interface TaskForceInviteResponse {
+  invite: TaskForceInviteSummary & { maxUses?: number }
+  code: string
+  warning?: string
+}
+
 export interface CaseAssignmentsResponse {
   assignments: CaseOfficer[]
 }

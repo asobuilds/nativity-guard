@@ -57,6 +57,9 @@ type Client struct {
 	Role     string
 	IsActive bool
 
+	ChannelType string
+	ChannelID   string
+
 	// CommandOverride lets a super admin transmit on a unit channel. It can
 	// only be flipped by an authenticated super admin via ptt.command_override.
 	CommandOverride atomic.Bool

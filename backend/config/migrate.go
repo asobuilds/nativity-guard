@@ -3,6 +3,8 @@ package config
 import (
 	"log"
 
+	"gorm.io/gorm"
+
 	"security-solution/models"
 )
 
@@ -101,6 +103,12 @@ func AutoMigrateAll() error {
 		&models.CommunicationMessage{},
 		&models.VoiceCall{},
 		&models.CommunicationSync{},
+
+		&models.TaskForce{},
+		&models.TaskForceMember{},
+		&models.TaskForceOfficer{},
+		&models.TaskForceInvite{},
+		&models.TaskForceChannel{},
 
 		&models.Report{},
 		&models.MediaLink{},
@@ -210,6 +218,39 @@ func AutoMigrateAll() error {
 		return err
 	}
 
+	if err := EnsureTaskForceIndexes(DB); err != nil {
+		return err
+	}
+
 	log.Println("auto-migration complete")
+	return nil
+}
+
+func EnsureTaskForceIndexes(db *gorm.DB) error {
+	statements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_members_active_unit
+		   ON task_force_members (task_force_id, unit_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_officers_active_officer
+		   ON task_force_officers (officer_id)
+		   WHERE status = 'active' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_officers_active_pair
+		   ON task_force_officers (task_force_id, officer_id)
+		   WHERE status = 'active' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_invites_pending_unit
+		   ON task_force_invites (task_force_id, unit_id)
+		   WHERE status = 'pending' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_channels_active
+		   ON task_force_channels (task_force_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_channels_room
+		   ON task_force_channels (room_id)
+		   WHERE deleted_at IS NULL`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }

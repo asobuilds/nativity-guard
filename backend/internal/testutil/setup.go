@@ -120,8 +120,16 @@ func SetupTestDB() error {
 		&models.VoiceCall{},
 		&models.CommunicationSync{},
 		&models.CommunityAlert{},
+		&models.TaskForce{},
+		&models.TaskForceMember{},
+		&models.TaskForceOfficer{},
+		&models.TaskForceInvite{},
+		&models.TaskForceChannel{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
+	}
+	if err := config.EnsureTaskForceIndexes(db); err != nil {
+		return fmt.Errorf("task force indexes: %w", err)
 	}
 
 	testDB = db

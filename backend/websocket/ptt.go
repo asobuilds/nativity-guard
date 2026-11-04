@@ -365,11 +365,17 @@ func (m *PTTManager) audit(client *Client, action string, newValue map[string]an
 	if err != nil {
 		return
 	}
+	entityType := client.ChannelType
+	entityID := client.ChannelID
+	if entityType == "" {
+		entityType = "unit"
+		entityID = client.Room
+	}
 	_ = services.NewAuditService().LogAction(
 		userID,
 		action,
-		"unit",
-		client.Room,
+		entityType,
+		entityID,
 		nil,
 		newValue,
 		client.IPAddress,

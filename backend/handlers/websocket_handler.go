@@ -59,9 +59,9 @@ func checkWebSocketOrigin(r *http.Request) bool {
 	return false
 }
 
-// HandleWebSocket upgrades an authenticated unit member into the unit's
-// walkie-talkie room. Authorization is based on the user's own UnitID, never a
-// client-supplied officer record.
+// HandleWebSocket upgrades an authenticated member into a unit or task-force
+// walkie-talkie room. Authorization is based on the user's own UnitID and
+// active task-force membership, never a client-supplied officer record.
 func HandleWebSocket(c *gin.Context) {
 	userInterface, exists := c.Get("user")
 	if !exists {
@@ -75,27 +75,73 @@ func HandleWebSocket(c *gin.Context) {
 	}
 
 	unitIDStr := strings.TrimSpace(c.Query("unitId"))
-	unitID, err := uuid.Parse(unitIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid unit ID required"})
+	taskForceIDStr := strings.TrimSpace(c.Query("taskforceId"))
+	if taskForceIDStr == "" {
+		taskForceIDStr = strings.TrimSpace(c.Query("taskForceId"))
+	}
+	if (unitIDStr == "") == (taskForceIDStr == "") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Provide exactly one of unitId or taskforceId"})
 		return
 	}
 
-	var unit models.SecurityUnit
-	if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
-		return
-	}
+	var (
+		roomKey     string
+		unitIDValue string
+		channelType string
+		channelID   string
+	)
 
-	if !canJoinUnitChannel(user, unitID) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission for this unit"})
-		return
-	}
+	if unitIDStr != "" {
+		unitID, err := uuid.Parse(unitIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Valid unit ID required"})
+			return
+		}
 
-	// Make sure the persisted unit channel exists. PTT itself is live-only; the
-	// room row is the shared identity used by the REST helper and audits.
-	if _, err := ensureUnitChannel(unitID, user.ID); err != nil {
-		log.Printf("walkie-talkie: failed to ensure channel for unit %s: %v", unitID, err)
+		var unit models.SecurityUnit
+		if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
+			return
+		}
+
+		if !canJoinUnitChannel(user, unitID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission for this unit"})
+			return
+		}
+
+		// Make sure the persisted unit channel exists. PTT itself is live-only; the
+		// room row is the shared identity used by the REST helper and audits.
+		if _, err := ensureUnitChannel(unitID, user.ID); err != nil {
+			log.Printf("walkie-talkie: failed to ensure channel for unit %s: %v", unitID, err)
+		}
+
+		roomKey = unitID.String()
+		unitIDValue = unitID.String()
+		channelType = "unit"
+		channelID = unitID.String()
+	} else {
+		taskForceID, err := uuid.Parse(taskForceIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Valid task force ID required"})
+			return
+		}
+		taskForce, err := loadTaskForce(taskForceID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task force not found"})
+			return
+		}
+		if !canJoinTaskForceChannel(user, taskForce) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission for this task force"})
+			return
+		}
+		if _, err := ensureTaskForceChannel(taskForce, user.ID); err != nil {
+			log.Printf("walkie-talkie: failed to ensure channel for task force %s: %v", taskForceID, err)
+		}
+
+		roomKey = taskForceRoomKey(taskForce.ID)
+		unitIDValue = taskForce.HostUnitID.String()
+		channelType = models.TaskForceRoomType
+		channelID = taskForce.ID.String()
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -110,32 +156,52 @@ func HandleWebSocket(c *gin.Context) {
 	ptt := ws.GetPTTManager()
 
 	client := &ws.Client{
-		ID:        clientID,
-		Room:      unitID.String(),
-		Conn:      conn,
-		Send:      make(chan ws.Outbound, 256),
-		UnitID:    unitID.String(),
-		UserID:    user.ID.String(),
-		Username:  strings.TrimSpace(user.FirstName + " " + user.LastName),
-		Role:      user.Role,
-		IsActive:  true,
-		IPAddress: c.ClientIP(),
-		UserAgent: c.Request.UserAgent(),
+		ID:          clientID,
+		Room:        roomKey,
+		Conn:        conn,
+		Send:        make(chan ws.Outbound, 256),
+		UnitID:      unitIDValue,
+		UserID:      user.ID.String(),
+		Username:    strings.TrimSpace(user.FirstName + " " + user.LastName),
+		Role:        user.Role,
+		IsActive:    true,
+		ChannelType: channelType,
+		ChannelID:   channelID,
+		IPAddress:   c.ClientIP(),
+		UserAgent:   c.Request.UserAgent(),
 	}
 
 	hub.RegisterClient(client)
 
 	writeClientJSON(client, map[string]any{
-		"type":     "welcome",
-		"message":  "Connected to walkie-talkie",
-		"room":     client.Room,
-		"clientId": clientID,
-		"role":     user.Role,
+		"type":        "welcome",
+		"message":     "Connected to walkie-talkie",
+		"room":        client.Room,
+		"clientId":    clientID,
+		"role":        user.Role,
+		"channelType": channelType,
+		"channelId":   channelID,
 	})
 	writeClientJSON(client, ws.PTTStatePayload("ptt.state", ptt.Snapshot(client.Room)))
 
 	go clientWritePump(client)
 	clientReadPump(client, hub, ptt)
+}
+
+func canJoinTaskForceChannel(user *models.User, taskForce *models.TaskForce) bool {
+	if user == nil || taskForce == nil || taskForce.Status != models.TaskForceStatusActive {
+		return false
+	}
+	if user.Role == models.RoleSuperAdmin || user.IsSuperAdmin {
+		return true // listen-only unless command override is enabled
+	}
+	if user.Role != models.RoleOfficer && user.Role != models.RoleUnitAdmin {
+		return false
+	}
+	if user.UnitID == nil {
+		return false
+	}
+	return taskForceHasActiveMember(taskForce.ID, *user.UnitID)
 }
 
 func canJoinUnitChannel(user *models.User, unitID uuid.UUID) bool {
@@ -236,11 +302,17 @@ func handlePTTCommandOverride(client *ws.Client, msg ws.Message) {
 	previous := client.CommandOverride.Swap(input.Enabled)
 	if config.DB != nil {
 		if userID, err := uuid.Parse(client.UserID); err == nil {
+			entityType := client.ChannelType
+			entityID := client.ChannelID
+			if entityType == "" {
+				entityType = "unit"
+				entityID = client.Room
+			}
 			_ = services.NewAuditService().LogAction(
 				userID,
 				"walkie.command_override",
-				"unit",
-				client.Room,
+				entityType,
+				entityID,
 				map[string]any{"enabled": previous},
 				map[string]any{"enabled": input.Enabled},
 				client.IPAddress,

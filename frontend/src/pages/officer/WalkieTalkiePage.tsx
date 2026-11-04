@@ -64,7 +64,7 @@ export function WalkieTalkiePage() {
       ) : null}
 
       {unitId ? (
-        <WalkieTalkie unitId={unitId} unitName={unitName} />
+        <WalkieTalkie channel={{ kind: 'unit', id: unitId }} channelName={unitName} />
       ) : (
         <Card className="p-6 text-center text-sm text-ink-muted">
           {isSuperAdmin

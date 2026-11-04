@@ -31,10 +31,17 @@ export interface WalkieLocation {
   host: string
 }
 
-/** Build the authenticated WebSocket URL for a unit channel. */
+export type WalkieChannelKind = 'unit' | 'taskforce'
+
+export interface WalkieChannel {
+  kind: WalkieChannelKind
+  id: string
+}
+
+/** Build the authenticated WebSocket URL for a unit or task-force channel. */
 export function buildWalkieURL(
   base: string,
-  unitId: string,
+  channel: WalkieChannel,
   token: string,
   location: WalkieLocation,
 ): string {
@@ -42,7 +49,7 @@ export function buildWalkieURL(
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   url.pathname = `${url.pathname.replace(/\/+$/, '')}/ws`
   url.search = ''
-  url.searchParams.set('unitId', unitId)
+  url.searchParams.set(channel.kind === 'taskforce' ? 'taskforceId' : 'unitId', channel.id)
   url.searchParams.set('token', token)
   return url.toString()
 }
