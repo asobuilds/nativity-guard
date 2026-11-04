@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"security-solution/config"
 	"security-solution/models"
+	ws "security-solution/websocket"
 )
 
 // CreateRoom creates a communication room
@@ -665,6 +668,89 @@ func RemoveRoomMember(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Member removed from room", "member": member})
+}
+
+const walkieTalkieRoomType = "walkie_talkie"
+
+// ensureUnitChannel returns the unit's persistent walkie-talkie room, creating
+// it on first use. Audio is never persisted; the room row is the shared channel
+// identity used by the REST helper and audit entries.
+func ensureUnitChannel(unitID, createdBy uuid.UUID) (models.CommunicationRoom, error) {
+	var room models.CommunicationRoom
+	err := config.DB.Where("unit_id = ? AND type = ?", unitID, walkieTalkieRoomType).First(&room).Error
+	if err == nil {
+		return room, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return room, err
+	}
+
+	room = models.CommunicationRoom{
+		UnitID:      unitID,
+		Name:        "Unit Channel",
+		Type:        walkieTalkieRoomType,
+		Status:      "active",
+		IsEncrypted: true,
+		Priority:    "normal",
+		CreatedBy:   createdBy,
+	}
+	if createErr := config.DB.Create(&room).Error; createErr != nil {
+		// A concurrent connection may have created the channel first.
+		if findErr := config.DB.Where("unit_id = ? AND type = ?", unitID, walkieTalkieRoomType).First(&room).Error; findErr == nil {
+			return room, nil
+		}
+		return room, createErr
+	}
+	return room, nil
+}
+
+func canAccessUnitChannel(user *models.User, unitID uuid.UUID) bool {
+	if user.Role == models.RoleSuperAdmin || user.IsSuperAdmin {
+		return true
+	}
+	if user.Role != models.RoleOfficer && user.Role != models.RoleUnitAdmin {
+		return false
+	}
+	return user.UnitID != nil && *user.UnitID == unitID
+}
+
+// GetUnitChannel returns the walkie-talkie channel metadata and live floor
+// state for a unit. Super admins may inspect any unit.
+func GetUnitChannel(c *gin.Context) {
+	unitID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	userObj, ok := getAuthUser(c)
+	if !ok {
+		return
+	}
+	if !canAccessUnitChannel(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this unit"})
+		return
+	}
+
+	var unit models.SecurityUnit
+	if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
+		return
+	}
+
+	room, err := ensureUnitChannel(unitID, userObj.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve unit channel"})
+		return
+	}
+
+	state := ws.GetPTTManager().Snapshot(unitID.String())
+	c.JSON(http.StatusOK, gin.H{
+		"channel":     room,
+		"ptt":         state,
+		"online":      ws.GetHub().RoomSize(unitID.String()),
+		"canTransmit": userObj.Role != models.RoleSuperAdmin && !userObj.IsSuperAdmin,
+	})
 }
 
 // Helper functions

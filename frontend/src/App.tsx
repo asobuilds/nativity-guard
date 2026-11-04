@@ -24,6 +24,7 @@ const SosDetailPage = lazy(() => import('@/pages/citizen/SosDetailPage').then(m 
 const ReportIncidentPage = lazy(() => import('@/pages/citizen/ReportIncidentPage').then(m => ({ default: m.ReportIncidentPage })))
 const OfficerQueuePage = lazy(() => import('@/pages/officer/OfficerQueuePage').then(m => ({ default: m.OfficerQueuePage })))
 const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').then(m => ({ default: m.OfficerCasePage })))
+const WalkieTalkiePage = lazy(() => import('@/pages/officer/WalkieTalkiePage').then(m => ({ default: m.WalkieTalkiePage })))
 const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })))
 const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m.UnitsPage })))
 const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
@@ -209,6 +210,14 @@ export function App() {
                     element={
                       <RequireRole roles={STAFF}>
                         <OfficerCasePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/officer/walkie-talkie"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <WalkieTalkiePage />
                       </RequireRole>
                     }
                   />
