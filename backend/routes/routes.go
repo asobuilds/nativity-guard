@@ -451,6 +451,7 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
 			commGroup.GET("/units/:id/rooms", middleware.AuthMiddleware(), handlers.GetRooms)
+			commGroup.GET("/units/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitChannel)
 			commGroup.POST("/messages", middleware.AuthMiddleware(), handlers.SendMessage)
 			commGroup.GET("/rooms/:roomId/messages", middleware.AuthMiddleware(), handlers.GetMessages)
 			commGroup.POST("/calls", middleware.AuthMiddleware(), handlers.InitiateCall)

@@ -16,6 +16,7 @@ import {
   Menu,
   MessageSquare,
   Newspaper,
+  Radio,
   Shield,
   ShieldAlert,
   Settings,
@@ -30,6 +31,7 @@ import { fullName, initials } from '@/lib/format'
 import { Logo } from '@/components/brand/Logo'
 import { NotificationBell } from './NotificationBell'
 import { AppBackground } from './AppBackground'
+import { WalkieTalkieDock } from '@/components/unit/WalkieTalkieDock'
 import type { Role } from '@/types/api'
 import { MOBILE_PRIMARY_ROUTES } from '@/lib/mobileNav'
 
@@ -63,6 +65,7 @@ const NAV: Record<Role, NavItem[]> = {
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
     { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
@@ -71,6 +74,7 @@ const NAV: Record<Role, NavItem[]> = {
   unit_admin: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
     { to: '/admin/community', label: 'Community', icon: <Users className="size-4" /> },
     { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
@@ -89,6 +93,7 @@ const NAV: Record<Role, NavItem[]> = {
   super_admin: [
     { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Unit channels', icon: <Radio className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
     { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
     { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
@@ -358,6 +363,10 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
             </Suspense>
           </ErrorBoundary>
         </main>
+
+        {role === 'officer' || role === 'unit_admin' ? (
+          <WalkieTalkieDock unitId={user?.unitId ?? null} />
+        ) : null}
 
         {role !== null ? (
           <NavLink

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,18 +15,53 @@ import (
 
 	"security-solution/config"
 	"security-solution/models"
+	"security-solution/services"
 	ws "security-solution/websocket"
 )
 
+const (
+	maxWebSocketMessageSize = 64 * 1024
+	maxAudioFrameSize       = 32 * 1024
+)
+
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	CheckOrigin:     checkWebSocketOrigin,
+	ReadBufferSize:  4096,
+	WriteBufferSize: 4096,
 }
 
-// HandleWebSocket handles WebSocket connections
+// checkWebSocketOrigin rejects cross-site browser handshakes while still
+// allowing same-origin clients, configured ALLOWED_ORIGINS, and local dev.
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true // non-browser clients (tests, native apps) send no Origin
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(parsed.Host, r.Host) {
+		return true
+	}
+	for _, allowed := range strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",") {
+		if strings.EqualFold(strings.TrimSpace(allowed), origin) {
+			return true
+		}
+	}
+	if gin.Mode() != gin.ReleaseMode {
+		host := parsed.Hostname()
+		if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+			return true
+		}
+	}
+	return false
+}
+
+// HandleWebSocket upgrades an authenticated unit member into the unit's
+// walkie-talkie room. Authorization is based on the user's own UnitID, never a
+// client-supplied officer record.
 func HandleWebSocket(c *gin.Context) {
 	userInterface, exists := c.Get("user")
 	if !exists {
@@ -36,16 +74,28 @@ func HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	unitID := c.Query("unitId")
-	if unitID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unit ID required"})
+	unitIDStr := strings.TrimSpace(c.Query("unitId"))
+	unitID, err := uuid.Parse(unitIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid unit ID required"})
 		return
 	}
 
-	var officer models.Officer
-	if err := config.DB.Where("user_id = ? AND unit_id = ?", user.ID, unitID).First(&officer).Error; err != nil {
+	var unit models.SecurityUnit
+	if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
+		return
+	}
+
+	if !canJoinUnitChannel(user, unitID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission for this unit"})
 		return
+	}
+
+	// Make sure the persisted unit channel exists. PTT itself is live-only; the
+	// room row is the shared identity used by the REST helper and audits.
+	if _, err := ensureUnitChannel(unitID, user.ID); err != nil {
+		log.Printf("walkie-talkie: failed to ensure channel for unit %s: %v", unitID, err)
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -57,41 +107,55 @@ func HandleWebSocket(c *gin.Context) {
 
 	clientID := uuid.New().String()
 	hub := ws.GetHub()
+	ptt := ws.GetPTTManager()
 
 	client := &ws.Client{
-		ID:       clientID,
-		Room:     unitID,
-		Conn:     conn,
-		Send:     make(chan []byte, 256),
-		UnitID:   unitID,
-		UserID:   user.ID.String(),
-		Username: user.FirstName + " " + user.LastName,
-		Role:     user.Role,
-		IsActive: true,
+		ID:        clientID,
+		Room:      unitID.String(),
+		Conn:      conn,
+		Send:      make(chan ws.Outbound, 256),
+		UnitID:    unitID.String(),
+		UserID:    user.ID.String(),
+		Username:  strings.TrimSpace(user.FirstName + " " + user.LastName),
+		Role:      user.Role,
+		IsActive:  true,
+		IPAddress: c.ClientIP(),
+		UserAgent: c.Request.UserAgent(),
 	}
 
 	hub.RegisterClient(client)
 
-	welcome := map[string]interface{}{
+	writeClientJSON(client, map[string]any{
 		"type":     "welcome",
 		"message":  "Connected to walkie-talkie",
-		"room":     unitID,
+		"room":     client.Room,
 		"clientId": clientID,
-	}
-	welcomeMsg, _ := json.Marshal(welcome)
-	client.Send <- welcomeMsg
+		"role":     user.Role,
+	})
+	writeClientJSON(client, ws.PTTStatePayload("ptt.state", ptt.Snapshot(client.Room)))
 
 	go clientWritePump(client)
-	clientReadPump(client, hub)
+	clientReadPump(client, hub, ptt)
 }
 
-func clientReadPump(client *ws.Client, hub *ws.Hub) {
+func canJoinUnitChannel(user *models.User, unitID uuid.UUID) bool {
+	if user.Role == models.RoleSuperAdmin || user.IsSuperAdmin {
+		return true // listen-only unless command override is enabled
+	}
+	if user.Role != models.RoleOfficer && user.Role != models.RoleUnitAdmin {
+		return false
+	}
+	return user.UnitID != nil && *user.UnitID == unitID
+}
+
+func clientReadPump(client *ws.Client, hub *ws.Hub, ptt *ws.PTTManager) {
 	defer func() {
+		ptt.Leave(client)
 		hub.UnregisterClient(client)
 		client.Conn.Close()
 	}()
 
-	client.Conn.SetReadLimit(51200)
+	client.Conn.SetReadLimit(maxWebSocketMessageSize)
 	client.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	client.Conn.SetPongHandler(func(string) error {
 		client.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -99,12 +163,21 @@ func clientReadPump(client *ws.Client, hub *ws.Hub) {
 	})
 
 	for {
-		_, message, err := client.Conn.ReadMessage()
+		messageType, message, err := client.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
+		}
+
+		// Binary frames are live PCM audio. Only the current floor holder may
+		// transmit; everyone else's bytes are dropped.
+		if messageType == websocket.BinaryMessage {
+			if len(message) > 0 && len(message) <= maxAudioFrameSize && ptt.IsSpeaker(client) {
+				hub.SendToRoomExcept(client.Room, client.ID, message, websocket.BinaryMessage)
+			}
+			continue
 		}
 
 		var msg ws.Message
@@ -117,24 +190,79 @@ func clientReadPump(client *ws.Client, hub *ws.Hub) {
 		msg.Timestamp = time.Now()
 
 		switch msg.Type {
-		case "chat":
-			msgData, _ := json.Marshal(msg)
-			hub.SendToRoom(client.Room, msgData)
+		case ws.MessageTypePTTRequest:
+			ptt.RequestFloor(client)
 
-		case "location":
-			msgData, _ := json.Marshal(msg)
-			hub.SendToRoom(client.Room, msgData)
+		case ws.MessageTypePTTRelease:
+			ptt.ReleaseFloor(client, "released")
 
-		case "signal", "offer", "answer", "ice-candidate":
+		case ws.MessageTypePTTState:
+			writeClientJSON(client, ws.PTTStatePayload("ptt.state", ptt.Snapshot(client.Room)))
+
+		case ws.MessageTypePTTCommandOverride:
+			handlePTTCommandOverride(client, msg)
+
+		case ws.MessageTypeChat, ws.MessageTypeLocation:
+			encoded, _ := json.Marshal(msg)
+			hub.SendToRoom(client.Room, encoded)
+
+		case ws.MessageTypeSignal, ws.MessageTypeOffer, ws.MessageTypeAnswer, ws.MessageTypeIceCandidate:
 			if msg.TargetID != "" {
-				msgData, _ := json.Marshal(msg)
-				hub.SendToClient(msg.TargetID, msgData)
+				encoded, _ := json.Marshal(msg)
+				hub.SendToClient(msg.TargetID, encoded)
 			}
-
-		default:
-			msgData, _ := json.Marshal(msg)
-			hub.SendToRoom(client.Room, msgData)
 		}
+	}
+}
+
+// handlePTTCommandOverride lets a super admin opt into transmitting. Every
+// change is audited, including the previous value.
+func handlePTTCommandOverride(client *ws.Client, msg ws.Message) {
+	if client.Role != models.RoleSuperAdmin {
+		writeClientJSON(client, map[string]any{"type": "ptt.error", "reason": "forbidden"})
+		return
+	}
+
+	var input struct {
+		Enabled bool `json:"enabled"`
+	}
+	if len(msg.Data) > 0 {
+		if err := json.Unmarshal(msg.Data, &input); err != nil {
+			writeClientJSON(client, map[string]any{"type": "ptt.error", "reason": "invalid_override"})
+			return
+		}
+	}
+
+	previous := client.CommandOverride.Swap(input.Enabled)
+	if config.DB != nil {
+		if userID, err := uuid.Parse(client.UserID); err == nil {
+			_ = services.NewAuditService().LogAction(
+				userID,
+				"walkie.command_override",
+				"unit",
+				client.Room,
+				map[string]any{"enabled": previous},
+				map[string]any{"enabled": input.Enabled},
+				client.IPAddress,
+				client.UserAgent,
+			)
+		}
+	}
+
+	writeClientJSON(client, map[string]any{
+		"type":    "ptt.override",
+		"enabled": input.Enabled,
+	})
+}
+
+func writeClientJSON(client *ws.Client, payload any) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	select {
+	case client.Send <- ws.Outbound{MessageType: websocket.TextMessage, Data: encoded}:
+	default:
 	}
 }
 
@@ -147,26 +275,13 @@ func clientWritePump(client *ws.Client) {
 
 	for {
 		select {
-		case message, ok := <-client.Send:
+		case outbound, ok := <-client.Send:
 			client.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
 				client.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
-			w, err := client.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
-
-			n := len(client.Send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-client.Send)
-			}
-
-			if err := w.Close(); err != nil {
+			if err := client.Conn.WriteMessage(outbound.MessageType, outbound.Data); err != nil {
 				return
 			}
 

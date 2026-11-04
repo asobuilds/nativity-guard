@@ -11,28 +11,48 @@ import (
 	"time"
 )
 
+// requestToken extracts the bearer token from the Authorization header.
+//
+// Browsers cannot set custom headers on a WebSocket handshake, so a token may
+// also be supplied as ?token=... — but only when the request is an actual
+// WebSocket upgrade. Query tokens are never accepted on ordinary HTTP requests.
+func requestToken(c *gin.Context) (string, bool) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		if !isWebSocketUpgrade(c) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.Abort()
+			return "", false
+		}
+		token := strings.TrimSpace(c.Query("token"))
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication token required"})
+			c.Abort()
+			return "", false
+		}
+		return token, true
+	}
+
+	parts := strings.Fields(authHeader)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+		c.Abort()
+		return "", false
+	}
+	return parts[1], true
+}
+
+func isWebSocketUpgrade(c *gin.Context) bool {
+	return strings.EqualFold(c.GetHeader("Upgrade"), "websocket")
+}
+
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header required",
-			})
-			c.Abort()
+		tokenString, ok := requestToken(c)
+		if !ok {
 			return
 		}
 
-		parts := strings.Fields(authHeader)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid authorization header format",
-			})
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
 		authService := services.NewAuthService()
 
 		token, err := authService.ValidateToken(tokenString)

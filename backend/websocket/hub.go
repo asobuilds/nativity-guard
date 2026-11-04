@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -11,15 +12,19 @@ import (
 
 // Message types
 const (
-	MessageTypeJoin         = "join"
-	MessageTypeLeave        = "leave"
-	MessageTypeSignal       = "signal"
-	MessageTypeOffer        = "offer"
-	MessageTypeAnswer       = "answer"
-	MessageTypeIceCandidate = "ice-candidate"
-	MessageTypeChat         = "chat"
-	MessageTypeLocation     = "location"
-	MessageTypeStatus       = "status"
+	MessageTypeJoin               = "join"
+	MessageTypeLeave              = "leave"
+	MessageTypeSignal             = "signal"
+	MessageTypeOffer              = "offer"
+	MessageTypeAnswer             = "answer"
+	MessageTypeIceCandidate       = "ice-candidate"
+	MessageTypeChat               = "chat"
+	MessageTypeLocation           = "location"
+	MessageTypeStatus             = "status"
+	MessageTypePTTRequest         = "ptt.request"
+	MessageTypePTTRelease         = "ptt.release"
+	MessageTypePTTState           = "ptt.state"
+	MessageTypePTTCommandOverride = "ptt.command_override"
 )
 
 // Message represents a WebSocket message
@@ -32,17 +37,34 @@ type Message struct {
 	Timestamp time.Time       `json:"timestamp"`
 }
 
+// Outbound is a frame queued for a client. MessageType is a gorilla/websocket
+// message type (TextMessage or BinaryMessage) so audio can travel as binary
+// while control frames remain JSON text.
+type Outbound struct {
+	MessageType int
+	Data        []byte
+}
+
 // Client represents a connected WebSocket client
 type Client struct {
 	ID       string
 	Room     string
 	Conn     *websocket.Conn
-	Send     chan []byte
+	Send     chan Outbound
 	UnitID   string
 	UserID   string
 	Username string
 	Role     string
 	IsActive bool
+
+	// CommandOverride lets a super admin transmit on a unit channel. It can
+	// only be flipped by an authenticated super admin via ptt.command_override.
+	CommandOverride atomic.Bool
+
+	// Captured at handshake time so floor-control audit rows can record the
+	// origin without reaching back into the upgraded HTTP request.
+	IPAddress string
+	UserAgent string
 }
 
 // Hub maintains the set of active clients
@@ -83,7 +105,7 @@ func (h *Hub) UnregisterClient(client *Client) {
 	h.unregister <- client
 }
 
-// Broadcast sends a message to all clients in a room
+// Broadcast sends a text message to every connected client.
 func (h *Hub) Broadcast(message []byte) {
 	h.broadcast <- message
 }
@@ -119,13 +141,12 @@ func (h *Hub) run() {
 			h.broadcastRoomStatus(client.Room)
 
 		case message := <-h.broadcast:
+			out := Outbound{MessageType: websocket.TextMessage, Data: message}
 			h.mutex.RLock()
 			for _, client := range h.clients {
 				select {
-				case client.Send <- message:
+				case client.Send <- out:
 				default:
-					close(client.Send)
-					delete(h.clients, client.ID)
 				}
 			}
 			h.mutex.RUnlock()
@@ -158,37 +179,64 @@ func (h *Hub) broadcastRoomStatus(room string) {
 	}
 
 	msg, _ := json.Marshal(status)
+	out := Outbound{MessageType: websocket.TextMessage, Data: msg}
 	for _, client := range h.rooms[room] {
 		select {
-		case client.Send <- msg:
+		case client.Send <- out:
 		default:
 		}
 	}
 }
 
-// SendToClient sends a message to a specific client
+// SendToClient sends a text message to a specific client
 func (h *Hub) SendToClient(clientID string, message []byte) {
+	h.SendToClientOutbound(clientID, Outbound{MessageType: websocket.TextMessage, Data: message})
+}
+
+// SendToClientOutbound sends one frame to a specific client.
+func (h *Hub) SendToClientOutbound(clientID string, out Outbound) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 	if client, ok := h.clients[clientID]; ok {
 		select {
-		case client.Send <- message:
+		case client.Send <- out:
 		default:
 		}
 	}
 }
 
-// SendToRoom sends a message to all clients in a room
+// SendToRoom sends a text message to all clients in a room
 func (h *Hub) SendToRoom(room string, message []byte) {
+	h.SendToRoomExcept(room, "", message, websocket.TextMessage)
+}
+
+// SendToRoomBinary sends a binary frame to all clients in a room.
+func (h *Hub) SendToRoomBinary(room string, message []byte) {
+	h.SendToRoomExcept(room, "", message, websocket.BinaryMessage)
+}
+
+// SendToRoomExcept sends a frame to every client in a room except excludeID.
+func (h *Hub) SendToRoomExcept(room string, excludeID string, message []byte, messageType int) {
+	out := Outbound{MessageType: messageType, Data: message}
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 	if h.rooms[room] == nil {
 		return
 	}
-	for _, client := range h.rooms[room] {
+	for id, client := range h.rooms[room] {
+		if id == excludeID {
+			continue
+		}
 		select {
-		case client.Send <- message:
+		case client.Send <- out:
 		default:
 		}
 	}
+}
+
+// RoomSize returns the number of connected clients in a room.
+func (h *Hub) RoomSize(room string) int {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return len(h.rooms[room])
 }

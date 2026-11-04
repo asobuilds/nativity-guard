@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"log"
@@ -149,6 +149,17 @@ func AutoMigrateAll() error {
 	// fixed by an approved data migration rather than silently.
 	if err := DB.Exec(
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendee_active ON event_attendees (event_id, user_id) WHERE deleted_at IS NULL`,
+	).Error; err != nil {
+		return err
+	}
+
+	// One live walkie-talkie room per unit. The channel is lazily created on
+	// first connection, so the partial unique index makes concurrent creates
+	// converge instead of leaving duplicate unit channels.
+	if err := DB.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_communication_rooms_unit_walkie
+		   ON communication_rooms (unit_id)
+		   WHERE type = 'walkie_talkie' AND deleted_at IS NULL`,
 	).Error; err != nil {
 		return err
 	}
