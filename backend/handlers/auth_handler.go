@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -259,6 +260,224 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+var nigerianPhonePattern = regexp.MustCompile(`^(?:\+?234|0)[789][01]\d{8}$`)
+
+type googleAuthInput struct {
+	IDToken               string `json:"idToken" binding:"required"`
+	Phone                 string `json:"phone"`
+	DateOfBirth           string `json:"dateOfBirth"`
+	TermsVersion          string `json:"termsVersion"`
+	ConsentTerms          *bool  `json:"consentTerms"`
+	ConsentDataProcessing *bool  `json:"consentDataProcessing"`
+}
+
+// GoogleAuth authenticates an existing account from a verified Google subject,
+// links a verified email to an existing local account, or collects the phone,
+// date-of-birth and legal consent needed to create a new citizen account.
+func (h *AuthHandler) GoogleAuth(c *gin.Context) {
+	var input googleAuthInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "idToken is required"})
+		return
+	}
+
+	identity, err := h.authService.VerifyGoogleIDToken(c.Request.Context(), input.IDToken)
+	if err != nil {
+		status := http.StatusUnauthorized
+		if err.Error() == "google authentication is not configured" {
+			status = http.StatusServiceUnavailable
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, linked, err := h.authService.FindOrLinkGoogleUser(identity)
+	if err == nil {
+		h.respondWithGoogleSession(c, user, false, linked)
+		return
+	}
+	if errors.Is(err, services.ErrGoogleAccountConflict) {
+		c.JSON(http.StatusConflict, gin.H{"error": "account is already linked to a different Google identity"})
+		return
+	}
+	if err.Error() == "account is not active" {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	if !errors.Is(err, services.ErrGoogleAccountNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to authenticate Google account"})
+		return
+	}
+
+	phone := strings.TrimSpace(input.Phone)
+	dob := strings.TrimSpace(input.DateOfBirth)
+	if phone == "" || dob == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"requiresProfileCompletion": true,
+			"profile": gin.H{
+				"email":     identity.Email,
+				"firstName": identity.FirstName,
+				"lastName":  identity.LastName,
+			},
+			"termsVersion": content.TermsVersion,
+		})
+		return
+	}
+	if !nigerianPhonePattern.MatchString(phone) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "a valid Nigerian phone number is required"})
+		return
+	}
+
+	parsedDOB, minorStatus, err := validateDOB(dob)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	acceptances, err := googleConsentAcceptances(c, input)
+	if err != nil {
+		return
+	}
+
+	var duplicateCount int64
+	if err := config.DB.Model(&models.User{}).
+		Where("LOWER(email) = ? OR phone = ?", identity.Email, phone).
+		Count(&duplicateCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify account uniqueness"})
+		return
+	}
+	if duplicateCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "An account with that email or phone number already exists"})
+		return
+	}
+
+	user, err = h.authService.RegisterGoogleUser(identity, phone, &parsedDOB, minorStatus, acceptances...)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Unable to create Google account"})
+		return
+	}
+	h.respondWithGoogleSession(c, user, true, false)
+}
+
+func googleConsentAcceptances(c *gin.Context, input googleAuthInput) ([]models.TermsAcceptance, error) {
+	if strings.EqualFold(os.Getenv("TERMS_CONSENT_ENFORCED"), "false") {
+		return nil, nil
+	}
+	if input.ConsentTerms == nil || !*input.ConsentTerms {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "terms_consent_required"})
+		return nil, errors.New("terms consent required")
+	}
+	if input.ConsentDataProcessing == nil || !*input.ConsentDataProcessing {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data_processing_consent_required"})
+		return nil, errors.New("data processing consent required")
+	}
+	if strings.TrimSpace(input.TermsVersion) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "terms_version_required"})
+		return nil, errors.New("terms version required")
+	}
+	if input.TermsVersion != content.TermsVersion {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":          "terms_version_stale",
+			"currentVersion": content.TermsVersion,
+		})
+		return nil, errors.New("terms version stale")
+	}
+
+	var docs []models.TermsDocument
+	if err := config.DB.
+		Where("version = ? AND is_active = ?", content.TermsVersion, true).
+		Where("(kind = ? AND role = ?) OR (kind = ? AND role = ?)",
+			"terms", "citizen", "privacy", "all").
+		Find(&docs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "terms_unavailable"})
+		return nil, err
+	}
+	var termsDoc, privacyDoc *models.TermsDocument
+	for i := range docs {
+		switch {
+		case docs[i].Kind == "terms" && docs[i].Role == "citizen":
+			termsDoc = &docs[i]
+		case docs[i].Kind == "privacy" && docs[i].Role == "all":
+			privacyDoc = &docs[i]
+		}
+	}
+	if termsDoc == nil || privacyDoc == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "terms_unavailable"})
+		return nil, errors.New("terms unavailable")
+	}
+
+	now := time.Now().UTC()
+	ip := clampStr(clientIPForConsent(c), 64)
+	userAgent := clampStr(c.Request.UserAgent(), 400)
+	return []models.TermsAcceptance{
+		{
+			DocumentID:      termsDoc.ID,
+			DocumentKind:    "terms",
+			DocumentRole:    "citizen",
+			DocumentVersion: content.TermsVersion,
+			AcceptedAt:      now,
+			IPAddress:       ip,
+			UserAgent:       userAgent,
+		},
+		{
+			DocumentID:      privacyDoc.ID,
+			DocumentKind:    "privacy",
+			DocumentRole:    "all",
+			DocumentVersion: content.TermsVersion,
+			AcceptedAt:      now,
+			IPAddress:       ip,
+			UserAgent:       userAgent,
+		},
+	}, nil
+}
+
+func (h *AuthHandler) respondWithGoogleSession(c *gin.Context, user *models.User, created, linked bool) {
+	token, jti, err := h.authService.GenerateJWTWithJTI(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to issue access token"})
+		return
+	}
+	expiresAt := time.Now().UTC().Add(24 * time.Hour)
+	session, err := services.NewSessionService().Create(
+		user.ID,
+		jti,
+		"",
+		c.GetHeader("User-Agent"),
+		c.ClientIP(),
+		expiresAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+		return
+	}
+	refreshToken, _, err := services.NewRefreshTokenService().Issue(user.ID, &session.ID)
+	if err != nil {
+		_ = services.NewSessionService().RevokeOne(user.ID, jti, "refresh_token_issue_failed")
+		_ = services.NewTokenService().Revoke(jti, user.ID, expiresAt, "refresh_token_issue_failed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to issue refresh token"})
+		return
+	}
+
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	c.JSON(status, gin.H{
+		"token":        token,
+		"refreshToken": refreshToken,
+		"isNewUser":    created,
+		"linked":       linked,
+		"user": gin.H{
+			"id":        user.ID,
+			"email":     user.Email,
+			"phone":     user.Phone,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"role":      user.Role,
+			"status":    user.Status,
+		},
+	})
+}
+
 // validateDOB parses and validates the registration date-of-birth, reporting
 // the exact age-threshold errors required by the age gate. Returns the parsed
 // time, the computed minorStatus ("minor" | "adult"), and an error.
@@ -326,7 +545,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-		c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"id":             freshUser.ID,
 			"email":          freshUser.Email,
