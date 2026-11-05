@@ -51,6 +51,7 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			auth.POST("/register", middleware.RateLimitAuth(), authHandler.Register)
 			auth.POST("/login", middleware.RateLimitAuth(), authHandler.Login)
+			auth.POST("/google", middleware.RateLimitAuth(), authHandler.GoogleAuth)
 			auth.POST("/logout", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.Logout)
 			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
 			auth.POST("/change-password", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.ChangePassword)

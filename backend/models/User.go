@@ -13,6 +13,7 @@ import (
 type User struct {
 	ID                     uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Email                  string     `gorm:"unique;not null" json:"email"`
+	GoogleID               *string    `gorm:"type:varchar(255);uniqueIndex:idx_users_google_id" json:"-"`
 	Phone                  string     `gorm:"unique" json:"phone"`
 	FirstName              string     `gorm:"not null" json:"firstName"`
 	LastName               string     `gorm:"not null" json:"lastName"`
