@@ -3,7 +3,10 @@ import {
   EMPTY_SIGNUP,
   MIN_PASSWORD_LENGTH,
   ageOn,
+  fieldsForSignupStep,
   latestEligibleDob,
+  passwordStrength,
+  signupStepComplete,
   validateSignup,
   type SignupDraft,
 } from './signup'
@@ -104,5 +107,53 @@ describe('validateSignup', () => {
     const errors = validateSignup({ ...valid, firstName: '   ', lastName: '\t' }, TODAY)
     expect(errors.firstName).toBeDefined()
     expect(errors.lastName).toBeDefined()
+  })
+
+  it('requires a Nigerian mobile number in local or international form', () => {
+    expect(validateSignup({ ...valid, phone: '08031234567' }, TODAY).phone).toBeUndefined()
+    expect(validateSignup({ ...valid, phone: '+2348031234567' }, TODAY).phone).toBeUndefined()
+    expect(validateSignup({ ...valid, phone: '2348031234567' }, TODAY).phone).toBeUndefined()
+    expect(validateSignup({ ...valid, phone: '+2338031234567' }, TODAY).phone).toMatch(/Nigerian/)
+    expect(validateSignup({ ...valid, phone: '8031234567' }, TODAY).phone).toMatch(/Nigerian/)
+  })
+
+  it('does not require a local password after a verified Google identity', () => {
+    expect(validateSignup({ ...valid, password: '' }, TODAY, 'google')).toEqual({})
+    expect(validateSignup({ ...valid, password: '' }, TODAY, 'password').password).toBeDefined()
+  })
+})
+
+describe('progressive signup steps', () => {
+  it('separates account identity from profile and compliance details', () => {
+    expect(fieldsForSignupStep(1)).toEqual(['email', 'firstName', 'lastName', 'password'])
+    expect(fieldsForSignupStep(1, 'google')).toEqual(['email', 'firstName', 'lastName'])
+    expect(fieldsForSignupStep(2)).toEqual(['phone', 'dateOfBirth'])
+  })
+
+  it('reports each step independently', () => {
+    expect(signupStepComplete(valid, 1, 'password', TODAY)).toBe(true)
+    expect(signupStepComplete(valid, 2, 'password', TODAY)).toBe(true)
+    expect(signupStepComplete({ ...valid, phone: '' }, 1, 'password', TODAY)).toBe(true)
+    expect(signupStepComplete({ ...valid, phone: '' }, 2, 'password', TODAY)).toBe(false)
+    expect(signupStepComplete({ ...valid, password: '' }, 1, 'google', TODAY)).toBe(true)
+  })
+})
+
+describe('passwordStrength', () => {
+  it('provides progressive, human-readable strength feedback', () => {
+    expect(passwordStrength('')).toMatchObject({ score: 0, label: 'Add a password' })
+    expect(passwordStrength('short')).toMatchObject({ score: 1, label: 'Weak' })
+    expect(passwordStrength('longerpass')).toMatchObject({ score: 2, label: 'Fair' })
+    expect(passwordStrength('LongerPass1!')).toMatchObject({ score: 4, label: 'Strong' })
+  })
+
+  it('exposes individual checks for live meter details', () => {
+    expect(passwordStrength('LongerPass1!').checks).toEqual({
+      minimum: true,
+      long: true,
+      mixedCase: true,
+      number: true,
+      symbol: true,
+    })
   })
 })
