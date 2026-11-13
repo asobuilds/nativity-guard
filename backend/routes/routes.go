@@ -354,6 +354,16 @@ func SetupRoutes(router *gin.Engine) {
 
 		community := api.Group("/community")
 		{
+			// Geographic citizen chat is isolated from forum posts and security rooms.
+			community.POST("/chat/rooms/join", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.JoinCitizenChatRoom)
+			community.GET("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatMessages)
+			community.POST("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.SendCitizenChatMessage)
+			community.POST("/chat/messages/:messageId/report", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ReportCitizenChatMessage)
+			community.POST("/chat/blocks", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.BlockCitizenChatUser)
+			community.DELETE("/chat/blocks/:userId", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UnblockCitizenChatUser)
+			community.GET("/chat/reports", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatReports)
+			community.POST("/chat/reports/:reportId/resolve", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ResolveCitizenChatReport)
+
 			community.POST("/posts", middleware.AuthMiddleware(), middleware.RateLimitCommunityPost(), handlers.CreateForumPost)
 			community.GET("/posts", middleware.AuthMiddleware(), handlers.GetForumPosts)
 			community.GET("/posts/:id", middleware.AuthMiddleware(), handlers.GetForumPostByID)
@@ -473,6 +483,8 @@ func SetupRoutes(router *gin.Engine) {
 
 		commGroup := api.Group("/communication")
 		{
+			commGroup.POST("/citizen-inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.OpenCitizenSecurityConversation)
+			commGroup.GET("/my-rooms", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetMyCommunicationRooms)
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
 			commGroup.GET("/units/:id/rooms", middleware.AuthMiddleware(), handlers.GetRooms)
 			commGroup.GET("/units/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitChannel)

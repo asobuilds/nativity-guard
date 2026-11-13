@@ -557,3 +557,97 @@ func TestCommunicationRoomAccessAllowedAllowsSuperAdmin(t *testing.T) {
 		t.Fatal("want super admin to be allowed")
 	}
 }
+
+func TestPrivateCommunicationRoomRequiresExplicitMembership(t *testing.T) {
+	if config.DB == nil { t.Skip("integration DB unavailable") }
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	admin := testutil.MakeUser(t, "unit_admin")
+	unit := testutil.MakeUnit(t, admin)
+	setUserUnit(t, admin, unit.ID)
+	citizen := testutil.MakeUser(t, "citizen")
+	room := &models.CommunicationRoom{UnitID: unit.ID, Name: "Private citizen support", Type: "private", Status: "active", CreatedBy: citizen.ID}
+	if err := config.DB.Create(room).Error; err != nil { t.Fatalf("create private room: %v", err) }
+
+	// Being a unit admin or a super admin is not an implicit membership grant.
+	adminCtx, adminRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, admin)
+	if roomAccessAllowed(adminCtx, admin, room.ID) { t.Fatal("same-unit admin must not access an unassigned private conversation") }
+	if adminRecorder.Code != 403 { t.Fatalf("same-unit admin: want 403, got %d", adminRecorder.Code) }
+
+	super := testutil.MakeUser(t, "super_admin")
+	superCtx, superRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, super)
+	if roomAccessAllowed(superCtx, super, room.ID) { t.Fatal("super admin must not silently enter a private conversation") }
+	if superRecorder.Code != 403 { t.Fatalf("super admin: want 403, got %d", superRecorder.Code) }
+
+	addRoomMember(t, room.ID, citizen.ID, "member", "active")
+	citizenCtx, _ := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, citizen)
+	if !roomAccessAllowed(citizenCtx, citizen, room.ID) { t.Fatal("explicit participant must be allowed") }
+}
+
+func TestOpenCitizenSecurityConversationCreatesFixedParticipants(t *testing.T) {
+	if config.DB == nil { t.Skip("integration DB unavailable") }
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	admin := testutil.MakeUser(t, "unit_admin")
+	unit := testutil.MakeUnit(t, admin)
+	officer := testutil.MakeUser(t, "officer")
+	testutil.MakeMembership(t, officer, unit, models.UnitRoleOfficer, false)
+	nonStaff := testutil.MakeUser(t, "citizen")
+	testutil.MakeMembership(t, nonStaff, unit, models.UnitRoleOfficer, false)
+	citizen := testutil.MakeUser(t, "citizen")
+	unassignedAdmin := testutil.MakeUser(t, "unit_admin")
+	setUserUnit(t, unassignedAdmin, unit.ID)
+
+	ctx, recorder := commJSONContext(t, "POST", "/communication/citizen-inbox", map[string]any{
+		"unitId": unit.ID.String(), "message": "I need help with a safety concern.",
+	}, citizen)
+	OpenCitizenSecurityConversation(ctx)
+	if recorder.Code != 201 { t.Fatalf("want 201, got %d %s", recorder.Code, recorder.Body.String()) }
+
+	var room models.CommunicationRoom
+	if err := config.DB.Where("created_by = ? AND type = ?", citizen.ID, "private").First(&room).Error; err != nil {
+		t.Fatalf("load private room: %v", err)
+	}
+	var members int64
+	if err := config.DB.Model(&models.CommunicationRoomMember{}).Where("room_id = ? AND status = ?", room.ID, "active").Count(&members).Error; err != nil {
+		t.Fatal(err)
+	}
+	if members != 3 { t.Fatalf("want citizen + unit admin + officer, got %d participants", members) }
+
+	adminCtx, adminRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, admin)
+	if !roomAccessAllowed(adminCtx, admin, room.ID) { t.Fatalf("assigned unit admin should access inbox: %d", adminRecorder.Code) }
+
+	outsiderCtx, outsiderRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, unassignedAdmin)
+	if roomAccessAllowed(outsiderCtx, unassignedAdmin, room.ID) { t.Fatal("unassigned same-unit admin must not access private inbox") }
+	if outsiderRecorder.Code != 403 { t.Fatalf("want 403 for unassigned admin, got %d", outsiderRecorder.Code) }
+
+	var notifications int64
+	if err := config.DB.Model(&models.Notification{}).Where("user_id IN ? AND type = ?", []uuid.UUID{admin.ID, officer.ID}, "communication").Count(&notifications).Error; err != nil { t.Fatal(err) }
+	if notifications != 2 { t.Fatalf("want notifications for the two assigned security recipients, got %d", notifications) }
+}
+
+func TestPrivateCommunicationRoomRemovedParticipantLosesAccess(t *testing.T) {
+	if config.DB == nil { t.Skip("integration DB unavailable") }
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	admin := testutil.MakeUser(t, "unit_admin")
+	unit := testutil.MakeUnit(t, admin)
+	citizen := testutil.MakeUser(t, "citizen")
+	room := &models.CommunicationRoom{UnitID: unit.ID, Name: "Private support", Type: "private", Status: "active", CreatedBy: citizen.ID}
+	if err := config.DB.Create(room).Error; err != nil { t.Fatal(err) }
+	addRoomMember(t, room.ID, citizen.ID, "member", "active")
+
+	activeCtx, _ := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, citizen)
+	if !roomAccessAllowed(activeCtx, citizen, room.ID) { t.Fatal("active participant should have access") }
+
+	if err := config.DB.Model(&models.CommunicationRoomMember{}).
+		Where("room_id = ? AND user_id = ?", room.ID, citizen.ID).
+		Update("status", "removed").Error; err != nil { t.Fatal(err) }
+
+	removedCtx, recorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, citizen)
+	if roomAccessAllowed(removedCtx, citizen, room.ID) { t.Fatal("removed participant must lose private room access") }
+	if recorder.Code != 403 { t.Fatalf("want 403 after membership removal, got %d", recorder.Code) }
+}

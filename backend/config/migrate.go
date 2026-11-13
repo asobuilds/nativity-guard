@@ -63,6 +63,11 @@ func AutoMigrateAll() error {
 		&models.Budget{},
 		&models.FinancialReport{},
 
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},
@@ -223,8 +228,38 @@ func AutoMigrateAll() error {
 	if err := EnsureTaskForceIndexes(DB); err != nil {
 		return err
 	}
+	if err := EnsureCitizenChatIndexes(DB); err != nil {
+		return err
+	}
 
 	log.Println("auto-migration complete")
+	return nil
+}
+
+
+func EnsureCitizenChatIndexes(db *gorm.DB) error {
+	statements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_room_geo_active
+		   ON citizen_chat_rooms (scope, state, lga, locality, country)
+		   WHERE deleted_at IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_citizen_chat_message_order
+		   ON citizen_chat_messages (room_id, created_at DESC, id DESC)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_member_active
+		   ON citizen_chat_room_members (room_id, user_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_block_active
+		   ON citizen_chat_blocks (blocker_id, blocked_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_report_active
+		   ON citizen_chat_reports (message_id, reporter_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_citizen_chat_report_queue
+		   ON citizen_chat_reports (status, created_at)`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil { return err }
+	}
 	return nil
 }
 

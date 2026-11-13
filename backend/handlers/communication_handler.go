@@ -3,7 +3,9 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,6 +15,22 @@ import (
 	"security-solution/models"
 	ws "security-solution/websocket"
 )
+
+func communicationMessageResponse(message models.CommunicationMessage) gin.H {
+	sender := gin.H{"id": message.SenderID}
+	if message.Sender.ID != uuid.Nil {
+		sender["firstName"] = message.Sender.FirstName
+		sender["lastName"] = message.Sender.LastName
+		sender["avatarPath"] = message.Sender.AvatarPath
+	}
+	return gin.H{
+		"id": message.ID, "roomId": message.RoomID, "senderId": message.SenderID,
+		"message": message.Message, "messageType": message.MessageType,
+		"status": message.Status, "priority": message.Priority,
+		"isBroadcast": message.IsBroadcast, "isEmergency": message.IsEmergency,
+		"createdAt": message.CreatedAt, "sender": sender,
+	}
+}
 
 // CreateRoom creates a communication room
 func CreateRoom(c *gin.Context) {
@@ -118,7 +136,7 @@ func GetRooms(c *gin.Context) {
 	}
 
 	var rooms []models.CommunicationRoom
-	if err := config.DB.Where("unit_id = ? AND type <> ?", id, models.TaskForceRoomType).Order("created_at desc").Find(&rooms).Error; err != nil {
+	if err := config.DB.Where("unit_id = ? AND type <> ? AND type <> ?", id, models.TaskForceRoomType, "private").Order("created_at desc").Find(&rooms).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
 		return
 	}
@@ -157,12 +175,33 @@ func SendMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
 		return
 	}
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
 
 	if input.MessageType == "" {
 		input.MessageType = "text"
 	}
 	if input.Priority == "" {
 		input.Priority = "normal"
+	}
+	input.Message = strings.TrimSpace(input.Message)
+	if input.MessageType == "text" && (input.Message == "" || !utf8.ValidString(input.Message) || utf8.RuneCountInString(input.Message) > 4000) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Text messages must contain 1 to 4000 valid characters"})
+		return
+	}
+	var targetRoom models.CommunicationRoom
+	if err := config.DB.First(&targetRoom, "id = ?", roomID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+	if targetRoom.Type == "private" && (input.MessageType != "text" || input.IsBroadcast || input.IsEmergency) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Private citizen-security conversations support text messages only"})
+		return
+	}
+	if (input.IsBroadcast || input.IsEmergency) && userObj.Role != "officer" && userObj.Role != "unit_admin" && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only authorised security staff can broadcast or raise an operational emergency"})
+		return
 	}
 	if input.IsEmergency {
 		input.Priority = "emergency"
@@ -179,14 +218,15 @@ func SendMessage(c *gin.Context) {
 		Priority:    input.Priority,
 	}
 
-	if !roomAccessAllowed(c, userObj, roomID) {
-		return
+	if targetRoom.Type == "private" {
+		input.Priority = "normal"
+		message.Priority = "normal"
 	}
-
 	if err := config.DB.Create(&message).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
 	}
+	notifyCommunicationRoomMembers(roomID, userObj.ID)
 
 	// If emergency, create alert
 	if input.IsEmergency {
@@ -195,7 +235,7 @@ func SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Message sent successfully",
-		"data":    message,
+		"data":    communicationMessageResponse(message),
 	})
 }
 
@@ -252,8 +292,12 @@ func GetMessages(c *gin.Context) {
 	}
 	config.DB.Create(&sync)
 
+	response := make([]gin.H, 0, len(messages))
+	for _, message := range messages {
+		response = append(response, communicationMessageResponse(message))
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"messages": messages,
+		"messages": response,
 		"syncTime": time.Now().Format(time.RFC3339),
 		"hasMore":  len(messages) > 0,
 	})

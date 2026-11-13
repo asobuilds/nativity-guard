@@ -25,14 +25,17 @@ func getAuthUser(c *gin.Context) (*models.User, bool) {
 // canManageRoom reports whether the caller may administer the room's
 // membership. Only the super_admin or an admin of the room's unit qualifies.
 func canManageRoom(c *gin.Context, userObj *models.User, roomID uuid.UUID) bool {
-	if userObj.IsSuperAdmin || userObj.Role == "super_admin" {
-		return true
-	}
-
 	var room models.CommunicationRoom
 	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
 		return false
+	}
+	if room.Type == "private" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Private citizen-security conversations have fixed participants"})
+		return false
+	}
+	if userObj.IsSuperAdmin || userObj.Role == "super_admin" {
+		return true
 	}
 
 	if room.Type == models.TaskForceRoomType {
@@ -65,14 +68,21 @@ func canManageRoom(c *gin.Context, userObj *models.User, roomID uuid.UUID) bool 
 // room. Only the super_admin or a member of the room's unit may proceed; active
 // room membership records are honored for unit-scoped access.
 func roomAccessAllowed(c *gin.Context, userObj *models.User, roomID uuid.UUID) bool {
-	if userObj.IsSuperAdmin || userObj.Role == "super_admin" {
-		return true
-	}
-
 	var room models.CommunicationRoom
 	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
 		return false
+	}
+	if room.Type == "private" {
+		var membership models.CommunicationRoomMember
+		if err := config.DB.Where("room_id = ? AND user_id = ? AND status = ?", roomID, userObj.ID, "active").First(&membership).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return false
+		}
+		return true
+	}
+	if userObj.IsSuperAdmin || userObj.Role == "super_admin" {
+		return true
 	}
 
 	if room.Type == models.TaskForceRoomType {

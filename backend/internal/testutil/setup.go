@@ -106,6 +106,11 @@ func SetupTestDB() error {
 		&models.LocalIntelligenceVote{},
 		// Community content + the generic report table. Needed so integration
 		// tests can exercise ReportForumPost and the feed against real rows.
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},
@@ -131,6 +136,9 @@ func SetupTestDB() error {
 	}
 	if err := config.EnsureTaskForceIndexes(db); err != nil {
 		return fmt.Errorf("task force indexes: %w", err)
+	}
+	if err := config.EnsureCitizenChatIndexes(db); err != nil {
+		return fmt.Errorf("citizen chat indexes: %w", err)
 	}
 
 	testDB = db
