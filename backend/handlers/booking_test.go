@@ -140,7 +140,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	testutil.TruncateAll(t)
 	defer testutil.TruncateAll(t)
 
-	hostUser, memberUser, hostUnit, _, booking := makeBookingFixture(t)
+	hostUser, memberUser, _, _, booking := makeBookingFixture(t)
 
 	ctx, recorder := bookingContext(t, http.MethodGet, "/bookings", nil, memberUser, nil)
 	ListBookings(ctx)
