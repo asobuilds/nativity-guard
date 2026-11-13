@@ -190,7 +190,13 @@ func SendCitizenChatMessage(c *gin.Context) {
 	var members []models.CitizenChatRoomMember
 	if err := config.DB.Where("room_id = ? AND status = ? AND user_id <> ?", roomID, "active", user.ID).Find(&members).Error; err == nil {
 		for _, member := range members {
-			n := models.Notification{UserID: member.UserID, Title: "New local chat message", Message: "There is a new message in your local community chat.", Type: "community_chat", Status: "unread", EntityType: "community_chat", EntityID: message.ID, LinkTo: "/community"}
+			var blocked int64
+			if err := config.DB.Model(&models.CitizenChatBlock{}).Where(
+				"deleted_at IS NULL AND ((blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?))",
+				member.UserID, user.ID, user.ID, member.UserID).Count(&blocked).Error; err != nil || blocked > 0 {
+				continue
+			}
+			n := models.Notification{UserID: member.UserID, Title: "New local chat message", Message: "There is a new message in your local community chat.", Type: "community_chat", Status: "unread", EntityType: "community_chat", EntityID: message.ID, LinkTo: "/community/chat"}
 			if config.DB.Create(&n).Error == nil { go dispatchWebPush(n.UserID, n.Title, n.Message) }
 		}
 	}
@@ -215,7 +221,7 @@ func ReportCitizenChatMessage(c *gin.Context) {
 	if reason == "" || utf8.RuneCountInString(reason) > 2000 { c.JSON(http.StatusBadRequest, gin.H{"error": "Report reason must be 1 to 2000 characters"}); return }
 	report := models.CitizenChatReport{MessageID: message.ID, ReporterID: user.ID, Reason: reason, Status: "pending"}
 	if err := config.DB.Create(&report).Error; err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") { c.JSON(http.StatusConflict, gin.H{"error": "You have already reported this message"}); return }
+		if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate key") { c.JSON(http.StatusConflict, gin.H{"error": "You have already reported this message"}); return }
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not submit report"}); return
 	}
 	c.JSON(http.StatusCreated, gin.H{"reportId": report.ID, "status": report.Status})
@@ -293,6 +299,10 @@ func ResolveCitizenChatReport(c *gin.Context) {
 	if input.Action != "" && input.Action != "hide" { c.JSON(http.StatusBadRequest, gin.H{"error": "Action must be hide or empty"}); return }
 	var report models.CitizenChatReport
 	if err := config.DB.First(&report, "id = ?", reportID).Error; err != nil { c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"}); return }
+	if report.Status != "pending" {
+		c.JSON(http.StatusConflict, gin.H{"error": "This report has already been resolved"})
+		return
+	}
 	var message models.CitizenChatMessage
 	if err := config.DB.First(&message, "id = ?", report.MessageID).Error; err != nil { c.JSON(http.StatusNotFound, gin.H{"error": "Reported message not found"}); return }
 	var room models.CitizenChatRoom

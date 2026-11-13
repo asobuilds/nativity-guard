@@ -203,7 +203,7 @@ func SendMessage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
 	}
-	notifyCommunicationRoomMembers(roomID, userObj.ID, message.ID)
+	notifyCommunicationRoomMembers(roomID, userObj.ID)
 
 	// If emergency, create alert
 	if input.IsEmergency {

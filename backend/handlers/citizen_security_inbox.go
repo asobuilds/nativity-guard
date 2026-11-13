@@ -124,12 +124,37 @@ func GetMyCommunicationRooms(c *gin.Context) {
 					out = append(out, gin.H{"id": room.ID, "name": room.Name, "type": room.Type, "unitId": room.UnitID, "unitName": room.Unit.Name})
 				}
 			}
+			var taskForceMembers []models.TaskForceMember
+			if err := config.DB.Where("unit_id = ? AND status = ?", *user.UnitID, models.TaskForceMemberStatusActive).Find(&taskForceMembers).Error; err == nil {
+				for _, member := range taskForceMembers {
+					var channel models.TaskForceChannel
+					if err := config.DB.Where("task_force_id = ?", member.TaskForceID).First(&channel).Error; err != nil { continue }
+					var taskForce models.TaskForce
+					if err := config.DB.First(&taskForce, "id = ?", member.TaskForceID).Error; err != nil { continue }
+					if !canTransmitOnTaskForce(user, &taskForce) { continue }
+					var room models.CommunicationRoom
+					if err := config.DB.Preload("Unit").First(&room, "id = ?", channel.RoomID).Error; err != nil { continue }
+					out = append(out, gin.H{"id": room.ID, "name": taskForce.Name, "type": models.TaskForceRoomType, "unitId": room.UnitID, "unitName": room.Unit.Name})
+				}
+			}
+		}
+	}
+	if user.Role == "super_admin" {
+		var channels []models.TaskForceChannel
+		if err := config.DB.Find(&channels).Error; err == nil {
+			for _, channel := range channels {
+				var taskForce models.TaskForce
+				if err := config.DB.First(&taskForce, "id = ? AND status = ?", channel.TaskForceID, models.TaskForceStatusActive).Error; err != nil { continue }
+				var room models.CommunicationRoom
+				if err := config.DB.Preload("Unit").First(&room, "id = ?", channel.RoomID).Error; err != nil { continue }
+				out = append(out, gin.H{"id": room.ID, "name": taskForce.Name, "type": models.TaskForceRoomType, "unitId": room.UnitID, "unitName": room.Unit.Name})
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"rooms": out})
 }
 
-func notifyCommunicationRoomMembers(roomID, senderID, messageID uuid.UUID) {
+func notifyCommunicationRoomMembers(roomID, senderID uuid.UUID) {
 	var members []models.CommunicationRoomMember
 	if err := config.DB.Where("room_id = ? AND status = ? AND user_id <> ?", roomID, "active", senderID).Find(&members).Error; err != nil {
 		return
