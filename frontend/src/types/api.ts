@@ -278,6 +278,8 @@ export interface SecurityUnit {
   status: string
   isVerified: boolean
   verificationStatus: string
+  /** NGN per guard per hour; zero means use the backend fallback rate. */
+  baseRate?: number
 
   // Section B — commander details (from the registration form)
   commanderName?: string
