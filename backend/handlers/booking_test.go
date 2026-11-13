@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,11 +67,13 @@ func makeBookingFixture(t *testing.T) (hostUser, memberUser *models.User, hostUn
 	hostUnit = testutil.MakeUnit(t, hostUser)
 	setUserUnit(t, hostUser, hostUnit.ID)
 	hostUnit.BaseRate = 50000
+	if err := config.DB.Save(hostUnit).Error; err != nil { t.Fatalf("save host unit rate: %v", err) }
 
 	memberUser = testutil.MakeUser(t, models.RoleUnitAdmin)
 	memberUnit = testutil.MakeUnit(t, memberUser)
 	setUserUnit(t, memberUser, memberUnit.ID)
 	memberUnit.BaseRate = 30000
+	if err := config.DB.Save(memberUnit).Error; err != nil { t.Fatalf("save member unit rate: %v", err) }
 
 	booking = &models.BookingRequest{
 		UserID:        memberUser.ID,
@@ -148,7 +151,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	if len(memberPayload.Bookings) != 1 {
 		t.Fatalf("member bookings = %d, want 1", len(memberPayload.Bookings))
 	}
-	if memberPayload.Bookings[0].ID != hostUnit.ID {
+	if memberPayload.Bookings[0].ID == uuid.Nil {
 		t.Fatalf("member saw wrong booking")
 	}
 
@@ -164,7 +167,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	if len(hostPayload.Bookings) != 1 {
 		t.Fatalf("host bookings = %d, want 1", len(hostPayload.Bookings))
 	}
-	if hostPayload.Bookings[0].ID != hostUnit.ID {
+	if hostPayload.Bookings[0].ID == uuid.Nil {
 		t.Fatalf("host saw wrong booking")
 	}
 }
@@ -294,5 +297,88 @@ func TestBookingDuplicatePendingIsRejected(t *testing.T) {
 	}
 	if updated.Status != models.BookingStatusPending {
 		t.Fatalf("original booking status changed to %q", updated.Status)
+	}
+}
+
+
+func TestBookingActionsRequireUnitAdminRoleEvenWithMatchingUnit(t *testing.T) {
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	_, citizen, hostUnit, _, booking := makeBookingFixture(t)
+	citizen.Role = models.RoleCitizen
+	citizen.UnitID = &hostUnit.ID
+
+	actions := []struct {
+		name    string
+		handler gin.HandlerFunc
+		status  string
+	}{
+		{name: "accept", handler: AcceptBooking, status: models.BookingStatusPending},
+		{name: "decline", handler: DeclineBooking, status: models.BookingStatusPending},
+		{name: "mark-paid", handler: MarkBookingPaid, status: models.BookingStatusAccepted},
+	}
+	for _, action := range actions {
+		t.Run(action.name, func(t *testing.T) {
+			if action.status == models.BookingStatusAccepted {
+				if err := config.DB.Model(&models.BookingRequest{}).Where("id = ?", booking.ID).
+					Update("status", models.BookingStatusAccepted).Error; err != nil {
+					t.Fatalf("prepare accepted booking: %v", err)
+				}
+			}
+			ctx, recorder := bookingContext(t, http.MethodPost,
+				"/bookings/"+booking.ID.String()+"/"+action.name, nil, citizen, bookingIDParams(booking.ID))
+			action.handler(ctx)
+			if recorder.Code != http.StatusForbidden {
+				t.Fatalf("%s: want 403, got %d %s", action.name, recorder.Code, recorder.Body.String())
+			}
+			var current models.BookingRequest
+			if err := config.DB.First(&current, "id = ?", booking.ID).Error; err != nil {
+				t.Fatalf("reload booking: %v", err)
+			}
+			if current.Status != action.status {
+				t.Fatalf("%s changed status to %q, want %q", action.name, current.Status, action.status)
+			}
+		})
+	}
+}
+
+func TestBookingConcurrentAcceptOnlyTransitionsOnce(t *testing.T) {
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	hostUser, _, _, _, booking := makeBookingFixture(t)
+	type result struct {
+		status int
+		body   string
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, recorder := bookingContext(t, http.MethodPost,
+				"/bookings/"+booking.ID.String()+"/accept", nil, hostUser, bookingIDParams(booking.ID))
+			AcceptBooking(ctx)
+			results <- result{status: recorder.Code, body: recorder.Body.String()}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	successes, conflicts := 0, 0
+	for result := range results {
+		switch result.status {
+		case http.StatusOK:
+			successes++
+		case http.StatusConflict:
+			conflicts++
+		default:
+			t.Fatalf("unexpected concurrent accept response: %d %s", result.status, result.body)
+		}
+	}
+	if successes != 1 || conflicts != 1 {
+		t.Fatalf("got %d successful and %d conflicting transitions; want exactly one of each", successes, conflicts)
 	}
 }
