@@ -15,7 +15,8 @@ type ChatPage = { messages: Message[]; nextCursor: string; hasMore: boolean }
 
 export function CommunityChatPage() {
   const location = useLocation({ auto: false })
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const canModerate = role === 'unit_admin' || role === 'super_admin'
   const queryClient = useQueryClient()
   const [scope, setScope] = useState('lga')
   const [room, setRoom] = useState<Room | null>(null)
@@ -46,6 +47,18 @@ export function CommunityChatPage() {
   const block = useMutation({
     mutationFn: (userId: string) => api.post('/community/chat/blocks', { userId }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['citizen-chat', room?.id] }),
+  })
+
+  const moderation = useQuery({
+    queryKey: ['citizen-chat', 'moderation'],
+    queryFn: () => api.get<{ reports: Array<{ id: string; reason: string; createdAt: string; message: Message }> }>('/community/chat/reports?status=pending'),
+    enabled: canModerate,
+    refetchInterval: 15000,
+  })
+  const resolveReport = useMutation({
+    mutationFn: (input: { id: string; status: 'reviewed' | 'dismissed'; action?: 'hide' }) =>
+      api.post(`/community/chat/reports/${input.id}/resolve`, { status: input.status, action: input.action }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['citizen-chat', 'moderation'] }),
   })
 
   return (
@@ -115,6 +128,30 @@ export function CommunityChatPage() {
           <Button className="mt-3 self-start" size="sm" variant="ghost" onClick={() => { setRoom(null); void queryClient.removeQueries({ queryKey: ['citizen-chat', room.id] }) }}>Change chat area</Button>
         </Card>
       )}
+      {canModerate ? (
+        <Card className="space-y-3 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-ink">Community chat moderation</h2>
+              <p className="text-xs text-ink-muted">Only reports within your authorised geographic area are shown.</p>
+            </div>
+            <span className="rounded-full bg-surface-hi px-2 py-1 text-xs text-ink-muted">{moderation.data?.reports.length ?? 0} pending</span>
+          </div>
+          {moderation.isLoading ? <Skeleton className="h-20 w-full" /> : moderation.isError ? (
+            <ErrorState title="Could not load reports" description="Try again." onRetry={() => void moderation.refetch()} />
+          ) : moderation.data?.reports.length ? moderation.data.reports.map(item => (
+            <div key={item.id} className="space-y-2 rounded-xl border border-border p-3">
+              <p className="text-xs font-semibold text-ink">Reported message · {item.message.sender || 'Community member'}</p>
+              <p className="text-sm text-ink">{item.message.content}</p>
+              <p className="text-xs text-ink-muted">Reason: {item.reason}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="danger" disabled={resolveReport.isPending} loading={resolveReport.isPending} onClick={() => resolveReport.mutate({ id: item.id, status: 'reviewed', action: 'hide' })}>Hide message</Button>
+                <Button size="sm" variant="secondary" disabled={resolveReport.isPending} onClick={() => resolveReport.mutate({ id: item.id, status: 'dismissed' })}>Dismiss report</Button>
+              </div>
+            </div>
+          )) : <EmptyState title="No pending reports" description="New reports from your authorised area will appear here." />}
+        </Card>
+      ) : null}
     </main>
   )
 }
