@@ -35,7 +35,10 @@ export function BookingRequestPage() {
 
   const hours = parseFloat(durationHours) || 0
   const guards = parseInt(guardsNeeded, 10) || 0
-  const baseRate = DEFAULT_BASE_RATE
+  const selectedUnit = units.data?.find((unit) => unit.id === unitId)
+  const baseRate = selectedUnit?.baseRate && selectedUnit.baseRate > 0
+    ? selectedUnit.baseRate
+    : DEFAULT_BASE_RATE
   const quotationAmount = hours * guards * baseRate
   const platformFee = quotationAmount * 0.05
   const totalAmount = quotationAmount + platformFee
