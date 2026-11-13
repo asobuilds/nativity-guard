@@ -22,6 +22,28 @@ import (
 // communication rooms. Geographic access is recalculated on every request.
 const citizenChatMessageLimit = 4000
 
+func validCitizenChatScope(scope string) bool {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	return scope == ScopeLocality || scope == ScopeLGA || scope == ScopeState
+}
+
+func encodeCitizenChatCursor(at time.Time, id uuid.UUID) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(at.Format(time.RFC3339Nano) + "|" + id.String()))
+}
+
+func decodeCitizenChatCursor(raw string) (time.Time, uuid.UUID, error) {
+	var zero uuid.UUID
+	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil { return time.Time{}, zero, err }
+	parts := strings.Split(string(decoded), "|")
+	if len(parts) != 2 { return time.Time{}, zero, errors.New("invalid cursor fields") }
+	at, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil { return time.Time{}, zero, err }
+	id, err := uuid.Parse(parts[1])
+	if err != nil { return time.Time{}, zero, err }
+	return at, id, nil
+}
+
 func citizenChatMessageResponse(m models.CitizenChatMessage) gin.H {
 	return gin.H{
 		"id": m.ID, "roomId": m.RoomID, "senderId": m.SenderID,
@@ -64,7 +86,7 @@ func JoinCitizenChatRoom(c *gin.Context) {
 		return
 	}
 	scope := strings.ToLower(strings.TrimSpace(input.Scope))
-	if scope != ScopeLocality && scope != ScopeLGA && scope != ScopeState {
+	if !validCitizenChatScope(scope) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Chat scope must be locality, lga, or state"})
 		return
 	}
@@ -128,13 +150,8 @@ func GetCitizenChatMessages(c *gin.Context) {
 	query = query.Where("sender_id NOT IN (SELECT blocked_id FROM citizen_chat_blocks WHERE blocker_id = ? AND deleted_at IS NULL)", user.ID)
 	query = query.Where("sender_id NOT IN (SELECT blocker_id FROM citizen_chat_blocks WHERE blocked_id = ? AND deleted_at IS NULL)", user.ID)
 	if cursor := c.Query("before"); cursor != "" {
-		decoded, decodeErr := base64.RawURLEncoding.DecodeString(cursor)
+		at, id, decodeErr := decodeCitizenChatCursor(cursor)
 		if decodeErr != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid message cursor"}); return }
-		parts := strings.Split(string(decoded), "|")
-		if len(parts) != 2 { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid message cursor"}); return }
-		at, timeErr := time.Parse(time.RFC3339Nano, parts[0])
-		id, idErr := uuid.Parse(parts[1])
-		if timeErr != nil || idErr != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid message cursor"}); return }
 		query = query.Where("(created_at, id) < (?, ?)", at, id)
 	}
 	var messages []models.CitizenChatMessage
@@ -149,7 +166,7 @@ func GetCitizenChatMessages(c *gin.Context) {
 	next := ""
 	if hasMore && len(messages) > 0 {
 		last := messages[len(messages)-1]
-		next = base64.RawURLEncoding.EncodeToString([]byte(last.CreatedAt.Format(time.RFC3339Nano) + "|" + last.ID.String()))
+		next = encodeCitizenChatCursor(last.CreatedAt, last.ID)
 	}
 	c.JSON(http.StatusOK, gin.H{"messages": response, "nextCursor": next, "hasMore": hasMore})
 }
@@ -166,12 +183,6 @@ func SendCitizenChatMessage(c *gin.Context) {
 	if content == "" || !utf8.ValidString(content) || utf8.RuneCountInString(content) > citizenChatMessageLimit {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Message must contain 1 to %d valid characters", citizenChatMessageLimit)})
 		return
-	}
-	var blocked int64
-	if err := config.DB.Model(&models.CitizenChatBlock{}).Where(
-		"deleted_at IS NULL AND ((blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?))",
-		user.ID, user.ID, user.ID, user.ID).Count(&blocked).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not verify chat permissions"}); return
 	}
 	message := models.CitizenChatMessage{RoomID: roomID, SenderID: user.ID, Content: content, Status: "published"}
 	if err := config.DB.Create(&message).Error; err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not send message"}); return }

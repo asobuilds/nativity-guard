@@ -137,6 +137,9 @@ func SetupTestDB() error {
 	if err := config.EnsureTaskForceIndexes(db); err != nil {
 		return fmt.Errorf("task force indexes: %w", err)
 	}
+	if err := config.EnsureCitizenChatIndexes(db); err != nil {
+		return fmt.Errorf("citizen chat indexes: %w", err)
+	}
 
 	testDB = db
 	return nil
