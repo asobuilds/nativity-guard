@@ -239,7 +239,7 @@ func bookingActionError(c *gin.Context, err error, action string) {
 		c.JSON(http.StatusForbidden, gin.H{"error": errNotUnitAdmin.Error()})
 	case errors.Is(err, errBookingNotPending):
 		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotPending.Error()})
-	case errors.Is(err, errBookingNotAccepted):
+	case errors.Is(err, errBookingNotAccepted), errors.Is(err, errBookingAlreadyAction):
 		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotAccepted.Error()})
 	default:
 		log.Printf("booking: %s failed: %v", action, err)
