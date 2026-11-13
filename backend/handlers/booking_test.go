@@ -137,7 +137,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	testutil.TruncateAll(t)
 	defer testutil.TruncateAll(t)
 
-	hostUser, memberUser, hostUnit, _, _ := makeBookingFixture(t)
+	hostUser, memberUser, hostUnit, _, booking := makeBookingFixture(t)
 
 	ctx, recorder := bookingContext(t, http.MethodGet, "/bookings", nil, memberUser, nil)
 	ListBookings(ctx)
@@ -151,7 +151,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	if len(memberPayload.Bookings) != 1 {
 		t.Fatalf("member bookings = %d, want 1", len(memberPayload.Bookings))
 	}
-	if memberPayload.Bookings[0].ID == uuid.Nil {
+	if memberPayload.Bookings[0].ID != booking.ID {
 		t.Fatalf("member saw wrong booking")
 	}
 
@@ -167,7 +167,7 @@ func TestBookingListOwnVsUnitBookings(t *testing.T) {
 	if len(hostPayload.Bookings) != 1 {
 		t.Fatalf("host bookings = %d, want 1", len(hostPayload.Bookings))
 	}
-	if hostPayload.Bookings[0].ID == uuid.Nil {
+	if hostPayload.Bookings[0].ID != booking.ID {
 		t.Fatalf("host saw wrong booking")
 	}
 }
