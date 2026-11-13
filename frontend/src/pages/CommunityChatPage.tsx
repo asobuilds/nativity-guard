@@ -14,7 +14,7 @@ type Message = { id: string; roomId: string; senderId: string; sender: string; c
 type ChatPage = { messages: Message[]; nextCursor: string; hasMore: boolean }
 
 export function CommunityChatPage() {
-  const location = useLocation()
+  const location = useLocation({ auto: false })
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [scope, setScope] = useState('lga')
@@ -64,7 +64,16 @@ export function CommunityChatPage() {
             </Select>
           </label>
           <Button loading={join.isPending} disabled={join.isPending} onClick={() => join.mutate()}>Join my local chat</Button>
-          {join.isError ? <p role="alert" className="text-sm text-danger">We could not resolve your area. Enable location or update your verified unit location, then try again.</p> : null}
+          {join.isError ? (
+            <div className="space-y-2">
+              <p role="alert" className="text-sm text-danger">We could not resolve your area. Use your device location or make sure your verified unit has a current area.</p>
+              <Button size="sm" variant="secondary" disabled={location.loading} onClick={() => location.request()}>
+                {location.loading ? 'Getting location…' : 'Share my location'}
+              </Button>
+              {location.error ? <p className="text-xs text-ink-faint">{location.error}</p> : null}
+              {location.latitude != null && location.longitude != null ? <p className="text-xs text-ok">Location ready. Select Join my local chat again.</p> : null}
+            </div>
+          ) : null}
         </Card>
       ) : (
         <Card className="flex min-h-[540px] flex-col p-3 sm:p-4">

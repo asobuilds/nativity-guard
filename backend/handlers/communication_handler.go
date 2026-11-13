@@ -3,7 +3,9 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -179,6 +181,24 @@ func SendMessage(c *gin.Context) {
 	}
 	if input.Priority == "" {
 		input.Priority = "normal"
+	}
+	input.Message = strings.TrimSpace(input.Message)
+	if input.MessageType == "text" && (input.Message == "" || !utf8.ValidString(input.Message) || utf8.RuneCountInString(input.Message) > 4000) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Text messages must contain 1 to 4000 valid characters"})
+		return
+	}
+	var targetRoom models.CommunicationRoom
+	if err := config.DB.First(&targetRoom, "id = ?", roomID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+	if targetRoom.Type == "private" && (input.MessageType != "text" || input.IsBroadcast || input.IsEmergency) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Private citizen-security conversations support text messages only"})
+		return
+	}
+	if (input.IsBroadcast || input.IsEmergency) && userObj.Role != "officer" && userObj.Role != "unit_admin" && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only authorised security staff can broadcast or raise an operational emergency"})
+		return
 	}
 	if input.IsEmergency {
 		input.Priority = "emergency"

@@ -155,20 +155,45 @@ func GetMyCommunicationRooms(c *gin.Context) {
 }
 
 func notifyCommunicationRoomMembers(roomID, senderID uuid.UUID) {
-	var members []models.CommunicationRoomMember
-	if err := config.DB.Where("room_id = ? AND status = ? AND user_id <> ?", roomID, "active", senderID).Find(&members).Error; err != nil {
-		return
+	var room models.CommunicationRoom
+	if err := config.DB.First(&room, "id = ?", roomID).Error; err != nil { return }
+	recipients := make(map[uuid.UUID]bool)
+	add := func(id uuid.UUID) {
+		if id != uuid.Nil && id != senderID { recipients[id] = true }
 	}
-	for _, member := range members {
+	if room.Type == "private" {
+		var members []models.CommunicationRoomMember
+		if err := config.DB.Where("room_id = ? AND status = ?", roomID, "active").Find(&members).Error; err != nil { return }
+		for _, member := range members { add(member.UserID) }
+	} else if room.Type == models.TaskForceRoomType {
+		taskForce, err := taskForceForRoom(roomID)
+		if err != nil { return }
+		var unitMembers []models.TaskForceMember
+		if err := config.DB.Where("task_force_id = ? AND status = ?", taskForce.ID, models.TaskForceMemberStatusActive).Find(&unitMembers).Error; err != nil { return }
+		for _, unitMember := range unitMembers {
+			var staff []models.UnitMembership
+			if err := config.DB.Where("unit_id = ? AND status = ? AND role IN ?", unitMember.UnitID, models.MembershipActive, []string{models.UnitRoleAdmin, models.UnitRoleOfficer}).Find(&staff).Error; err == nil {
+				for _, member := range staff { add(member.UserID) }
+			}
+		}
+	} else {
+		var staff []models.UnitMembership
+		if err := config.DB.Where("unit_id = ? AND status = ? AND role IN ?", room.UnitID, models.MembershipActive, []string{models.UnitRoleAdmin, models.UnitRoleOfficer}).Find(&staff).Error; err == nil {
+			for _, member := range staff { add(member.UserID) }
+		}
+		var explicit []models.CommunicationRoomMember
+		if err := config.DB.Where("room_id = ? AND status = ?", roomID, "active").Find(&explicit).Error; err == nil {
+			for _, member := range explicit { add(member.UserID) }
+		}
+	}
+	for recipientID := range recipients {
 		n := models.Notification{
-			UserID: member.UserID, Title: "New secure message",
+			UserID: recipientID, Title: "New secure message",
 			Message: "You have a new message in an authorised security conversation.",
 			Type: "communication", Status: "unread",
 			EntityType: "communication", EntityID: roomID,
 			LinkTo: "/messages?roomId=" + roomID.String(),
 		}
-		if config.DB.Create(&n).Error == nil {
-			go dispatchWebPush(n.UserID, n.Title, n.Message)
-		}
+		if config.DB.Create(&n).Error == nil { go dispatchWebPush(n.UserID, n.Title, n.Message) }
 	}
 }
