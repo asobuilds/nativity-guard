@@ -118,7 +118,7 @@ func GetRooms(c *gin.Context) {
 	}
 
 	var rooms []models.CommunicationRoom
-	if err := config.DB.Where("unit_id = ? AND type <> ?", id, models.TaskForceRoomType).Order("created_at desc").Find(&rooms).Error; err != nil {
+	if err := config.DB.Where("unit_id = ? AND type <> ? AND type <> ?", id, models.TaskForceRoomType, "private").Order("created_at desc").Find(&rooms).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
 		return
 	}

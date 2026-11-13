@@ -483,6 +483,8 @@ func SetupRoutes(router *gin.Engine) {
 
 		commGroup := api.Group("/communication")
 		{
+			commGroup.POST("/citizen-inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.OpenCitizenSecurityConversation)
+			commGroup.GET("/my-rooms", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetMyCommunicationRooms)
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
 			commGroup.GET("/units/:id/rooms", middleware.AuthMiddleware(), handlers.GetRooms)
 			commGroup.GET("/units/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitChannel)
