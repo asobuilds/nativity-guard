@@ -175,6 +175,9 @@ func SendMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
 		return
 	}
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
 
 	if input.MessageType == "" {
 		input.MessageType = "text"
@@ -215,10 +218,10 @@ func SendMessage(c *gin.Context) {
 		Priority:    input.Priority,
 	}
 
-	if !roomAccessAllowed(c, userObj, roomID) {
-		return
+	if targetRoom.Type == "private" {
+		input.Priority = "normal"
+		message.Priority = "normal"
 	}
-
 	if err := config.DB.Create(&message).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return

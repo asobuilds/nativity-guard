@@ -38,18 +38,27 @@ func OpenCitizenSecurityConversation(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Verified active security unit not found"})
 		return
 	}
-	var memberships []models.UnitMembership
-	if err := config.DB.Where("unit_id = ? AND status = ? AND role IN ?", unit.ID, models.MembershipActive, []string{models.UnitRoleAdmin, models.UnitRoleOfficer}).Find(&memberships).Error; err != nil {
+	var recipientIDs []uuid.UUID
+	if err := config.DB.Table("unit_memberships").
+		Select("unit_memberships.user_id").
+		Joins("JOIN users ON users.id = unit_memberships.user_id").
+		Where("unit_memberships.unit_id = ? AND unit_memberships.status = ? AND unit_memberships.role IN ? AND users.role IN ? AND users.status = ? AND users.deleted_at IS NULL",
+			unit.ID, models.MembershipActive, []string{models.UnitRoleAdmin, models.UnitRoleOfficer}, []string{"unit_admin", "officer"}, "active").
+		Scan(&recipientIDs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not resolve security recipients"})
 		return
 	}
-	recipientIDs := make([]uuid.UUID, 0, len(memberships)+1)
 	seen := map[uuid.UUID]bool{user.ID: true}
-	for _, membership := range memberships {
-		if !seen[membership.UserID] { recipientIDs = append(recipientIDs, membership.UserID); seen[membership.UserID] = true }
+	filtered := make([]uuid.UUID, 0, len(recipientIDs)+1)
+	for _, recipientID := range recipientIDs {
+		if !seen[recipientID] { filtered = append(filtered, recipientID); seen[recipientID] = true }
 	}
+	recipientIDs = filtered
 	if unit.HostUserID != nil && !seen[*unit.HostUserID] {
-		recipientIDs = append(recipientIDs, *unit.HostUserID)
+		var host models.User
+		if err := config.DB.Where("id = ? AND role IN ? AND status = ? AND deleted_at IS NULL", *unit.HostUserID, []string{"unit_admin", "officer"}, "active").First(&host).Error; err == nil {
+			recipientIDs = append(recipientIDs, host.ID)
+		}
 	}
 	if len(recipientIDs) == 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "This security unit has no active messaging recipients yet"})

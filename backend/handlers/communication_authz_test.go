@@ -594,6 +594,8 @@ func TestOpenCitizenSecurityConversationCreatesFixedParticipants(t *testing.T) {
 	unit := testutil.MakeUnit(t, admin)
 	officer := testutil.MakeUser(t, "officer")
 	testutil.MakeMembership(t, officer, unit, models.UnitRoleOfficer, false)
+	nonStaff := testutil.MakeUser(t, "citizen")
+	testutil.MakeMembership(t, nonStaff, unit, models.UnitRoleOfficer, false)
 	citizen := testutil.MakeUser(t, "citizen")
 	unassignedAdmin := testutil.MakeUser(t, "unit_admin")
 	setUserUnit(t, unassignedAdmin, unit.ID)
