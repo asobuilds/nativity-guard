@@ -96,7 +96,10 @@ func TestBookingCreateSetsPendingAndComputesQuotation(t *testing.T) {
 	testutil.TruncateAll(t)
 	defer testutil.TruncateAll(t)
 
-	_, memberUser, hostUnit, _, _ := makeBookingFixture(t)
+	_, memberUser, hostUnit, _, existingBooking := makeBookingFixture(t)
+	if err := config.DB.Unscoped().Delete(&models.BookingRequest{}, "id = ?", existingBooking.ID).Error; err != nil {
+		t.Fatalf("remove fixture booking: %v", err)
+	}
 
 	ctx, recorder := bookingContext(t, http.MethodPost, "/bookings", map[string]any{
 		"unitId":        hostUnit.ID.String(),
