@@ -128,3 +128,22 @@ func GetMyCommunicationRooms(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"rooms": out})
 }
+
+func notifyCommunicationRoomMembers(roomID, senderID, messageID uuid.UUID) {
+	var members []models.CommunicationRoomMember
+	if err := config.DB.Where("room_id = ? AND status = ? AND user_id <> ?", roomID, "active", senderID).Find(&members).Error; err != nil {
+		return
+	}
+	for _, member := range members {
+		n := models.Notification{
+			UserID: member.UserID, Title: "New secure message",
+			Message: "You have a new message in an authorised security conversation.",
+			Type: "communication", Status: "unread",
+			EntityType: "communication", EntityID: roomID,
+			LinkTo: "/messages?roomId=" + roomID.String(),
+		}
+		if config.DB.Create(&n).Error == nil {
+			go dispatchWebPush(n.UserID, n.Title, n.Message)
+		}
+	}
+}

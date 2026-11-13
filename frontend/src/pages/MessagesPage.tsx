@@ -82,9 +82,9 @@ export function MessagesPage() {
         </p>
       </header>
 
-      {isCitizen && rooms.data?.rooms.length === 0 ? (
+      {isCitizen ? (
         <Card className="space-y-3 p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><ShieldCheck className="size-4 text-signal" /> Contact a verified security unit</div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink"><ShieldCheck className="size-4 text-signal" /> Start a private security conversation</div>
           <label className="block text-xs text-ink-muted">Security unit
             <Select value={unitId} onChange={event => setUnitId(event.target.value)}>
               <option value="">Choose a verified unit</option>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '@/auth/AuthContext'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, Send, ShieldAlert, UserRoundX } from 'lucide-react'
 import { useLocation } from '@/hooks/useLocation'
@@ -14,6 +15,7 @@ type ChatPage = { messages: Message[]; nextCursor: string; hasMore: boolean }
 
 export function CommunityChatPage() {
   const location = useLocation()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [scope, setScope] = useState('lga')
   const [room, setRoom] = useState<Room | null>(null)
@@ -78,7 +80,7 @@ export function CommunityChatPage() {
                   <time className="text-[10px] text-ink-faint">{new Date(message.createdAt).toLocaleString()}</time>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink">{message.content}</p>
-                {message.senderId !== 'self' ? (
+                {message.senderId !== user?.id ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setReportId(message.id)}><ShieldAlert className="mr-1 size-3" /> Report</Button>
                     <Button size="sm" variant="ghost" onClick={() => block.mutate(message.senderId)}><UserRoundX className="mr-1 size-3" /> Block</Button>

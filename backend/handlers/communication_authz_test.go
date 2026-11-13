@@ -557,3 +557,30 @@ func TestCommunicationRoomAccessAllowedAllowsSuperAdmin(t *testing.T) {
 		t.Fatal("want super admin to be allowed")
 	}
 }
+
+func TestPrivateCommunicationRoomRequiresExplicitMembership(t *testing.T) {
+	if config.DB == nil { t.Skip("integration DB unavailable") }
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	admin := testutil.MakeUser(t, "unit_admin")
+	unit := testutil.MakeUnit(t, admin)
+	setUserUnit(t, admin, unit.ID)
+	citizen := testutil.MakeUser(t, "citizen")
+	room := &models.CommunicationRoom{UnitID: unit.ID, Name: "Private citizen support", Type: "private", Status: "active", CreatedBy: citizen.ID}
+	if err := config.DB.Create(room).Error; err != nil { t.Fatalf("create private room: %v", err) }
+
+	// Being a unit admin or a super admin is not an implicit membership grant.
+	adminCtx, adminRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, admin)
+	if roomAccessAllowed(adminCtx, admin, room.ID) { t.Fatal("same-unit admin must not access an unassigned private conversation") }
+	if adminRecorder.Code != 403 { t.Fatalf("same-unit admin: want 403, got %d", adminRecorder.Code) }
+
+	super := testutil.MakeUser(t, "super_admin")
+	superCtx, superRecorder := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, super)
+	if roomAccessAllowed(superCtx, super, room.ID) { t.Fatal("super admin must not silently enter a private conversation") }
+	if superRecorder.Code != 403 { t.Fatalf("super admin: want 403, got %d", superRecorder.Code) }
+
+	addRoomMember(t, room.ID, citizen.ID, "member", "active")
+	citizenCtx, _ := commJSONContext(t, "GET", "/communication/rooms/"+room.ID.String()+"/messages", nil, citizen)
+	if !roomAccessAllowed(citizenCtx, citizen, room.ID) { t.Fatal("explicit participant must be allowed") }
+}

@@ -14,6 +14,22 @@ import (
 	ws "security-solution/websocket"
 )
 
+func communicationMessageResponse(message models.CommunicationMessage) gin.H {
+	sender := gin.H{"id": message.SenderID}
+	if message.Sender.ID != uuid.Nil {
+		sender["firstName"] = message.Sender.FirstName
+		sender["lastName"] = message.Sender.LastName
+		sender["avatarPath"] = message.Sender.AvatarPath
+	}
+	return gin.H{
+		"id": message.ID, "roomId": message.RoomID, "senderId": message.SenderID,
+		"message": message.Message, "messageType": message.MessageType,
+		"status": message.Status, "priority": message.Priority,
+		"isBroadcast": message.IsBroadcast, "isEmergency": message.IsEmergency,
+		"createdAt": message.CreatedAt, "sender": sender,
+	}
+}
+
 // CreateRoom creates a communication room
 func CreateRoom(c *gin.Context) {
 	var input struct {
@@ -187,6 +203,7 @@ func SendMessage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
 	}
+	notifyCommunicationRoomMembers(roomID, userObj.ID, message.ID)
 
 	// If emergency, create alert
 	if input.IsEmergency {
@@ -195,7 +212,7 @@ func SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Message sent successfully",
-		"data":    message,
+		"data":    communicationMessageResponse(message),
 	})
 }
 
@@ -252,8 +269,12 @@ func GetMessages(c *gin.Context) {
 	}
 	config.DB.Create(&sync)
 
+	response := make([]gin.H, 0, len(messages))
+	for _, message := range messages {
+		response = append(response, communicationMessageResponse(message))
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"messages": messages,
+		"messages": response,
 		"syncTime": time.Now().Format(time.RFC3339),
 		"hasMore":  len(messages) > 0,
 	})
