@@ -110,6 +110,8 @@ func AutoMigrateAll() error {
 		&models.TaskForceInvite{},
 		&models.TaskForceChannel{},
 
+		&models.BookingRequest{},
+
 		&models.Report{},
 		&models.MediaLink{},
 		&models.CaseReview{},
@@ -246,6 +248,9 @@ func EnsureTaskForceIndexes(db *gorm.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_channels_room
 		   ON task_force_channels (room_id)
 		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_requests_active_pending
+		   ON booking_requests (user_id, unit_id)
+		   WHERE status = 'pending' AND deleted_at IS NULL`,
 	}
 	for _, statement := range statements {
 		if err := db.Exec(statement).Error; err != nil {

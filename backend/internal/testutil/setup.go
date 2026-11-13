@@ -125,6 +125,7 @@ func SetupTestDB() error {
 		&models.TaskForceOfficer{},
 		&models.TaskForceInvite{},
 		&models.TaskForceChannel{},
+		&models.BookingRequest{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
 	}
