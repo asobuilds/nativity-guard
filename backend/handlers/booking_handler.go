@@ -196,10 +196,13 @@ func ListBookings(c *gin.Context) {
 
 	isUnitAdmin := user.Role == models.RoleUnitAdmin || user.IsSuperAdmin
 	if isUnitAdmin && user.UnitID != nil {
-		// Unit admin sees all bookings for their unit
-		query = query.Where("unit_id = ?", *user.UnitID)
+		// Unit admins need both sides of the workflow: bookings they submitted
+		// as a requester, and bookings addressed to their own security unit.
+		// Keeping both predicates in one grouped condition avoids hiding a
+		// unit admin's own booking when it targets a different unit.
+		query = query.Where("user_id = ? OR unit_id = ?", user.ID, *user.UnitID)
 	} else {
-		// Regular user sees only their own bookings
+		// Regular users see only bookings they submitted.
 		query = query.Where("user_id = ?", user.ID)
 	}
 
