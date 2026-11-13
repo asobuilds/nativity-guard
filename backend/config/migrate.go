@@ -63,6 +63,11 @@ func AutoMigrateAll() error {
 		&models.Budget{},
 		&models.FinancialReport{},
 
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},

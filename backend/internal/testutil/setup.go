@@ -106,6 +106,11 @@ func SetupTestDB() error {
 		&models.LocalIntelligenceVote{},
 		// Community content + the generic report table. Needed so integration
 		// tests can exercise ReportForumPost and the feed against real rows.
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},

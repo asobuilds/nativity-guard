@@ -354,6 +354,16 @@ func SetupRoutes(router *gin.Engine) {
 
 		community := api.Group("/community")
 		{
+			// Geographic citizen chat is isolated from forum posts and security rooms.
+			community.POST("/chat/rooms/join", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.JoinCitizenChatRoom)
+			community.GET("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatMessages)
+			community.POST("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.SendCitizenChatMessage)
+			community.POST("/chat/messages/:messageId/report", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ReportCitizenChatMessage)
+			community.POST("/chat/blocks", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.BlockCitizenChatUser)
+			community.DELETE("/chat/blocks/:userId", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UnblockCitizenChatUser)
+			community.GET("/chat/reports", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatReports)
+			community.POST("/chat/reports/:reportId/resolve", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ResolveCitizenChatReport)
+
 			community.POST("/posts", middleware.AuthMiddleware(), middleware.RateLimitCommunityPost(), handlers.CreateForumPost)
 			community.GET("/posts", middleware.AuthMiddleware(), handlers.GetForumPosts)
 			community.GET("/posts/:id", middleware.AuthMiddleware(), handlers.GetForumPostByID)
