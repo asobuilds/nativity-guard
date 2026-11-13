@@ -76,6 +76,10 @@ func citizenChatRoomAccess(c *gin.Context, user *models.User, roomID uuid.UUID) 
 func JoinCitizenChatRoom(c *gin.Context) {
 	user, ok := getAuthUser(c)
 	if !ok { return }
+	if user.Role != "citizen" && user.Role != "unit_admin" && user.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Community chat is available to citizens and authorised community moderators"})
+		return
+	}
 	var input struct {
 		Scope string `json:"scope" binding:"required"`
 		Latitude *float64 `json:"latitude"`
