@@ -69,6 +69,8 @@ const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ defa
 const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
 const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
 const LGAChannelPage = lazy(() => import('@/pages/LGAChannelPage').then(m => ({ default: m.LGAChannelPage })))
+const CommunityChatPage = lazy(() => import('@/pages/CommunityChatPage').then(m => ({ default: m.CommunityChatPage })))
+const MessagesPage = lazy(() => import('@/pages/MessagesPage').then(m => ({ default: m.MessagesPage })))
 const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
 const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
@@ -183,6 +185,8 @@ export function App() {
                   <Route path="/news" element={<RequireRole roles={['citizen', 'super_admin']}><NewsPage /></RequireRole>} />
                   <Route path="/subscriptions" element={<RequireRole roles={['citizen', 'super_admin']}><SubscriptionsPage /></RequireRole>} />
                   <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/community/chat" element={<RequireRole roles={['citizen', 'unit_admin', 'super_admin']}><CommunityChatPage /></RequireRole>} />
+                  <Route path="/messages" element={<RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}><MessagesPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/reports" element={<RequireRole roles={ADMIN_ROLES}><AdminReportsPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
