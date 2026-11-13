@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -158,7 +159,7 @@ func CreateBooking(c *gin.Context) {
 	}
 
 	if err := config.DB.Create(&booking).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if isDuplicatePendingBooking(err) {
 			c.JSON(http.StatusConflict, gin.H{"error": "You already have a pending booking for this unit"})
 			return
 		}
@@ -217,87 +218,117 @@ func ListBookings(c *gin.Context) {
 	})
 }
 
+// isDuplicatePendingBooking handles both GORM-translated duplicate errors and
+// PostgreSQL's native unique-violation error. The constraint name check avoids
+// misreporting unrelated uniqueness failures as duplicate active bookings.
+func isDuplicatePendingBooking(err error) bool {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) &&
+		pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "idx_booking_requests_active_pending"
+}
+
+func bookingActionError(c *gin.Context, err error, action string) {
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound), errors.Is(err, errBookingNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": errBookingNotFound.Error()})
+	case errors.Is(err, errNotUnitAdmin):
+		c.JSON(http.StatusForbidden, gin.H{"error": errNotUnitAdmin.Error()})
+	case errors.Is(err, errBookingNotPending):
+		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotPending.Error()})
+	case errors.Is(err, errBookingNotAccepted):
+		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotAccepted.Error()})
+	default:
+		log.Printf("booking: %s failed: %v", action, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to " + action + " booking"})
+	}
+}
+
+var errBookingNotAccepted = errors.New("booking must be accepted before it can be marked paid")
+
+// updateBookingStatus serializes state transitions. The row lock is acquired
+// and held inside the same transaction that validates permissions/status and
+// writes the new state, preventing concurrent requests from acting on stale data.
+func updateBookingStatus(user *models.User, bookingID uuid.UUID, expectedStatus, nextStatus string, reprice bool) (models.BookingRequest, error) {
+	var booking models.BookingRequest
+	err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&booking, "id = ?", bookingID).Error; err != nil {
+			return err
+		}
+
+		isSuperAdmin := user.IsSuperAdmin || user.Role == models.RoleSuperAdmin
+		isBookingUnitAdmin := user.Role == models.RoleUnitAdmin &&
+			user.UnitID != nil && *user.UnitID == booking.UnitID
+		if !isSuperAdmin && !isBookingUnitAdmin {
+			return errNotUnitAdmin
+		}
+		if booking.Status != expectedStatus {
+			if expectedStatus == models.BookingStatusAccepted {
+				return errBookingNotAccepted
+			}
+			return errBookingNotPending
+		}
+
+		updates := map[string]any{
+			"status":     nextStatus,
+			"updated_at": time.Now().UTC(),
+		}
+		if reprice {
+			var unit models.SecurityUnit
+			if err := tx.First(&unit, "id = ?", booking.UnitID).Error; err != nil {
+				return err
+			}
+			amount := quotationAmount(booking.DurationHours, booking.GuardsNeeded, baseRateForUnit(&unit))
+			fee := amount * platformFeePercent
+			updates["quotation_amount"] = amount
+			updates["platform_fee"] = fee
+			booking.QuotationAmount = amount
+			booking.PlatformFee = fee
+		}
+
+		result := tx.Model(&models.BookingRequest{}).
+			Where("id = ? AND status = ?", booking.ID, expectedStatus).
+			Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errBookingAlreadyAction
+		}
+		booking.Status = nextStatus
+		booking.UpdatedAt = updates["updated_at"].(time.Time)
+		return nil
+	})
+	return booking, err
+}
+
 func AcceptBooking(c *gin.Context) {
 	user, ok := getAuthUser(c)
 	if !ok {
 		return
 	}
-
 	bookingID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
 		return
 	}
 
-	var booking models.BookingRequest
-	if err := config.DB.Clauses(clause.Locking{Strength: "UPDATE"}).First(&booking, "id = ?", bookingID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errBookingNotFound.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load booking"})
-		return
-	}
-
-	if booking.Status != models.BookingStatusPending {
-		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotPending.Error()})
-		return
-	}
-
-	// Only the unit admin of the booked unit can accept
-	if user.UnitID == nil || *user.UnitID != booking.UnitID {
-		if user.IsSuperAdmin || user.Role == models.RoleSuperAdmin {
-			// super admins can override
-		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": errNotUnitAdmin.Error()})
-			return
-		}
-	}
-
-	var unit models.SecurityUnit
-	if err := config.DB.First(&unit, "id = ?", booking.UnitID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load unit"})
-		return
-	}
-
-	now := time.Now().UTC()
-	err = config.DB.Transaction(func(tx *gorm.DB) error {
-		booking.Status = models.BookingStatusAccepted
-		booking.UpdatedAt = now
-		if err := tx.Save(&booking).Error; err != nil {
-			return err
-		}
-
-		// Recompute quotation with the unit's base rate
-		baseRate := baseRateForUnit(&unit)
-		quotation := quotationAmount(booking.DurationHours, booking.GuardsNeeded, baseRate)
-		platformFee := quotation * platformFeePercent
-
-		booking.QuotationAmount = quotation
-		booking.PlatformFee = platformFee
-		return tx.Save(&booking).Error
-	})
+	booking, err := updateBookingStatus(user, bookingID, models.BookingStatusPending, models.BookingStatusAccepted, true)
 	if err != nil {
-		log.Printf("booking: accept failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to accept booking"})
+		bookingActionError(c, err, "accept")
 		return
 	}
-
 	_ = services.NewAuditService().LogAction(
-		user.ID,
-		"booking.accepted",
-		"booking_request",
-		booking.ID.String(),
+		user.ID, "booking.accepted", "booking_request", booking.ID.String(),
 		map[string]any{"status": models.BookingStatusPending},
 		map[string]any{"status": models.BookingStatusAccepted, "quotationAmount": booking.QuotationAmount, "platformFee": booking.PlatformFee},
-		c.ClientIP(),
-		c.Request.UserAgent(),
+		c.ClientIP(), c.Request.UserAgent(),
 	)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Booking accepted",
-		"booking": toBookingResponse(booking),
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "Booking accepted", "booking": toBookingResponse(booking)})
 }
 
 func DeclineBooking(c *gin.Context) {
@@ -305,61 +336,24 @@ func DeclineBooking(c *gin.Context) {
 	if !ok {
 		return
 	}
-
 	bookingID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
 		return
 	}
 
-	var booking models.BookingRequest
-	if err := config.DB.Clauses(clause.Locking{Strength: "UPDATE"}).First(&booking, "id = ?", bookingID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errBookingNotFound.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load booking"})
+	booking, err := updateBookingStatus(user, bookingID, models.BookingStatusPending, models.BookingStatusDeclined, false)
+	if err != nil {
+		bookingActionError(c, err, "decline")
 		return
 	}
-
-	if booking.Status != models.BookingStatusPending {
-		c.JSON(http.StatusConflict, gin.H{"error": errBookingNotPending.Error()})
-		return
-	}
-
-	if user.UnitID == nil || *user.UnitID != booking.UnitID {
-		if user.IsSuperAdmin || user.Role == models.RoleSuperAdmin {
-			// super admins can override
-		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": errNotUnitAdmin.Error()})
-			return
-		}
-	}
-
-	now := time.Now().UTC()
-	booking.Status = models.BookingStatusDeclined
-	booking.UpdatedAt = now
-	if err := config.DB.Save(&booking).Error; err != nil {
-		log.Printf("booking: decline failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decline booking"})
-		return
-	}
-
 	_ = services.NewAuditService().LogAction(
-		user.ID,
-		"booking.declined",
-		"booking_request",
-		booking.ID.String(),
+		user.ID, "booking.declined", "booking_request", booking.ID.String(),
 		map[string]any{"status": models.BookingStatusPending},
 		map[string]any{"status": models.BookingStatusDeclined},
-		c.ClientIP(),
-		c.Request.UserAgent(),
+		c.ClientIP(), c.Request.UserAgent(),
 	)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Booking declined",
-		"booking": toBookingResponse(booking),
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "Booking declined", "booking": toBookingResponse(booking)})
 }
 
 func MarkBookingPaid(c *gin.Context) {
@@ -367,59 +361,22 @@ func MarkBookingPaid(c *gin.Context) {
 	if !ok {
 		return
 	}
-
 	bookingID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking ID"})
 		return
 	}
 
-	var booking models.BookingRequest
-	if err := config.DB.Clauses(clause.Locking{Strength: "UPDATE"}).First(&booking, "id = ?", bookingID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errBookingNotFound.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load booking"})
+	booking, err := updateBookingStatus(user, bookingID, models.BookingStatusAccepted, models.BookingStatusPaid, false)
+	if err != nil {
+		bookingActionError(c, err, "mark paid")
 		return
 	}
-
-	if booking.Status != models.BookingStatusAccepted {
-		c.JSON(http.StatusConflict, gin.H{"error": "Booking must be accepted before it can be marked paid"})
-		return
-	}
-
-	if user.UnitID == nil || *user.UnitID != booking.UnitID {
-		if user.IsSuperAdmin || user.Role == models.RoleSuperAdmin {
-			// super admins can override
-		} else {
-			c.JSON(http.StatusForbidden, gin.H{"error": errNotUnitAdmin.Error()})
-			return
-		}
-	}
-
-	now := time.Now().UTC()
-	booking.Status = models.BookingStatusPaid
-	booking.UpdatedAt = now
-	if err := config.DB.Save(&booking).Error; err != nil {
-		log.Printf("booking: mark paid failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to mark booking paid"})
-		return
-	}
-
 	_ = services.NewAuditService().LogAction(
-		user.ID,
-		"booking.marked_paid",
-		"booking_request",
-		booking.ID.String(),
+		user.ID, "booking.marked_paid", "booking_request", booking.ID.String(),
 		map[string]any{"status": models.BookingStatusAccepted},
 		map[string]any{"status": models.BookingStatusPaid},
-		c.ClientIP(),
-		c.Request.UserAgent(),
+		c.ClientIP(), c.Request.UserAgent(),
 	)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Booking marked as paid",
-		"booking": toBookingResponse(booking),
-	})
+	c.JSON(http.StatusOK, gin.H{"message": "Booking marked as paid", "booking": toBookingResponse(booking)})
 }
