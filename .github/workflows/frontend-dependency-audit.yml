@@ -1,0 +1,73 @@
+name: frontend-dependency-audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install exact locked packages
+        run: npm ci
+      - name: Gather npm advisory report (read-only)
+        run: npm audit --json > audit-report.json || true
+      - name: Summarize dependency risk without auto-upgrading
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          let report
+          try { report = JSON.parse(readFileSync('audit-report.json', 'utf8')) }
+          catch { console.error('Audit did not return valid JSON'); process.exit(1) }
+          if (report.error || !report.vulnerabilities) {
+            console.error('Audit data unavailable:', report.error?.code ?? 'unknown')
+            process.exit(1)
+          }
+          console.log('Vulnerability totals:', JSON.stringify(report.metadata?.vulnerabilities ?? {}))
+          const list = Object.entries(report.vulnerabilities).sort((a, b) => a[0].localeCompare(b[0]))
+          for (const [name, item] of list) {
+            const via = (item.via ?? [])
+              .map(v => typeof v === 'string' ? v : [v.title, v.url].filter(Boolean).join(' | '))
+            console.log(JSON.stringify({
+              package: name,
+              severity: item.severity,
+              direct: item.isDirect,
+              affectedRange: item.range,
+              causes: via,
+              fixAvailable: item.fixAvailable,
+            }))
+          }
+          console.log('Review source dependency paths and deploy reachability before changes.')
+          NODE
+      - name: Audit production-only dependency tree
+        run: |
+          npm audit --omit=dev --json > production-audit.json || true
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs'
+          let report
+          try { report = JSON.parse(readFileSync('production-audit.json', 'utf8')) }
+          catch { console.error('Production audit did not return valid JSON'); process.exit(1) }
+          if (report.error || !report.vulnerabilities) {
+            console.error('Production audit unavailable:', report.error?.code ?? 'unknown')
+            process.exit(1)
+          }
+          console.log('PRODUCTION_DEPENDENCY_AUDIT:', JSON.stringify(report.metadata?.vulnerabilities ?? {}))
+          for (const [name, item] of Object.entries(report.vulnerabilities)) {
+            console.log('PRODUCTION_VULNERABILITY:', JSON.stringify({
+              package: name, severity: item.severity,
+              affectedRange: item.range, fixAvailable: item.fixAvailable,
+            }))
+          }
+          NODE
