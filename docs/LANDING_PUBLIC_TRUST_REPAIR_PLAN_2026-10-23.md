@@ -16,7 +16,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-05 | P1 | Nested donation dialogs may allow a single Escape press to close both child and parent; focus may leak | Patched – awaiting browser QA | Shared dialog stack, child portal, topmost Escape/Tab manager and unit tests; manual desktop/mobile checks remain |
 | NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Open | Both /terms documents load when API works; transparent failure state; published versions confirmed |
 | NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Open | Publish verified entity, contact and responsible controller details after legal review |
-| NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Review | Substantiate every strong statement or mark as a design goal; no false guarantees |
+| NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Patched in landing/blueprint – awaiting QA | Describe policy as conditional and illustrative; retain separate backend security/audit verification |
 | NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Review | Meaning and source of each statistic are evident and current |
 | NG-10 | P1 | Mobile drawer/popups not fully verified on Safari/Android, narrow screens and onscreen keyboards | Open | Test scroll, focus, all interactive controls, and accessible labels |
 | NG-11 | P1 | Public map/search/error behavior can obscure API errors or show false data | Patched in part – awaiting QA | Distinguish unavailable/no-match; no invented map or case entries; end-to-end tests |
@@ -26,8 +26,8 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-15 | P1 | No verified basis for government endorsement/accreditation/guaranteed dispatch | Review | Show only evidenced claims; clearly state absence of endorsement and response guarantee |
 | NG-16 | P0 | Fictional public incidents shown as current reports on API failure/empty response | Patched – awaiting QA | No made-up public reports in map or case tracking |
 | NG-17 | P0 | Four fictional community warnings presented as live, verified advisories | Patched – awaiting QA | No fake local warnings in live panels; empty state until real authenticated feed wired |
-| NG-18 | P1 | Public blueprint fallback embeds detailed security, encryption, and governance claims despite API failure | Open | Audit claims, remove unverifiable fallback, expose data failure transparently |
-| NG-19 | P1 | AI safety sandbox contains simulation language implying validated officer credentials/services | Open | Label scenario examples; remove unverified badges and officer/response guarantees |
+| NG-18 | P1 | Public blueprint fallback embeds detailed security, encryption, and governance claims despite API failure | Patched – awaiting QA | No invented fallback on API error; published data needed for calculator |
+| NG-19 | P1 | AI safety sandbox contains simulation language implying validated officer credentials/services | Patched – awaiting QA | Static examples labeled; 24/7, verified badges, accreditation claims removed; assistant availability not guaranteed |
 | NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Patched – awaiting QA | Do not represent a default map center as visitor GPS; show location not chosen |
 | NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
@@ -67,6 +67,15 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 - Mobile shared modal now scrolls within dynamic viewport height (`dvh`), with overscroll containment.
 - New Vitest coverage checks order, Tab wrapping and a simulated nested Escape/focus/scroll sequence.
 - Still required: real browser inspection on Chrome, Firefox, mobile Chrome and Safari; check repeated open/close, nested donate modal, Back/Forward and touch/keyboard behavior.
+
+## Governance, blueprint and AI safety claim corrections (separate draft PR)
+
+- Public blueprint hook now uses only the live API response; API failures cannot silently expose hardcoded cybersecurity, registration, finance, or governance claims.
+- Governance section preserves interactive layout but distinguishes platform concepts from legal guarantees. The quorum calculator uses published configuration **only when provided** and is labeled a hypothetical example, never a real voting interface. The fake `/governance` vote/recall jump is not used by this preview.
+- The AI safety panel's fixed prompts and responses are labeled static educational examples. It no longer claims a trained/verified real-time engine, officer accreditation, or 24/7 availability from sample data.
+- The public backend blueprint description now avoids promising response, immutable records, complete identity protections or audited system behavior. Actual security mechanisms still require implementation and runtime verification before claims are strengthened.
+- Public blueprint contact hostname is aligned with the domain displayed on the live landing. Email delivery and contact/legal identity verification remain outstanding.
+- Automated server-rendered tests assert safe labels and no fabricated governance data in API error states. Browser and backend acceptance testing remain required.
 
 ## Manual acceptance matrix
 

@@ -6,21 +6,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetBlueprint — PUBLIC. Returns a structured description of the platform:
+// GetBlueprint — PUBLIC. Returns a non-certifying description of platform design:
 // its purpose, architecture, roles, capabilities, and how to use it.
 // Designed to be rendered as the public /about page.
 func GetBlueprint(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"name":    "Nativity Guard",
 		"tagline": "Community safety and governance infrastructure for Nigerian neighborhoods.",
-		"purpose": "Nativity Guard connects citizens, security units, officers, and administrators through one auditable workflow: report → assign → dispatch → investigate → review → close. It is designed to promote accountability, prevent vigilantism, and keep sensitive case intelligence restricted to authorized personnel.",
+		"purpose": "Nativity Guard provides software for submitting and tracking safety reports where participating units are available. A report or app alert does not guarantee investigation, dispatch, or an emergency response.",
 
 		"principles": []gin.H{
 			{"title": "Unit access is NOT case access", "body": "A security unit does not automatically see every case in its jurisdiction — only cases assigned to specific officers, or submitted to specific administrators."},
-			{"title": "Every hierarchy is auditable", "body": "Head admins, admins, and officers are all removable by defined thresholds and quorum. No role is above recall."},
+			{"title": "Governance history", "body": "Unit governance includes configured terms, votes and recall processes. A specific action depends on user eligibility, unit policy and successful processing."},
 			{"title": "Presumed innocence", "body": "A citizen named as a suspect sees only that a case references them, its status, and public-safe progress. Never investigative detail, officer identity, or evidence internals."},
-			{"title": "No vigilantism", "body": "The platform coordinates lawful response. It does not arm, direct, or encourage any citizen to confront another."},
-			{"title": "Explicit consent for sensitive data", "body": "Medical information and government identity documents are encrypted at rest. Nothing auto-deletes without the user's consent, except security tombstones documented separately."},
+			{"title": "No vigilantism", "body": "The platform does not authorize citizen confrontation or replace official emergency services."},
+			{"title": "Explicit consent for sensitive data", "body": "Sensitive-data processing and retention should be explained in the published Privacy Notice. Security controls require independent verification."},
 		},
 
 		"roles": []gin.H{
@@ -28,7 +28,7 @@ func GetBlueprint(c *gin.Context) {
 			{"name": "Officer", "capabilities": []string{"Work cases assigned to you (primary or paired)", "Support access on other cases you assist", "File weekly narratives", "Submit cases for review", "See your unit's officer leaderboard", "View your unit's financial ledger"}},
 			{"name": "Unit Admin", "capabilities": []string{"Triage cases in your unit", "Assign cases to officers", "Review closures", "Manage elections and revocations", "Manage bank accounts and visibility", "Approve disbursements"}},
 			{"name": "Head Admin", "capabilities": []string{"Everything a unit admin can do", "See all cases in the unit", "Override case archive", "Manage the unit's UnitAuth policy", "Publish unit-scoped news", "Delegate the treasurer role"}},
-			{"name": "Super Admin", "capabilities": []string{"Platform-wide access", "Manage all units and users", "Confirm platform donations", "Audit any financial or case ledger"}},
+			{"name": "Super Admin", "capabilities": []string{"Platform-wide access", "Manage all units and users", "Confirm platform donations", "Review available platform financial and case activity records"}},
 		},
 
 		"architecture": gin.H{
@@ -44,21 +44,21 @@ func GetBlueprint(c *gin.Context) {
 		},
 
 		"security": []string{
-			"JWT with jti-based revocation",
-			"Refresh tokens with rotation",
-			"Rate limiting on auth, OTP, votes, and invites",
-			"Password changes revoke all sessions immediately",
-			"Tiered case access (primary / paired / support)",
-			"Public-safe DTOs on all citizen-facing endpoints",
-			"Encrypted MedicalInfo at rest (AES-256-GCM)",
-			"HMAC-signed SMS webhooks",
+			"Session access controls",
+			"Session refresh controls",
+			"Rate limiting is designed for sensitive endpoints",
+			"Password-change session management",
+			"Role-based access controls",
+			"Public response views are designed to limit exposed personal information",
+			"Protection of sensitive records requires independent configuration review",
+			"Webhook integrity controls require service configuration",
 		},
 
 		"finance": gin.H{
-			"unit_model": "Units publish their own bank account details. Donors transfer directly — Nativity Guard never touches the money.",
-			"ledger":     "Every donation and expense is stamped with a permanent, unique reference (NG-YYYY-NNNNNNNN). Entries are append-only.",
-			"yearly_cycle": "Each December, the year closes with a frozen snapshot: total in, total out, net, top categories.",
-			"platform_donation": "Nativity Guard itself accepts donations for maintenance via a separate public endpoint.",
+			"unit_model": "A participating unit may publish account details. Visitors should verify payment recipients independently before transferring funds.",
+			"ledger":     "The platform stores financial activity records. The completeness and tamper resistance of a record requires independent audit.",
+			"yearly_cycle": "The platform describes annual financial summaries; availability and completeness depend on actual records.",
+			"platform_donation": "Platform support information is only displayed when returned by the configured backend service.",
 		},
 
 		"governance": gin.H{
@@ -92,16 +92,16 @@ func GetBlueprint(c *gin.Context) {
 		},
 
 		"how_to_use": []gin.H{
-			{"step": "1. Register", "detail": "Create a citizen account. No unit required."},
-			{"step": "2. Report", "detail": "File an incident with location and optional evidence links."},
-			{"step": "3. Track", "detail": "Watch your case move through the lifecycle, see weekly updates shared by the assigned officer."},
+			{"step": "1. Register", "detail": "Create a citizen account subject to eligibility and available terms."},
+			{"step": "2. Report", "detail": "Submit a report with location and available evidence where the service is accessible."},
+			{"step": "3. Track", "detail": "View updates if the receiving unit accepts and updates the case."},
 			{"step": "4. Rate", "detail": "After closure, rate the officer and the unit."},
-			{"step": "5. Join or host a unit", "detail": "Accept a unit invite, or host your own and grow it to 12+ members to activate governance."},
+			{"step": "5. Join or host a unit", "detail": "Ask about joining a participating unit; eligibility and governance depend on the unit's active policy."},
 		},
 
 		"contact": gin.H{
-			"support_email": "support@nativityguard.app",
-			"platform_url":  "https://nativityguard.app",
+			"support_email": "support@nativityguard.com",
+			"platform_url":  "https://nativityguard.com",
 		},
 	})
 }

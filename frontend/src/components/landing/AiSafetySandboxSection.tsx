@@ -24,53 +24,50 @@ interface PromptSample {
   safetyProtocol: string[]
 }
 
-const SAFETY_PRESETS: PromptSample[] = [
+/** Static UI examples, not live model responses or verified local facts. */
+export const SAFETY_PRESETS: PromptSample[] = [
   {
-    category: 'Conflict De-escalation',
-    prompt: 'What steps should our community take if cattle encroachment or boundary friction occurs?',
+    category: 'Check Information',
+    prompt: 'How can I tell whether a public safety alert is trustworthy?',
     factAnswer:
-      'Nativity Guard coordinates strictly lawful response and prohibits armed citizen confrontation. Ground truth facts are captured first before any enforcement.',
+      'An example response should encourage checking the publication date, location, issuing organisation, and trusted official information sources.',
     safetyProtocol: [
-      'Document boundary coordinates and timestamps without entering disputed agricultural zones',
-      'Notify the assigned Peacebuilding Committee mediator through your unit dashboard',
-      'Dispatch verified unit officers strictly in a peacekeeping and observation capacity',
-      'Do not mobilize informal armed groups or vigilantes; all actions remain on the auditable record',
+      'Check whether the alert identifies its source and date.',
+      'Cross-check with reliable official announcements before forwarding.',
+      'Treat urgent and unverified social messages with caution.',
     ],
   },
   {
-    category: 'Travel Safety',
-    prompt: 'How can market traders organize secure cooperative travel before dawn?',
+    category: 'Report Responsibly',
+    prompt: 'What information helps when reporting a non-urgent safety concern?',
     factAnswer:
-      'Early morning transit across rural LGA feeder roads carries elevated risk when vehicles travel in isolation.',
+      'Describe what you personally observed without presenting rumors as confirmed facts.',
     safetyProtocol: [
-      'Coordinate group convoy departures at designated verified unit checkpoints',
-      'Share convoy departure and ETA with the LGA channel',
-      'Keep your Emergency SOS button primed on 1-tap standby with location sharing active',
-      'Ensure at least one vehicle carries a verified unit contact radio or mobile terminal',
+      'Provide the approximate place and time when appropriate.',
+      'Distinguish what you saw from what other people told you.',
+      'Do not confront anyone or publish private identifying details.',
     ],
   },
   {
-    category: 'Officer Accreditation',
-    prompt: 'How do I verify if a security patrol officer is officially accredited?',
+    category: 'Privacy Basics',
+    prompt: 'How do I protect personal details when asking for safety advice?',
     factAnswer:
-      'All authorized officers carry verifiable digital credentials issued by their registered unit with supervisory approval.',
+      'Only share information needed for the question, and review the service privacy notice first.',
     safetyProtocol: [
-      'Request the officer’s 8-digit Nativity Guard badge ID (e.g. OFF-0482)',
-      'Look up the officer on your community unit roster; check their active duty tier',
-      'Accredited officers never demand cash spot-fines or confiscate property without a case tracking ID',
-      'If an individual refuses identification, file an immediate confidential sighting report',
+      'Avoid putting passwords, account numbers, addresses, or ID documents in an example question.',
+      'Read the published privacy policy before uploading media.',
+      'Use authorised support channels for privacy requests.',
     ],
   },
   {
-    category: 'Vigilante Protection',
-    prompt: 'What should our street committee do if unauthorized levies or vigilante actions are demanded?',
+    category: 'Urgent Help',
+    prompt: 'Can I rely on an app assistant in a real emergency?',
     factAnswer:
-      'Nativity Guard operates to dismantle fragmented vigilantism. No security unit is authorized to operate extortionate parallel justice.',
+      'No. A chatbot or in-app report is not a substitute for official emergency services.',
     safetyProtocol: [
-      'Check if the group is listed in the official Nativity Guard Security Units Directory',
-      'Legitimate units publish their verified bank details publicly and cannot force ad-hoc cash levies',
-      'File an anonymous report under the Extortion & Malpractice category',
-      'Unit leaders committing unlawful acts are subject to democratic revocation and statutory referral',
+      'For urgent help in Nigeria, call 112.',
+      'Follow advice from official emergency responders.',
+      'Do not assume a chat message automatically dispatches assistance.',
     ],
   },
 ]
@@ -88,8 +85,8 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
       type: 'ai_consultation',
       title: 'Consult AI Safety Advisor',
       description:
-        'Nativity Guard’s Living Local Intelligence provides personalized risk evaluations, case drafting assistance, and emergency safety checklists.',
-      badgeText: `Question: "${q.slice(0, 42)}..."`,
+        'Sign in to check whether the in-app assistant is available. Example answers on this page are static demonstrations, not verified real-time advice. For emergencies in Nigeria, call 112.',
+      badgeText: 'Example question — not submitted yet',
       returnUrl: '/assistant',
       payload: { initialQuestion: q },
     })
@@ -101,15 +98,15 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-hi px-3 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-border-hi">
             <Sparkles className="size-3.5 text-signal" aria-hidden />
-            Living Local Intelligence
+            Safety information examples
           </span>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Interactive AI Safety Advisor Sandbox
+            Explore Safety Questions
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            Nativity Guard learns <strong>facts before it learns models</strong>. Test our localized
-            safety advisory engine trained on peacebuilding protocols, de-escalation guidelines, and
-            rural Nigerian safety realities.
+            These are prewritten examples for learning how to ask safety questions. They are not
+            live AI-generated answers, verified incident intelligence, professional advice, or evidence
+            that an assistant is available in every area.
           </p>
         </div>
 
@@ -120,7 +117,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
             onClick={() => handleAskCustom()}
             icon={<Bot className="size-3.5 text-signal" />}
           >
-            Open Full Safety Assistant
+            Sign in to Check Assistant
           </Button>
         </div>
       </div>
@@ -148,10 +145,12 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
         {/* Preset Prompt Selection Cards */}
         <div className="space-y-2.5 lg:col-span-5">
           {SAFETY_PRESETS.map((item, idx) => (
-            <div
+            <button
+              type="button"
               key={item.prompt}
+              aria-pressed={selectedIdx === idx}
               onClick={() => setSelectedIdx(idx)}
-              className={`cursor-pointer rounded-panel border p-3.5 transition-all ${
+              className={`w-full text-left cursor-pointer rounded-panel border p-3.5 transition-all ${
                 selectedIdx === idx
                   ? 'border-signal bg-surface-hi shadow-panel'
                   : 'border-border bg-surface hover:border-border-hi'
@@ -168,7 +167,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
                   </span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
 
           {/* Quick Ask Input */}
@@ -177,7 +176,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
               <Input
                 value={customQuestion}
                 onChange={(e) => setCustomQuestion(e.target.value)}
-                placeholder="Ask any neighborhood safety question..."
+                placeholder="Type a general safety question (no personal details)..."
                 className="pr-10 text-xs"
               />
               <button
@@ -189,12 +188,12 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
               </button>
             </div>
             <p className="mt-1.5 text-[10px] text-ink-faint">
-              Press enter to consult with your authenticated account.
+              Your question is not sent by this example form. Sign-in is required to check the full assistant.
             </p>
           </form>
         </div>
 
-        {/* Live Grounded Response Display */}
+        {/* Static explanatory sample, not a live model output */}
         <div className="lg:col-span-7">
           <Card className="p-6 h-full flex flex-col justify-between">
             <div>
@@ -204,12 +203,12 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
                     <Shield className="size-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-ink">Nativity Guard Safety Intelligence</p>
-                    <p className="text-[10px] text-ink-faint">Verified Community Safety Protocol</p>
+                    <p className="text-xs font-semibold text-ink">Safety question example</p>
+                    <p className="text-[10px] text-ink-faint">Static educational sample — not verified live advice</p>
                   </div>
                 </div>
                 <span className="rounded bg-surface-hi px-2 py-0.5 text-[10px] text-ok font-medium">
-                  Facts Over Inferences
+                  Example, not a live response
                 </span>
               </div>
 
@@ -224,7 +223,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
               {/* Grounded Fact Statement */}
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Primary Grounding Fact
+                  Example explanation
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-ink bg-surface p-3 rounded border border-border">
                   {activePreset.factAnswer}
@@ -234,7 +233,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
               {/* Safety Protocols */}
               <div className="mt-5 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Recommended Community Actions
+                  General safety considerations
                 </p>
                 {activePreset.safetyProtocol.map((rule) => (
                   <div key={rule} className="flex items-start gap-2.5 text-xs text-ink-muted">
@@ -247,7 +246,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
 
             <div className="mt-6 border-t border-border pt-4 flex items-center justify-between">
               <span className="text-[11px] text-ink-faint">
-                Live Advisor Available 24/7
+                Real-time service availability is not guaranteed
               </span>
               <Button
                 variant="primary"
@@ -255,7 +254,7 @@ export function AiSafetySandboxSection({ onActionTrigger }: AiSafetySandboxSecti
                 onClick={() => handleAskCustom()}
                 icon={<Lock className="size-3.5" />}
               >
-                Sign In to Start Full Personalized Session
+                Sign in to Explore Assistant
               </Button>
             </div>
           </Card>
