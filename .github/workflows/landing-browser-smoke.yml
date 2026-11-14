@@ -1,0 +1,72 @@
+name: landing-browser-smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked application dependencies
+        run: npm ci
+      - name: Install isolated browser QA driver
+        run: npm install --no-save --package-lock=false --no-audit playwright@1.56.1
+      - name: Locate real Chrome, or install Chromium
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_BROWSER_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+            echo "Using preinstalled Google Chrome"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_BROWSER_EXECUTABLE=$(command -v chromium)" >> "$GITHUB_ENV"
+            echo "Using preinstalled Chromium"
+          else
+            echo "No system Chrome found; installing browser-only Playwright Chromium"
+            npx playwright install chromium
+          fi
+      - name: Start isolated Vite server
+        env:
+          VITE_USE_MOCKS: 'false'
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/ng-landing-vite.log 2>&1 &
+          for attempt in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              echo "Vite ready on localhost"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ng-landing-vite.log
+          exit 1
+      - name: Test desktop, mobile, dialogs, legal view and failed APIs
+        run: node scripts/landing-browser-smoke.mjs
+      - name: Check deployed public pages (read-only, non-blocking)
+        continue-on-error: true
+        env:
+          NG_LIVE_ORIGIN: https://nativityguard.com
+        run: node scripts/landing-live-readonly.mjs
+      - name: Save failure screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-browser-smoke-failure
+          path: |
+            frontend/landing-browser-smoke-failure.png
+            frontend/landing-live-readonly-failure.png
+          if-no-files-found: ignore
+      - name: Show Vite log on failure
+        if: failure()
+        run: cat /tmp/ng-landing-vite.log || true
