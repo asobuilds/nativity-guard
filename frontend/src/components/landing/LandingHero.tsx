@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Clock3, FileText, MapPin, PhoneCall, Search, ShieldCheck, ShieldAlert, UsersRound } from 'lucide-react'
-import { api } from '@/lib/apiClient'
-import type { SecurityUnit } from '@/types/api'
+import { usePublicUnits } from '@/hooks/usePublicUnits'
+import { publishedUnitCount } from '@/lib/publicLandingStats'
 import type { ActionContext } from './types'
 import type { LandingPanel } from './LandingNavbar'
 
@@ -11,16 +10,9 @@ export interface LandingHeroProps {
 }
 
 export function LandingHero({ onActionTrigger, onOpen }: LandingHeroProps) {
-  // Do not count the sample records in usePublicUnits as live verified operations.
-  const { data: verifiedCount } = useQuery({
-    queryKey: ['public', 'verified-landing-units-count'],
-    queryFn: async () => {
-      const response = await api.get<{ units: SecurityUnit[] }>('/public/units')
-      return (response.units ?? []).filter(unit => unit.status === 'active' && unit.isVerified).length
-    },
-    retry: false,
-    staleTime: 5 * 60_000,
-  })
+  // Share the published data source with the directory and map; never count demo records.
+  const { data: units, isPending: unitsPending, isError: unitsError } = usePublicUnits()
+  const unitStat = publishedUnitCount(units, unitsPending, unitsError)
 
   function report() {
     onActionTrigger({
@@ -43,9 +35,9 @@ export function LandingHero({ onActionTrigger, onOpen }: LandingHeroProps) {
   }
 
   const statistics = [
-    { icon: UsersRound, number: verifiedCount === undefined ? '—' : String(verifiedCount), label: 'Verified patrol units' },
-    { icon: MapPin, number: '36', label: 'Nigerian states' },
-    { icon: ShieldCheck, number: '2', label: 'Case closure approvals' },
+    { icon: UsersRound, number: unitStat.value, label: unitStat.label },
+    { icon: MapPin, number: 'By area', label: 'Availability varies by location' },
+    { icon: ShieldCheck, number: 'By unit', label: 'Case reviews depend on participating units' },
     { icon: Clock3, number: '112', label: 'National emergency line' },
   ]
 

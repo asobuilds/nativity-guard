@@ -17,7 +17,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Open | Both /terms documents load when API works; transparent failure state; published versions confirmed |
 | NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Open | Publish verified entity, contact and responsible controller details after legal review |
 | NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Review | Substantiate every strong statement or mark as a design goal; no false guarantees |
-| NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Review | Meaning and source of each statistic are evident and current |
+| NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Patched – awaiting browser QA | Shared API count labels platform verification; coverage and case review shown as variable, not nationwide performance stats |
 | NG-10 | P1 | Mobile drawer/popups not fully verified on Safari/Android, narrow screens and onscreen keyboards | Open | Test scroll, focus, all interactive controls, and accessible labels |
 | NG-11 | P1 | Public map/search/error behavior can obscure API errors or show false data | Patched in part – awaiting QA | Distinguish unavailable/no-match; no invented map or case entries; end-to-end tests |
 | NG-12 | P2 | Authentication popup action persistence, wrong credentials and cancellation need regression checks | Open | No stale pending action after failed login, close, or route change |
@@ -29,7 +29,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-18 | P1 | Public blueprint fallback embeds detailed security, encryption, and governance claims despite API failure | Open | Audit claims, remove unverifiable fallback, expose data failure transparently |
 | NG-19 | P1 | AI safety sandbox contains simulation language implying validated officer credentials/services | Open | Label scenario examples; remove unverified badges and officer/response guarantees |
 | NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Patched – awaiting QA | Do not represent a default map center as visitor GPS; show location not chosen |
-| NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
+| NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Patched – awaiting browser QA | Only show Copied after awaited clipboard promise; error toast on denial/missing API |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
 | NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
 
@@ -67,6 +67,16 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 - Mobile shared modal now scrolls within dynamic viewport height (`dvh`), with overscroll containment.
 - New Vitest coverage checks order, Tab wrapping and a simulated nested Escape/focus/scroll sequence.
 - Still required: real browser inspection on Chrome, Firefox, mobile Chrome and Safari; check repeated open/close, nested donate modal, Back/Forward and touch/keyboard behavior.
+
+## Statistics and clipboard integrity phase (draft PR)
+
+- Landing unit counts are computed from the same public API data as the map/directory rather than an extra competing fetch.
+- Distinguishes a genuine API result of 0 active platform-verified units from pending and unavailable API responses.
+- Removes fixed marketing-looking 36-state and two-approval statistics from the hero. They are replaced with conditional locality and case-review descriptions, not claims of geographic coverage or guaranteed case resolution.
+- Donation account Copy buttons now await the browser's clipboard API and show confirmation only when it resolves. Denied, absent, or insecure-context clipboard access produces an error notification and does not falsely mark the account number as copied.
+- Unit and platform donation panels share a small tested clipboard helper. Includes regression tests for pending, successful, rejected and absent clipboard operations.
+- Remaining QA: check visual alignment of text stats at mobile widths and test copy success/denial on HTTPS mobile Chrome, Safari, Firefox and desktop.
+- NG-23 npm security advisories remain open until exact affected dependency paths, versions and risk are identified; do not apply blanket `npm audit fix --force`.
 
 ## Manual acceptance matrix
 

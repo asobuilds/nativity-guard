@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/Toast'
 import { usePublicUnits } from '@/hooks/usePublicUnits'
 import { useGeoStates } from '@/hooks/useGeo'
 import { api } from '@/lib/apiClient'
+import { copyText } from '@/lib/copyText'
 import type { SecurityUnit } from '@/types/api'
 import type { ActionContext } from './types'
 
@@ -93,11 +94,15 @@ export function UnitsDirectorySection({ onActionTrigger }: UnitsDirectorySection
     }
   }
 
-  function handleCopy(text: string, key: string) {
-    void navigator.clipboard.writeText(text)
+  async function handleCopy(text: string, key: string) {
+    setCopiedKey(null)
+    if (!(await copyText(text))) {
+      notify('Could not copy the account number. Select and copy it manually.', 'error')
+      return
+    }
     setCopiedKey(key)
     notify('Account number copied to clipboard', 'success')
-    setTimeout(() => setCopiedKey(null), 2500)
+    setTimeout(() => setCopiedKey(current => current === key ? null : current), 2500)
   }
 
   function handleEnlist(unit: SecurityUnit) {
