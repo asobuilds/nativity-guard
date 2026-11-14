@@ -14,8 +14,8 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-03 | P0 | Fictional supporter wall and donations shown as confirmed | Patched – awaiting QA | Only server records appear; no data/error states disclosed |
 | NG-04 | P0 | SOS demo claims automatic dispatch, responder arrival, live GPS, benchmarks, and guarantees without independent evidence | Patched – awaiting QA | Guidance explicitly states non-emergency-service status; sign-in not confused with dispatch; call 112 advised |
 | NG-05 | P1 | Nested donation dialogs may allow a single Escape press to close both child and parent; focus may leak | Patched – awaiting browser QA | Shared dialog stack, child portal, topmost Escape/Tab manager and unit tests; manual desktop/mobile checks remain |
-| NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Open | Both /terms documents load when API works; transparent failure state; published versions confirmed |
-| NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Open | Publish verified entity, contact and responsible controller details after legal review |
+| NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Patched – awaiting browser/API QA | Independent requests, active document validation, retry and section anchors; verify live rendered versions |
+| NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Partially patched – identity evidence outstanding | Clearly disclose unverified identity; publish verified registered entity, controller and contact only after accountable review |
 | NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Review | Substantiate every strong statement or mark as a design goal; no false guarantees |
 | NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Review | Meaning and source of each statistic are evident and current |
 | NG-10 | P1 | Mobile drawer/popups not fully verified on Safari/Android, narrow screens and onscreen keyboards | Open | Test scroll, focus, all interactive controls, and accessible labels |
@@ -32,6 +32,8 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
 | NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
+| NG-24 | P1 | Terms API returned a static acceptance version potentially differing from active Terms document | Patched – awaiting Go regression checks | API response version equals the served active document version; signup acceptance remains consistent |
+| NG-25 | P0 | Existing Render Free Postgres expired on 2026-10-23, is suspended and makes backend fail startup | BLOCKED – recovery requires Render plan change | Upgrade existing database during grace period; preserve records; verify backend/API health before merges |
 
 ## Sequencing
 
@@ -67,6 +69,36 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 - Mobile shared modal now scrolls within dynamic viewport height (`dvh`), with overscroll containment.
 - New Vitest coverage checks order, Tab wrapping and a simulated nested Escape/focus/scroll sequence.
 - Still required: real browser inspection on Chrome, Firefox, mobile Chrome and Safari; check repeated open/close, nested donate modal, Back/Forward and touch/keyboard behavior.
+
+## Phase 3 implementation notes
+
+- Legal pages load Terms and Privacy independently. A failing request cannot erase a healthy companion document.
+- Documents are validated for kind/role, active status, content, version and effective date, with no synthetic legal text shown.
+- `/terms#terms` and `/terms#privacy` are direct document anchors from the footer and About page; both sections expose retry actions.
+- About page avoids guaranteed case/dispatch claims and accurately labels the in-app feedback link as sign-in-only.
+- Published support email remains a *listed* contact, not an independently verified mailbox.
+- The Go Terms handler now returns the current document's own version instead of a static version constant.
+- Render app logs showed HTTP 200 for both citizen Terms and Privacy GET requests on October 20–21, 2026, but the exact payload and their availability on October 23 have **not** been independently verified. Full live browser/API QA remains outstanding.
+- No legal identity, corporation registration, data controller, regulatory approval, or compliance status has been asserted without evidence.
+- See `docs/LEGAL_PUBLICATION_VERIFICATION_CHECKLIST.md` for evidence/owner requirements.
+- Previous Phase 1–2 PR #124 merged to main at 2026-10-23 09:15 UTC and Render frontend deployment is live. Phase 3 changes are on **separate draft PR #125**, not production.
+
+## Production browser observation — 23 October 2026
+
+- Real, read-only Chrome smoke testing of `https://nativityguard.com` confirmed the homepage, public Safety Map quick-view and About page loaded.
+- The existing production `/terms` route rendered its heading but stayed on **"Loading…" for more than 20 seconds**. Neither policy request had settled during the test window; the cause is not yet established.
+- **Release blocker:** cannot claim public Terms and Privacy contents are reliably available on production. This remains open until actual document content and versions load in a live browser.
+- Phase 3 draft PR #125 now renders each policy independently, displays a clear warning after 8 seconds, aborts a still-pending request after 30 seconds and offers retry. It does not insert made-up legal text.
+- These changes are draft-only until CI, review and deployment; they have **not** repaired the live site yet.
+- Backend availability, frontend API origin settings, DNS and CORS should be checked with actual browser network evidence before claiming a root cause.
+
+## P0 infrastructure blocker — database expired
+
+As of 2026-10-23, Nativity Guard's existing Render Free Postgres instance is suspended after expiration (suspender: billing). Backend startup repeatedly fails while resolving the database's internal hostname. The live public Terms page was observed stuck on a loading indicator because both terms requests remained pending. This is not resolved by a frontend PR.
+
+Render documentation allows a 14-day grace period to upgrade an expired Free database before deletion of its data. Recovery of the existing database and verification of backend health take priority over all other PR merges. No replacement database has been created.
+
+See `docs/RENDER_POSTGRES_EXPIRATION_RECOVERY_2026-10-23.md` for data-preserving recovery steps. The current connected Render tool does not offer changing the database compute plan; a workspace operator must use Render's dashboard. Do not place database secrets in the issue tracker.
 
 ## Manual acceptance matrix
 
