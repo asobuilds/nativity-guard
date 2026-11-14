@@ -1,0 +1,43 @@
+name: landing-browser-qa
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked frontend packages
+        run: npm ci
+      - name: Build production frontend with local API fixture routing
+        run: npm run build
+      - name: Install Playwright test runner without changing checked-in dependencies
+        run: npm install --no-save --no-package-lock @playwright/test
+      - name: Install Chromium browser and system libraries
+        run: npx playwright install --with-deps chromium
+      - name: Run desktop and mobile Chromium smoke tests
+        run: npx playwright test --config=e2e/playwright.config.mjs
+      - name: Attach test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-browser-qa-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
