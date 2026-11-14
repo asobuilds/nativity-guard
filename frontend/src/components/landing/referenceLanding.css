@@ -472,3 +472,30 @@
 @media (max-width: 650px) {
   .ng-ref-trust-footer { padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px)); }
 }
+
+/* Contextual API-availability warning — does not conceal the normal landing. */
+.ng-ref-service-notice {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 17px 22px;
+  background: #382518; color: #fff0d6;
+  border-bottom: 1px solid #a7793b;
+}
+.ng-ref-service-notice-icon { flex-shrink: 0; color: #f8cb7e; margin-top: 2px; }
+.ng-ref-service-notice-copy { flex: 1; min-width: 0; }
+.ng-ref-service-notice-copy strong { font-size: 14px; font-weight: 800; }
+.ng-ref-service-notice-copy p { margin: 5px 0 0; font-size: 12px; line-height: 1.65; color: #f5e2c4; }
+.ng-ref-service-notice-copy a { color: #ffe6a8; text-decoration: underline; text-underline-offset: 2px; font-weight: 800; }
+.ng-ref-service-retry {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; flex-shrink: 0; padding: 9px 12px; min-height: 40px;
+  background: #65452a; border: 1px solid #bb945a; color: #fff8e8;
+  border-radius: 9px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.ng-ref-service-retry:hover { background: #755333; }
+.ng-ref-service-retry:focus-visible { outline: 3px solid #f4ce78; outline-offset: 3px; }
+.ng-ref-service-retry:disabled { opacity: .65; cursor: progress; }
+@media (max-width: 600px) {
+  .ng-ref-service-notice { padding: 14px; gap: 10px; flex-wrap: wrap; }
+  .ng-ref-service-notice-copy { flex-basis: calc(100% - 34px); }
+  .ng-ref-service-retry { margin-left: 30px; }
+}
