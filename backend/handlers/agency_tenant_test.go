@@ -633,7 +633,7 @@ func TestAgencyTenantUnitLinkingAndCaseScope(t *testing.T) {
 		unlinkedUnit := makeOperationalUnit("Other Ikeja Police", "police", "Lagos", "Ikeja", true)
 		unlinkedCase := testutil.MakeCase(t, reporter, unlinkedUnit)
 
-		w := agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/"+linkedCase.ID.String(), adminToken, nil)
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/"+linkedCase.ID.String(), adminToken, nil)
 		requireAgencyStatus(t, w, http.StatusOK)
 
 		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/"+unlinkedCase.ID.String(), adminToken, nil)

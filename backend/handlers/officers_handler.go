@@ -70,7 +70,7 @@ func CreateOfficer(c *gin.Context) {
 	}
 
 	var input struct {
-		UnitID      string `json:"unitId" binding:"required"`
+		UserID      string `json:"userId" binding:"required"`
 		Name        string `json:"name" binding:"required"`
 		Rank        string `json:"rank" binding:"required"`
 		BadgeNumber string `json:"badgeNumber" binding:"required"`
@@ -84,9 +84,14 @@ func CreateOfficer(c *gin.Context) {
 		return
 	}
 
-	unitID, err := uuid.Parse(input.UnitID)
+	unitID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+	userID, err := uuid.Parse(input.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid officer user ID"})
 		return
 	}
 
@@ -95,24 +100,62 @@ func CreateOfficer(c *gin.Context) {
 		return
 	}
 
-	officer := models.Officer{
-		UnitID:      unitID,
-		Name:        input.Name,
-		Rank:        input.Rank,
-		BadgeNumber: input.BadgeNumber,
-		Role:        input.Role,
-		Phone:       input.Phone,
-		Email:       input.Email,
-		Status:      "active",
+	// Officer workflow authentication intentionally uses the officer record ID
+	// as the authenticated user's ID. Bind the roster record to an existing,
+	// active officer membership rather than creating an unloginable random ID.
+	var membership models.UnitMembership
+	if err := config.DB.
+		Where("unit_id = ? AND user_id = ? AND status = ? AND role = ?",
+			unitID, userID, models.MembershipActive, models.UnitRoleOfficer).
+		First(&membership).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "The selected user must have an active officer membership in this unit"})
+			return
 	}
-
-	if err := config.DB.Create(&officer).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create officer"})
+	var officerUser models.User
+	if err := config.DB.First(&officerUser, "id = ?", userID).Error; err != nil ||
+		officerUser.Status != "active" || officerUser.Role != "officer" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "The selected account is not an active officer account"})
 		return
 	}
 
+	var existing models.Officer
+	if err := config.DB.First(&existing, "id = ?", userID).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "This officer account already has an operational roster record"})
+		return
+	}
+
+	officer := models.Officer{
+		ID:            userID,
+		UnitID:        unitID,
+		Name:          input.Name,
+		Rank:          input.Rank,
+		BadgeNumber:   input.BadgeNumber,
+		UnitOfficerID: "NG-" + uuid.NewString()[:8],
+		Role:          input.Role,
+		Phone:         input.Phone,
+		Email:         input.Email,
+		Status:        "active",
+	}
+
+	if err := config.DB.Create(&officer).Error; err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Could not create the officer roster record; check that the account and badge are not already registered"})
+		return
+	}
+
+	auditSvc := services.NewAuditService()
+	_ = auditSvc.LogAction(
+		user.ID,
+		"officer.create",
+		"officer",
+		officer.ID.String(),
+		nil,
+		officer,
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Officer created successfully",
+		"message": "Officer account linked to the operational roster",
 		"officer": officer,
 	})
 }

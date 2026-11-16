@@ -234,3 +234,13 @@ Copy this block into a release record for each test cycle:
 - Technical sign-off:
 - Security sign-off:
 - Date:
+
+
+### Authenticated officer roster linking
+
+- [ ] Unit admin can create an officer roster record only for an existing active user with an active officer membership in that exact unit.
+- [ ] The officer roster record ID matches the authenticated officer user ID so dispatch, arrival, progress and panic authorization resolve the same identity.
+- [ ] A user with no officer membership, a pending/revoked membership, or a different-unit membership cannot be linked.
+- [ ] Duplicate officer account links and duplicate badge numbers are rejected without creating a second roster record.
+- [ ] Newly linked officers can be assigned to a case in their unit and dispatch it using their own authenticated session.
+- [ ] A citizen, observer, agency admin or unrelated unit member cannot create officer roster records.
