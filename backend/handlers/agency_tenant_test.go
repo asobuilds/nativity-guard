@@ -648,5 +648,14 @@ func TestAgencyTenantUnitLinkingAndCaseScope(t *testing.T) {
 		if len(response.Cases) != 1 || response.Cases[0].ID != linkedCase.ID {
 			t.Fatalf("agency case queue should contain only linked unit case %s, got %+v", linkedCase.ID, response.Cases)
 		}
+
+		w = agencyJSONRequest(t, server, http.MethodPut, "/api/v1/cases/"+linkedCase.ID.String(), adminToken, map[string]any{"status": "closed"})
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodPost, "/api/v1/cases/"+linkedCase.ID.String()+"/assign", adminToken, map[string]any{"officerId": uuid.NewString(), "role": "primary"})
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/analytics", adminToken, nil)
+		requireAgencyStatus(t, w, http.StatusForbidden)
 	})
 }
