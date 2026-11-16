@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useAuth } from '@/auth/AuthContext'
 import {
   Activity,
   FolderKanban,
@@ -19,6 +20,7 @@ import {
   observerStatusTone,
 } from '@/lib/observer'
 import { relativeTime } from '@/lib/format'
+import { AgencyTeamPanel } from '@/components/agency/AgencyTeamPanel'
 
 function Metric({
   label,
@@ -63,6 +65,7 @@ function UnitSkeleton() {
 }
 
 export function ObserverDashboardPage() {
+  const { role } = useAuth()
   const incidents = useObserverIncidents()
   const units = useObserverUnits()
 
@@ -113,6 +116,8 @@ export function ObserverDashboardPage() {
           icon={<FolderKanban className="size-5" aria-hidden />}
         />
       </div>
+
+      {role === 'agency_division_admin' ? <AgencyTeamPanel /> : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
