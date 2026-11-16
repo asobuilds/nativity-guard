@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Chips'
 import { useGeoStates, useGeoLgas } from '@/hooks/useGeo'
 import { useUnits } from '@/hooks/useUnits'
+import { getEligibleAgencyUnits } from '@/lib/agency'
 import type { AgencyType } from '@/hooks/useAgencyTenants'
 import { useAgencyTenants, useCreateAgencyTenant, useAssignAgencyAdmin, useLinkAgencyTenantUnit } from '@/hooks/useAgencyTenants'
 
@@ -38,12 +39,10 @@ export function SuperAgencyManagementPage() {
   const [rank, setRank] = useState('')
   const lgas = useGeoLgas(state)
   const linkingTenant = tenants.data?.tenants.find((tenant) => tenant.id === linkOpen)
-  const eligibleUnits = (units.data ?? []).filter((unit) =>
-    unit.isVerified && unit.status === 'active' &&
-    unit.type.toLowerCase() === linkingTenant?.agencyType &&
-    unit.state?.toLowerCase() === linkingTenant?.state.toLowerCase() &&
-    unit.lga?.toLowerCase() === linkingTenant?.lga.toLowerCase() &&
-    !tenants.data?.tenants.some((tenant) => tenant.unitId === unit.id),
+  const eligibleUnits = getEligibleAgencyUnits(
+    units.data ?? [],
+    linkingTenant,
+    tenants.data?.tenants.flatMap((tenant) => tenant.unitId ? [tenant.unitId] : []) ?? [],
   )
 
   function submitCreate() {
