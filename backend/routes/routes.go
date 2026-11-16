@@ -546,6 +546,7 @@ func SetupRoutes(router *gin.Engine) {
 			super.GET("/agency-tenants", handlers.ListAgencyTenants)
 			super.POST("/agency-tenants", handlers.CreateAgencyTenant)
 			super.POST("/agency-tenants/:id/admin", handlers.AssignAgencyDivisionAdmin)
+			super.POST("/agency-tenants/:id/unit", handlers.LinkAgencyTenantUnit)
 		}
 
 		superAdmin := api.Group("/admin")
