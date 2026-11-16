@@ -201,6 +201,14 @@ func CanAccessUnit(c *gin.Context) {
 // DenyAgencyAdminCaseMutation keeps agency division oversight read-only until
 // an explicit, audited agency-to-officer assignment workflow is implemented.
 func DenyAgencyAdminCaseMutation(c *gin.Context) {
+	userValue, exists := c.Get("user")
+	if exists {
+		if user, ok := userValue.(*models.User); ok && user.Role == models.RoleAgencyDivisionAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Agency division access is read-only for this operation"})
+			c.Abort()
+			return
+		}
+	}
 	if c.GetString("case_access_level") == "agency_admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Agency division access is read-only for this operation"})
 		c.Abort()
