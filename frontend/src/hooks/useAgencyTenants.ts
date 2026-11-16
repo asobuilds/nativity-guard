@@ -22,6 +22,28 @@ export interface AgencyTenant {
   admin?: AgencyAdmin
 }
 
+export interface AgencyObserver {
+  id: string
+  userId: string
+  tenantId: string
+  rank: string
+  createdAt: string
+  email: string
+  phone: string
+  firstName: string
+  lastName: string
+  status: string
+}
+
+export interface CreateAgencyObserverInput {
+  email: string
+  phone: string
+  firstName: string
+  lastName: string
+  password: string
+  rank?: string
+}
+
 export function useAgencyTenants() {
   return useQuery({
     queryKey: ['agency-tenants'],
@@ -47,5 +69,24 @@ export function useAssignAgencyAdmin() {
         rank: input.rank || 'Division Admin',
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agency-tenants'] }),
+  })
+}
+
+/** Agency observers are always returned from the caller's server-resolved tenant. */
+export function useAgencyObservers() {
+  return useQuery({
+    queryKey: ['agency-observers'],
+    queryFn: () => api.get<{ observers: AgencyObserver[] }>('/agency/observers'),
+    staleTime: 30_000,
+  })
+}
+
+/** Creates an observer inside the authenticated division admin's tenant only. */
+export function useCreateAgencyObserver() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateAgencyObserverInput) =>
+      api.post('/agency/observers', input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agency-observers'] }),
   })
 }
