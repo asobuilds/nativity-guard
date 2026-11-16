@@ -268,6 +268,18 @@ func GetAllCases(c *gin.Context) {
 		query = query.Where("unit_id = ?", userObj.UnitID)
 	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
 		query = query.Where("unit_id = ?", userObj.UnitID)
+	} else if userObj.Role == models.RoleAgencyDivisionAdmin {
+		var observer models.AgencyObserver
+		if err := config.DB.Where("user_id = ?", userObj.ID).First(&observer).Error; err != nil {
+			query = query.Where("1 = 0")
+		} else {
+			var tenant models.AgencyTenant
+			if err := config.DB.First(&tenant, "id = ?", observer.TenantID).Error; err != nil || tenant.UnitID == nil {
+				query = query.Where("1 = 0")
+			} else {
+				query = query.Where("unit_id = ?", *tenant.UnitID)
+			}
+		}
 	}
 
 	if err := query.Find(&cases).Error; err != nil {
