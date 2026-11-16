@@ -35,9 +35,9 @@ Copy this block into a release record for each test cycle:
 
 ## 1. Build, CI and deployment readiness
 
-- [ ] `backend-ci` passes on the exact release commit.
-- [ ] `frontend-ci` passes on the exact release commit.
-- [ ] `integration-race` passes on the exact release commit.
+- [x] `backend-ci` passes on the exact release commit (13ee2edde0f88028a02d5eefa55f1cfd77de6535; run 43887298427).
+- [x] `frontend-ci` passes on the exact release commit (13ee2edde0f88028a02d5eefa55f1cfd77de6535; run 43887298196).
+- [x] `integration-race` passes on the exact release commit (13ee2edde0f88028a02d5eefa55f1cfd77de6535; run 43887298361).
 - [ ] All other required repository checks pass; no required check is missing or skipped unexpectedly.
 - [ ] Backend starts cleanly with production-like configuration.
 - [ ] Frontend builds and loads without console errors.
@@ -244,3 +244,60 @@ Copy this block into a release record for each test cycle:
 - [ ] Duplicate officer account links and duplicate badge numbers are rejected without creating a second roster record.
 - [ ] Newly linked officers can be assigned to a case in their unit and dispatch it using their own authenticated session.
 - [ ] A citizen, observer, agency admin or unrelated unit member cannot create officer roster records.
+
+
+---
+
+## Test execution record — 2026-11-16
+
+- Environment: GitHub Actions CI on the pushed `main` commit.
+- Main commit SHA: `13ee2edde0f88028a02d5eefa55f1cfd77de6535`.
+- Backend/frontend versions: exact versions defined by the workflow files at this commit.
+- Result: **AUTOMATED CI PASS; MANUAL STAGING ACCEPTANCE BLOCKED / NOT RUN**.
+- No automated check failures were reported for this commit.
+
+### Automated results
+
+| Workflow | Run | Result | Verified steps |
+|---|---:|---|---|
+| backend-ci | [43887298427](https://github.com/asobuilds/nativity-guard/actions/runs/43887298427) | PASS | Build, vet, unit tests |
+| frontend-ci | [43887298196](https://github.com/asobuilds/nativity-guard/actions/runs/43887298196) | PASS | Install dependencies, type check, lint, tests, build |
+| integration-race | [43887298361](https://github.com/asobuilds/nativity-guard/actions/runs/43887298361) | PASS | Integration suite with race detector, services integration suite with race detector, concurrency test x3, fuzz smoke (30s per target) |
+
+### Manual officer-account linking and dispatch acceptance
+
+**Status: BLOCKED — NOT EXECUTED.** A staging API/frontend URL, isolated test database, and synthetic admin/officer accounts were not available to this test run. These are not recorded as failures because the tests were not attempted. Execute them in staging and attach sanitized request/response evidence before marking any as passed.
+
+- [blocked] Unit administrator links an existing active officer account with active officer membership in the exact unit.
+- [blocked] A user with no officer membership is rejected.
+- [blocked] A user whose membership is pending is rejected.
+- [blocked] A user whose membership is revoked is rejected.
+- [blocked] A user who belongs only to a different unit is rejected.
+- [blocked] A user whose account role is not officer is rejected.
+- [blocked] Duplicate roster/account linking is rejected and does not create a second roster entry.
+- [blocked] The created roster record ID matches the authenticated officer account ID.
+- [blocked] The linked officer can sign in, receive an assignment in their own unit, and dispatch using their own authenticated session.
+- [blocked] An unrelated officer, citizen, observer, agency admin, or other unauthorized user cannot create roster links or dispatch the case.
+- [blocked] The audit record captures the authorized actor and roster-linking action.
+
+### Other release gates not exercised by this CI run
+
+**Status: BLOCKED / NOT RUN — staging, real browser/device, database administration, push configuration, and human test participants are required.**
+
+- [blocked] Agency observer team-management journeys and tenant-isolation checks in a browser against staging.
+- [blocked] Agency-to-unit linking, jurisdiction mismatch, duplicate link, and scoped case visibility checks against staging PostgreSQL.
+- [blocked] Agency admin assignment/dispatch denial and cross-agency/cross-LGA/cross-state authorization checks.
+- [blocked] Citizen locality/LGA/state chat room membership, history pagination, refresh, offline/reconnect, and mobile layout.
+- [blocked] Citizen-to-security private conversation membership, guessed-ID access denial, participant revocation, and private-content leakage checks.
+- [blocked] Security operational room and task-force membership revocation and authorization checks.
+- [blocked] Report, block, moderation jurisdiction, moderator audit trail, and abuse/rate-limit acceptance.
+- [blocked] In-app notification navigation, polling fallback, browser Web Push with configured VAPID keys, and expired/denied subscription handling.
+- [blocked] Empty-database and previous-schema PostgreSQL migration runs, rollback/forward recovery, backup and restore.
+- [blocked] Browser/device acceptance on desktop, Android and iOS, keyboard navigation, screen-reader semantics, and accessibility review.
+- [blocked] Production-like configuration, secrets management, deployment health/readiness, rollback rehearsal, and human sign-off.
+
+### Failure log
+
+- Automated failures on commit `13ee2edde0f88028a02d5eefa55f1cfd77de6535`: **none**.
+- Manual failures: **none recorded; manual tests above were not run**.
+- Follow-up: provision an isolated staging environment and synthetic test accounts, execute the blocked cases, and record actual failures with reproduction steps and sanitized evidence here. Do not change a blocked item to passed based on CI alone.
