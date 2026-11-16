@@ -301,3 +301,36 @@ Copy this block into a release record for each test cycle:
 - Automated failures on commit `13ee2edde0f88028a02d5eefa55f1cfd77de6535`: **none**.
 - Manual failures: **none recorded; manual tests above were not run**.
 - Follow-up: provision an isolated staging environment and synthetic test accounts, execute the blocked cases, and record actual failures with reproduction steps and sanitized evidence here. Do not change a blocked item to passed based on CI alone.
+
+
+---
+
+## Follow-up test execution — 2026-11-16 (site availability and latest main CI)
+
+- Main commit under test before this record: `7f63b18df366f97ecb03499d13a1ba15e4659b2c`.
+- Reported issue: user reports that the deployed Nativity Guard website cannot be reached.
+- Frontend URL checked: https://nativityguard-frontend.onrender.com/.
+- External page probe: URL did not load through the available page fetcher. This does not identify the root cause or prove that every user's browser receives the same failure.
+- Render platform status page reported all systems operational and no incident for 2026-11-16. Platform-wide outage is therefore not currently supported by the available evidence.
+- Deployment result: **BLOCKED — site availability smoke test cannot be completed; investigate the specific Render static-site deployment, custom service events, and deployment logs.** Do not mark the whole application healthy based on CI.
+
+### Latest main CI results (commit `7f63b18df366f97ecb03499d13a1ba15e4659b2c`)
+
+| Workflow | Run | Result at review | Notes |
+|---|---:|---|---|
+| backend-ci | [43889845969](https://github.com/asobuilds/nativity-guard/actions/runs/43889845969) | PASS | Backend job completed successfully. |
+| frontend-ci | [43889846025](https://github.com/asobuilds/nativity-guard/actions/runs/43889846025) | PASS | Frontend job completed successfully. |
+| integration-race | [43889845885](https://github.com/asobuilds/nativity-guard/actions/runs/43889845885) | IN PROGRESS | Race integration job had not completed at the time this record was written; do not count it as passed. |
+
+### Failed or blocked acceptance checks
+
+- [blocked] Open the deployed frontend at https://nativityguard-frontend.onrender.com/ and verify that the landing/login page loads. User reports “site cannot be reached”; independent page probe also could not retrieve it. Root cause is undetermined; check the Render service's current status, latest deployment, domain assignment, build output, and static-site logs.
+- [blocked] Verify frontend-to-backend connectivity against the deployed backend, including the backend `/health` endpoint and browser network/console errors. Do not expose secrets or tokens in evidence.
+- [blocked] Complete the previously listed staging acceptance tests for agency administration, officer account linking/dispatch, geographic chat, private citizen-security messaging, moderation, notifications, migrations/backups, security, and mobile/accessibility. The deployment URL being unavailable prevents end-to-end execution; these are blocked, not passed.
+
+### Historical CI failures that were repaired
+
+- [x] PR #177 integration-race failed during the agency oversight branch checks; the follow-up repair commit `a0aa7149c585d718df5e9d05c4f0b7d3b003d99e` passed backend and frontend CI, but its integration-race run remained a recorded failure at that branch revision. See [failed run 43882206377](https://github.com/asobuilds/nativity-guard/actions/runs/43882206377). The repair was incorporated before the later main release commit; the main release's integration-race run is tracked separately above.
+- [x] PR #178 integration-race failed on the earlier head `a67fc0f8166638e0e0849b0b825461929517c85a`; the issue was the duplicate response-recorder declaration in `backend/handlers/agency_tenant_test.go`. It was corrected in `cd3edc01a1823649ec467554d4660b9496771f19`, after which the branch integration-race run passed. See [initial failed run 43884034357](https://github.com/asobuilds/nativity-guard/actions/runs/43884034357) and [repaired run 43885174812](https://github.com/asobuilds/nativity-guard/actions/runs/43885174812).
+
+- Follow-up required: once the Render deployment is reachable, rerun the blocked smoke and end-to-end checks, capture the exact error and sanitized logs, and update this section with PASS/FAIL and evidence. A blocked test is not a failure until it is actually executed and fails.
