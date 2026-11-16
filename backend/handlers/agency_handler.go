@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -40,6 +41,10 @@ type assignAgencyDivisionAdminInput struct {
 	Rank   string `json:"rank"`
 }
 
+type linkAgencyUnitInput struct {
+	UnitID string `json:"unitId" binding:"required"`
+}
+
 type agencyTenantAdminSummary struct {
 	UserID    uuid.UUID `json:"userId"`
 	Email     string    `json:"email"`
@@ -55,6 +60,7 @@ type agencyTenantItem struct {
 	State        string                    `json:"state"`
 	LGA          string                    `json:"lga"`
 	DivisionName string                    `json:"divisionName"`
+	UnitID       *uuid.UUID                `json:"unitId,omitempty"`
 	CreatedAt    time.Time                 `json:"createdAt"`
 	UpdatedAt    time.Time                 `json:"updatedAt"`
 	Admin        *agencyTenantAdminSummary `json:"admin,omitempty"`
@@ -175,6 +181,7 @@ func ListAgencyTenants(c *gin.Context) {
 			State:        t.State,
 			LGA:          t.LGA,
 			DivisionName: t.DivisionName,
+			UnitID:       t.UnitID,
 			CreatedAt:    t.CreatedAt,
 			UpdatedAt:    t.UpdatedAt,
 		}
@@ -446,3 +453,85 @@ func agencyUserSummary(user models.User) gin.H {
 		"status":    user.Status,
 	}
 }
+
+
+// LinkAgencyTenantUnit binds a division to one verified operational unit.
+// The unit must match the tenant's agency type and exact state/LGA jurisdiction.
+func LinkAgencyTenantUnit(c *gin.Context) {
+	tenantID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agency tenant ID"})
+		return
+	}
+
+	var input linkAgencyUnitInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unitId is required"})
+		return
+	}
+	unitID, err := uuid.Parse(strings.TrimSpace(input.UnitID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid operational unit ID"})
+		return
+	}
+
+	err = config.DB.Transaction(func(tx *gorm.DB) error {
+		var tenant models.AgencyTenant
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&tenant, "id = ?", tenantID).Error; err != nil {
+			return err
+		}
+		var unit models.SecurityUnit
+		if err := tx.First(&unit, "id = ?", unitID).Error; err != nil {
+			return err
+		}
+		if !unit.IsVerified || !strings.EqualFold(strings.TrimSpace(unit.Status), "active") {
+			return errAgencyUnitNotVerified
+		}
+		if !strings.EqualFold(strings.TrimSpace(unit.Type), tenant.AgencyType) {
+			return errAgencyUnitTypeMismatch
+		}
+		if !strings.EqualFold(strings.TrimSpace(unit.State), strings.TrimSpace(tenant.State)) ||
+			!strings.EqualFold(strings.TrimSpace(unit.LGA), strings.TrimSpace(tenant.LGA)) {
+			return errAgencyUnitJurisdictionMismatch
+		}
+
+		var existing models.AgencyTenant
+		if err := tx.Where("unit_id = ? AND id <> ?", unit.ID, tenant.ID).First(&existing).Error; err == nil {
+			return errAgencyUnitAlreadyLinked
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		tenant.UnitID = &unit.ID
+		return tx.Model(&tenant).Update("unit_id", unit.ID).Error
+	})
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "Agency tenant or operational unit not found"})
+		return
+	case errors.Is(err, errAgencyUnitNotVerified):
+		c.JSON(http.StatusConflict, gin.H{"error": "Only active, verified operational units can be linked"})
+		return
+	case errors.Is(err, errAgencyUnitTypeMismatch):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Operational unit type does not match the agency division"})
+		return
+	case errors.Is(err, errAgencyUnitJurisdictionMismatch):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Operational unit must have the same state and LGA as the agency division"})
+		return
+	case errors.Is(err, errAgencyUnitAlreadyLinked):
+		c.JSON(http.StatusConflict, gin.H{"error": "Operational unit is already linked to another agency division"})
+		return
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to link operational unit"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Agency division linked to operational unit", "tenantId": tenantID, "unitId": unitID})
+}
+
+var (
+	errAgencyUnitNotVerified = errors.New("agency unit is not active and verified")
+	errAgencyUnitTypeMismatch = errors.New("agency unit type mismatch")
+	errAgencyUnitJurisdictionMismatch = errors.New("agency unit jurisdiction mismatch")
+	errAgencyUnitAlreadyLinked = errors.New("agency unit already linked")
+)
