@@ -159,6 +159,54 @@ Copy this block into a release record for each test cycle:
 - [ ] No open critical/high severity defects remain without explicit risk acceptance.
 - [ ] Product owner and technical/security reviewer approve the release.
 
+
+## Phase 1 — Agency and field-officer operations
+
+### Agency division administration and team management
+
+- [ ] Agency division admin lands on the agency oversight portal; agency observers cannot see or use team-management controls.
+- [ ] Division admin can list only observer accounts attached to their server-resolved agency tenant.
+- [ ] Division admin can create an observer with valid name, email, phone, rank and temporary password.
+- [ ] Missing names, invalid email, missing phone and passwords shorter than six characters are rejected before submission.
+- [ ] Duplicate email/phone conflicts are shown clearly; retry does not create duplicate accounts.
+- [ ] A newly created observer appears after the roster refresh and can authenticate with the issued credentials.
+- [ ] A division admin cannot create or list observers in another tenant by changing request data or identifiers.
+- [ ] An observer cannot call observer-management endpoints, even when bypassing the frontend.
+- [ ] Team roster errors, loading, empty state and successful creation are usable on desktop and mobile.
+- [ ] Temporary credentials are not written to logs, browser storage, analytics or the release test evidence.
+
+### Agency operational visibility
+
+- [ ] Agency incident feed is limited to the tenant's exact state and LGA.
+- [ ] Agency-type category filtering is enforced server-side (police, NSCDC, fire and FRSC).
+- [ ] Out-of-jurisdiction incidents and units never appear in the response.
+- [ ] Observer descriptions redact contact details, precise coordinates, URLs and suspected personal names.
+- [ ] Active SOS, open-case and responding-unit totals match the synthetic staging records.
+- [ ] Pagination, empty results, refresh and API failure states behave correctly.
+
+### Field-officer and dispatch workflow
+
+- [ ] Unit administrators can see only the roster of units they administer.
+- [ ] Officer roster creation, update, deactivation and deletion enforce unit-admin authorization.
+- [ ] An administrator can assign a primary officer and supporting officers only from the case's own unit.
+- [ ] An officer cannot view or act on a case assigned to another officer without an explicit assignment.
+- [ ] Assigned officer can dispatch a case and the status/timestamp are persisted.
+- [ ] Arrival is accepted only within the configured 200 m geofence when case coordinates exist.
+- [ ] An officer cannot dispatch, arrive, or submit progress for a case outside their assignment.
+- [ ] Case progress, evidence, weekly updates and final-report submission remain attached to the correct case.
+- [ ] Administrator review/approval is required before closure where the workflow requires it.
+- [ ] Reassignment, removed officer access, duplicate assignment requests and concurrent updates are tested.
+- [ ] Officer queue and case workspace work on narrow mobile screens and with keyboard navigation.
+
+### Agency-to-unit operational integration — required follow-on gate
+
+- [ ] Agency tenant-to-operational-unit relationship is explicitly modelled and migration-tested before agency admins can assign field officers.
+- [ ] Agency admin case visibility is derived from the tenant's authorized jurisdiction and agency category on the server.
+- [ ] Agency admin cannot assign officers outside the linked unit or tenant jurisdiction.
+- [ ] Agency assignment, dispatch and escalation actions are audited with actor, target, scope and timestamp.
+- [ ] Cross-agency, cross-LGA and cross-state assignment attempts are denied.
+- [ ] Agency access does not grant access to private citizen/security conversations or unrelated unit operational rooms.
+
 ## Release decision
 
 **Do not mark the release ready solely because CI is green.** Release readiness requires passing automated checks, staging integration tests, authorization/security tests, database verification, and human acceptance.
