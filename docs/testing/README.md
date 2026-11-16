@@ -179,6 +179,8 @@ Copy this block into a release record for each test cycle:
 ### Agency-to-operational-unit linking and scoped case oversight
 
 - [ ] Super admin can link an agency division only to an active, verified operational unit.
+- [ ] Frontend eligible-unit selector filters by active status, verification, agency type, exact state/LGA and already-linked unit IDs.
+- [ ] Frontend unit-selector tests cover matching, mismatched agency/jurisdiction, inactive/unverified, already-linked and no-tenant states.
 - [ ] Linking rejects an agency-type mismatch (police, NSCDC, fire or FRSC).
 - [ ] Linking rejects state or LGA mismatch; matching is case-insensitive but jurisdiction values must otherwise agree.
 - [ ] One operational unit cannot be linked to more than one agency division.
