@@ -533,3 +533,129 @@ func TestAgencyTenancyEndpoints(t *testing.T) {
 		}
 	})
 }
+
+
+// TestAgencyTenantUnitLinkingAndCaseScope verifies the super-admin link workflow,
+// exact jurisdiction/type checks, one-tenant-per-unit constraint and agency case isolation.
+func TestAgencyTenantUnitLinkingAndCaseScope(t *testing.T) {
+	testutil.TruncateAll(t)
+	defer testutil.TruncateAll(t)
+
+	server := FreshServer(t)
+	superAdmin := testutil.MakeUser(t, models.RoleSuperAdmin)
+	superToken := testutil.AuthHeader(t, superAdmin)
+	divisionAdmin := testutil.MakeUser(t, models.RoleCitizen)
+	adminToken := testutil.AuthHeader(t, divisionAdmin)
+	tenant := createAgencyTenantForTest(t, server, superToken, "police", "Ikeja Police Division")
+
+	makeOperationalUnit := func(name, unitType, state, lga string, verified bool) *models.SecurityUnit {
+		t.Helper()
+		unit := &models.SecurityUnit{
+			Name: name + "-" + uuid.NewString()[:8],
+			Type: unitType, State: state, LGA: lga,
+			Status: "active", IsVerified: verified,
+			RegistrationNumber: "REG-" + uuid.NewString()[:8],
+		}
+		if err := testutil.GetDB().Create(unit).Error; err != nil {
+			t.Fatalf("create operational unit: %v", err)
+		}
+		return unit
+	}
+
+	linkedUnit := makeOperationalUnit("Ikeja Police", "police", "Lagos", "Ikeja", true)
+	w := agencyJSONRequest(t, server, http.MethodPost,
+		"/api/v1/super/agency-tenants/"+tenant.ID.String()+"/unit",
+		superToken, map[string]any{"unitId": linkedUnit.ID.String()})
+	requireAgencyStatus(t, w, http.StatusOK)
+
+	var reloadedTenant models.AgencyTenant
+	if err := testutil.GetDB().First(&reloadedTenant, "id = ?", tenant.ID).Error; err != nil {
+		t.Fatalf("reload linked tenant: %v", err)
+	}
+	if reloadedTenant.UnitID == nil || *reloadedTenant.UnitID != linkedUnit.ID {
+		t.Fatalf("tenant unit link = %v, want %s", reloadedTenant.UnitID, linkedUnit.ID)
+	}
+
+	t.Run("rejects non-super-admin linking", func(t *testing.T) {
+		otherTenant := createAgencyTenantForTest(t, server, superToken, "police", "Other Ikeja Division")
+		w := agencyJSONRequest(t, server, http.MethodPost,
+			"/api/v1/super/agency-tenants/"+otherTenant.ID.String()+"/unit",
+			adminToken, map[string]any{"unitId": linkedUnit.ID.String()})
+		requireAgencyStatus(t, w, http.StatusForbidden)
+	})
+
+	t.Run("rejects linking one unit to multiple divisions", func(t *testing.T) {
+		otherTenant := createAgencyTenantForTest(t, server, superToken, "police", "Second Ikeja Division")
+		w := agencyJSONRequest(t, server, http.MethodPost,
+			"/api/v1/super/agency-tenants/"+otherTenant.ID.String()+"/unit",
+			superToken, map[string]any{"unitId": linkedUnit.ID.String()})
+		requireAgencyStatus(t, w, http.StatusConflict)
+	})
+
+	t.Run("rejects agency type mismatch", func(t *testing.T) {
+		fireTenant := createAgencyTenantForTest(t, server, superToken, "fire", "Ikeja Fire Division")
+		wrongTypeUnit := makeOperationalUnit("Ikeja NSCDC", "nscdc", "Lagos", "Ikeja", true)
+		w := agencyJSONRequest(t, server, http.MethodPost,
+			"/api/v1/super/agency-tenants/"+fireTenant.ID.String()+"/unit",
+			superToken, map[string]any{"unitId": wrongTypeUnit.ID.String()})
+		requireAgencyStatus(t, w, http.StatusBadRequest)
+	})
+
+	t.Run("rejects geographic mismatch", func(t *testing.T) {
+		otherLGATenant := createAgencyTenantForTest(t, server, superToken, "police", "Surulere Police Division")
+		wrongLGAUnit := makeOperationalUnit("Surulere Police", "police", "Lagos", "Surulere", true)
+		w := agencyJSONRequest(t, server, http.MethodPost,
+			"/api/v1/super/agency-tenants/"+otherLGATenant.ID.String()+"/unit",
+			superToken, map[string]any{"unitId": wrongLGAUnit.ID.String()})
+		requireAgencyStatus(t, w, http.StatusBadRequest)
+	})
+
+	t.Run("rejects unverified operational unit", func(t *testing.T) {
+		unverifiedTenant := createAgencyTenantForTest(t, server, superToken, "police", "Unverified Division")
+		unverifiedUnit := makeOperationalUnit("Unverified Police", "police", "Lagos", "Ikeja", false)
+		w := agencyJSONRequest(t, server, http.MethodPost,
+			"/api/v1/super/agency-tenants/"+unverifiedTenant.ID.String()+"/unit",
+			superToken, map[string]any{"unitId": unverifiedUnit.ID.String()})
+		requireAgencyStatus(t, w, http.StatusConflict)
+	})
+
+	t.Run("agency division admin sees only linked unit cases", func(t *testing.T) {
+		w := assignAgencyDivisionAdminForTest(t, server, superToken, tenant.ID, divisionAdmin.ID, "")
+		requireAgencyStatus(t, w, http.StatusOK)
+		var currentAdmin models.User
+		if err := testutil.GetDB().First(&currentAdmin, "id = ?", divisionAdmin.ID).Error; err != nil {
+			t.Fatalf("reload division admin: %v", err)
+		}
+		adminToken = testutil.AuthHeader(t, &currentAdmin)
+
+		reporter := testutil.MakeUser(t, models.RoleCitizen)
+		linkedCase := testutil.MakeCase(t, reporter, linkedUnit)
+		unlinkedUnit := makeOperationalUnit("Other Ikeja Police", "police", "Lagos", "Ikeja", true)
+		unlinkedCase := testutil.MakeCase(t, reporter, unlinkedUnit)
+
+		w := agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/"+linkedCase.ID.String(), adminToken, nil)
+		requireAgencyStatus(t, w, http.StatusOK)
+
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/"+unlinkedCase.ID.String(), adminToken, nil)
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases", adminToken, nil)
+		requireAgencyStatus(t, w, http.StatusOK)
+		var response struct { Cases []models.Case `json:"cases"` }
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatalf("decode agency case queue: %v", err)
+		}
+		if len(response.Cases) != 1 || response.Cases[0].ID != linkedCase.ID {
+			t.Fatalf("agency case queue should contain only linked unit case %s, got %+v", linkedCase.ID, response.Cases)
+		}
+
+		w = agencyJSONRequest(t, server, http.MethodPut, "/api/v1/cases/"+linkedCase.ID.String(), adminToken, map[string]any{"status": "closed"})
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodPost, "/api/v1/cases/"+linkedCase.ID.String()+"/assign", adminToken, map[string]any{"officerId": uuid.NewString(), "role": "primary"})
+		requireAgencyStatus(t, w, http.StatusForbidden)
+
+		w = agencyJSONRequest(t, server, http.MethodGet, "/api/v1/cases/analytics", adminToken, nil)
+		requireAgencyStatus(t, w, http.StatusForbidden)
+	})
+}

@@ -175,6 +175,21 @@ Copy this block into a release record for each test cycle:
 - [ ] Team roster errors, loading, empty state and successful creation are usable on desktop and mobile.
 - [ ] Temporary credentials are not written to logs, browser storage, analytics or the release test evidence.
 
+
+### Agency-to-operational-unit linking and scoped case oversight
+
+- [ ] Super admin can link an agency division only to an active, verified operational unit.
+- [ ] Linking rejects an agency-type mismatch (police, NSCDC, fire or FRSC).
+- [ ] Linking rejects state or LGA mismatch; matching is case-insensitive but jurisdiction values must otherwise agree.
+- [ ] One operational unit cannot be linked to more than one agency division.
+- [ ] Non-super-admin users cannot create, replace or inspect tenant-to-unit links through the super-admin endpoint.
+- [ ] Agency division admin can open cases only for the single operational unit linked to their tenant.
+- [ ] Agency case queue returns only cases belonging to the linked unit, never an unfiltered national or LGA-wide feed.
+- [ ] Unlinked agency tenant receives no case visibility; cross-unit case IDs are denied by server-side case access middleware.
+- [ ] Agency division admin cannot dispatch, arrive, submit officer progress or close a case as an officer.
+- [ ] Verify tenant-to-unit unique index and nullable UnitID migration on staging PostgreSQL; test rollback/backup procedure before production.
+- [ ] Confirm existing unit head-admin, unit-admin, officer and citizen case permissions remain unchanged.
+
 ### Agency operational visibility
 
 - [ ] Agency incident feed is limited to the tenant's exact state and LGA.

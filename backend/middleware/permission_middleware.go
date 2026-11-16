@@ -79,6 +79,19 @@ func CanAccessCase(c *gin.Context) {
 		return
 	}
 
+	// Linked agency division admins may oversee cases in their exact verified unit.
+	if userObj.Role == models.RoleAgencyDivisionAdmin {
+		var observer models.AgencyObserver
+		if err := config.DB.Where("user_id = ?", userObj.ID).First(&observer).Error; err == nil {
+			var tenant models.AgencyTenant
+			if err := config.DB.First(&tenant, "id = ?", observer.TenantID).Error; err == nil && tenant.UnitID != nil && *tenant.UnitID == caseObj.UnitID {
+				c.Set("case_access_level", "agency_admin")
+				c.Next()
+				return
+			}
+		}
+	}
+
 	// Reporter (public-safe view only)
 	if caseObj.ReportedBy == userObj.ID {
 		c.Set("case_access_level", "reporter")
@@ -181,5 +194,17 @@ func CanAccessUnit(c *gin.Context) {
 		return
 	}
 
+	c.Next()
+}
+
+
+// DenyAgencyAdminCaseMutation keeps agency division oversight read-only until
+// an explicit, audited agency-to-officer assignment workflow is implemented.
+func DenyAgencyAdminCaseMutation(c *gin.Context) {
+	if c.GetString("case_access_level") == "agency_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Agency division access is read-only for this operation"})
+		c.Abort()
+		return
+	}
 	c.Next()
 }

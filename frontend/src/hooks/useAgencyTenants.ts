@@ -18,6 +18,7 @@ export interface AgencyTenant {
   state: string
   lga: string
   divisionName: string
+  unitId?: string
   createdAt: string
   admin?: AgencyAdmin
 }
@@ -88,5 +89,15 @@ export function useCreateAgencyObserver() {
     mutationFn: (input: CreateAgencyObserverInput) =>
       api.post('/agency/observers', input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agency-observers'] }),
+  })
+}
+
+/** Link a division to one active, verified, jurisdiction-matched operational unit. */
+export function useLinkAgencyTenantUnit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { tenantId: string; unitId: string }) =>
+      api.post(`/super/agency-tenants/${input.tenantId}/unit`, { unitId: input.unitId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agency-tenants'] }),
   })
 }

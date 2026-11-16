@@ -7,8 +7,9 @@ import { Field, Input, Select } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Chips'
 import { useGeoStates, useGeoLgas } from '@/hooks/useGeo'
+import { useUnits } from '@/hooks/useUnits'
 import type { AgencyType } from '@/hooks/useAgencyTenants'
-import { useAgencyTenants, useCreateAgencyTenant, useAssignAgencyAdmin } from '@/hooks/useAgencyTenants'
+import { useAgencyTenants, useCreateAgencyTenant, useAssignAgencyAdmin, useLinkAgencyTenantUnit } from '@/hooks/useAgencyTenants'
 
 const AGENCY_LABEL: Record<AgencyType, string> = {
   police: 'Nigeria Police Force',
@@ -21,10 +22,14 @@ export function SuperAgencyManagementPage() {
   const tenants = useAgencyTenants()
   const createTenant = useCreateAgencyTenant()
   const assignAdmin = useAssignAgencyAdmin()
+  const linkUnit = useLinkAgencyTenantUnit()
+  const units = useUnits()
   const states = useGeoStates()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState<string | null>(null)
+  const [linkOpen, setLinkOpen] = useState<string | null>(null)
+  const [selectedUnitId, setSelectedUnitId] = useState('')
   const [agencyType, setAgencyType] = useState<AgencyType>('police')
   const [state, setState] = useState('')
   const [lga, setLga] = useState('')
@@ -32,6 +37,14 @@ export function SuperAgencyManagementPage() {
   const [email, setEmail] = useState('')
   const [rank, setRank] = useState('')
   const lgas = useGeoLgas(state)
+  const linkingTenant = tenants.data?.tenants.find((tenant) => tenant.id === linkOpen)
+  const eligibleUnits = (units.data ?? []).filter((unit) =>
+    unit.isVerified && unit.status === 'active' &&
+    unit.type.toLowerCase() === linkingTenant?.agencyType &&
+    unit.state?.toLowerCase() === linkingTenant?.state.toLowerCase() &&
+    unit.lga?.toLowerCase() === linkingTenant?.lga.toLowerCase() &&
+    !tenants.data?.tenants.some((tenant) => tenant.unitId === unit.id),
+  )
 
   function submitCreate() {
     createTenant.mutate(
@@ -45,6 +58,14 @@ export function SuperAgencyManagementPage() {
           setDivisionName('')
         },
       }
+    )
+  }
+
+  function submitLink() {
+    if (!linkOpen || !selectedUnitId) return
+    linkUnit.mutate(
+      { tenantId: linkOpen, unitId: selectedUnitId },
+      { onSuccess: () => { setLinkOpen(null); setSelectedUnitId('') } },
     )
   }
 
@@ -89,6 +110,7 @@ export function SuperAgencyManagementPage() {
                 <th className="px-4 py-3">Agency</th>
                 <th className="px-4 py-3">Jurisdiction</th>
                 <th className="px-4 py-3">Division Admin</th>
+                <th className="px-4 py-3">Operational Unit</th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -108,10 +130,24 @@ export function SuperAgencyManagementPage() {
                       <Badge>Unassigned</Badge>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-ink-muted">
+                    {t.unitId ? (
+                      <Badge>Linked · {units.data?.find((unit) => unit.id === t.unitId)?.name ?? 'Operational unit'}</Badge>
+                    ) : (
+                      <Badge>Not linked</Badge>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
-                    <Button size="sm" variant="secondary" onClick={() => setAssignOpen(t.id)}>
-                      Assign DPO
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => setAssignOpen(t.id)}>
+                        Assign DPO
+                      </Button>
+                      {!t.unitId ? (
+                        <Button size="sm" variant="secondary" onClick={() => { setLinkOpen(t.id); setSelectedUnitId('') }}>
+                          Link unit
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -161,6 +197,27 @@ export function SuperAgencyManagementPage() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button variant="primary" disabled={!state || !lga || !divisionName} loading={createTenant.isPending} onClick={submitCreate}>Create</Button>
+          </div>
+        </div>
+      </Modal>
+
+
+      <Modal open={!!linkOpen} onClose={() => { setLinkOpen(null); setSelectedUnitId('') }} title="Link operational unit" description={linkingTenant ? `Choose an active, verified ${AGENCY_LABEL[linkingTenant.agencyType]} unit in ${linkingTenant.lga}, ${linkingTenant.state}. A unit can belong to only one agency division.` : 'Choose an eligible operational unit.'}>
+        <div className="space-y-3">
+          <Field label="Verified operational unit">
+            {() => (
+              <Select value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} disabled={units.isLoading || eligibleUnits.length === 0}>
+                <option value="">Select an operational unit</option>
+                {eligibleUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} · {unit.type} · {unit.lga}, {unit.state}</option>)}
+              </Select>
+            )}
+          </Field>
+          {units.isError ? <ErrorState title="Could not load operational units" description="Refresh and try again." onRetry={() => void units.refetch()} /> : null}
+          {!units.isLoading && !units.isError && eligibleUnits.length === 0 ? <p className="text-sm text-ink-muted">No unlinked, active and verified units match this agency type and jurisdiction. Verify or register the correct unit first.</p> : null}
+          {linkUnit.isError ? <p className="text-sm text-emergency" role="alert">{(linkUnit.error as Error).message}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setLinkOpen(null); setSelectedUnitId('') }}>Cancel</Button>
+            <Button variant="primary" disabled={!selectedUnitId} loading={linkUnit.isPending} onClick={submitLink}>Link unit</Button>
           </div>
         </div>
       </Modal>
