@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateAgencyObserverForm, type AgencyObserverFormValues } from './agency'
+import { getEligibleAgencyUnits, validateAgencyObserverForm, type AgencyObserverFormValues, type AgencyUnitCandidate } from './agency'
 
 const valid: AgencyObserverFormValues = {
   firstName: 'Ada',
@@ -32,7 +32,6 @@ describe('validateAgencyObserverForm', () => {
 })
 
 
-import { getEligibleAgencyUnits, type AgencyUnitCandidate } from './agency'
 
 const candidates: AgencyUnitCandidate[] = [
   { id: 'matching', name: 'Ikeja Police', type: 'POLICE', state: 'Lagos', lga: 'Ikeja', status: 'active', isVerified: true },
