@@ -35,7 +35,9 @@ func forumPostResponse(post models.ForumPost, includeReplies bool) gin.H {
 	if includeReplies {
 		replies := make([]gin.H, 0, len(post.Replies))
 		for _, reply := range post.Replies {
-			if reply.Status != "published" { continue }
+			if reply.Status != "published" {
+				continue
+			}
 			replies = append(replies, gin.H{"id": reply.ID, "content": reply.Content, "author": communityAuthor(reply.Author), "createdAt": reply.CreatedAt})
 		}
 		result["replies"] = replies
@@ -56,7 +58,7 @@ func communityEventResponse(item models.CommunityEvent) gin.H {
 		"eventDate": item.EventDate, "endDate": item.EndDate, "type": item.Type,
 		"attendeeCount": item.AttendeeCount, "maxAttendees": item.MaxAttendees,
 		"createdAt": item.CreatedAt,
-		"scope": item.GeoPlace.Scope, "place": geoPlaceResponse(item.GeoPlace)}
+		"scope":     item.GeoPlace.Scope, "place": geoPlaceResponse(item.GeoPlace)}
 }
 
 // CreateForumPost creates a new forum post.
@@ -77,6 +79,14 @@ func CreateForumPost(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateText("title", input.Title, maxUserTextLength); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateText("content", input.Content, maxUserTextLength); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -123,6 +133,10 @@ func CreateForumPost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "your location is not detailed enough to post to " + scope + "; share your location and try again",
 		})
+		return
+	}
+	if isPostingRestricted(userObj, place) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are restricted from posting in this area"})
 		return
 	}
 
@@ -605,7 +619,9 @@ func GetCommunityAnnouncements(c *gin.Context) {
 	}
 
 	results := make([]gin.H, 0, len(announcements))
-	for _, item := range announcements { results = append(results, communityAnnouncementResponse(item)) }
+	for _, item := range announcements {
+		results = append(results, communityAnnouncementResponse(item))
+	}
 	c.JSON(http.StatusOK, gin.H{"announcements": results})
 }
 
@@ -782,7 +798,9 @@ func GetCommunityEvents(c *gin.Context) {
 	}
 
 	results := make([]gin.H, 0, len(events))
-	for _, item := range events { results = append(results, communityEventResponse(item)) }
+	for _, item := range events {
+		results = append(results, communityEventResponse(item))
+	}
 	c.JSON(http.StatusOK, gin.H{"events": results})
 }
 
@@ -813,11 +831,11 @@ func RSVPToEvent(c *gin.Context) {
 	// Distinguish the failure modes inside the transaction from the HTTP
 	// mapping outside it, so a validation failure never surfaces as a 500.
 	var (
-		errEventNotFound     = errors.New("event not found")
-		errAlreadyRSVPed     = errors.New("already rsvped")
-		errEventFull         = errors.New("event full")
-		errEventOutOfPlace   = errors.New("event outside your area")
-		errEventNotUpcoming  = errors.New("event not upcoming")
+		errEventNotFound    = errors.New("event not found")
+		errAlreadyRSVPed    = errors.New("already rsvped")
+		errEventFull        = errors.New("event full")
+		errEventOutOfPlace  = errors.New("event outside your area")
+		errEventNotUpcoming = errors.New("event not upcoming")
 	)
 
 	var event models.CommunityEvent

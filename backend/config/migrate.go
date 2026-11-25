@@ -1,7 +1,9 @@
-﻿package config
+package config
 
 import (
 	"log"
+
+	"gorm.io/gorm"
 
 	"security-solution/models"
 )
@@ -10,8 +12,11 @@ func AutoMigrateAll() error {
 	log.Println("running auto-migration...")
 	err := DB.AutoMigrate(
 		&models.User{},
+		&models.AgencyTenant{},
+		&models.AgencyObserver{},
 		&models.UserPreferences{},
 		&models.SecurityUnit{},
+		&models.UnitLandmark{},
 		&models.Officer{},
 		&models.GovernmentIDVerification{},
 		&models.IdentityVerification{},
@@ -47,6 +52,7 @@ func AutoMigrateAll() error {
 		&models.Announcement{},
 		&models.News{},
 		&models.NewsAlert{},
+		&models.LocalNewsArticle{},
 
 		&models.SOSAlert{},
 		&models.SOSResponder{},
@@ -57,6 +63,11 @@ func AutoMigrateAll() error {
 		&models.Budget{},
 		&models.FinancialReport{},
 
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},
@@ -75,6 +86,7 @@ func AutoMigrateAll() error {
 		&models.SystemSettings{},
 		&models.SystemBackup{},
 		&models.UserOnboarding{},
+		&models.UserLocation{},
 
 		&models.PeaceCommittee{},
 		&models.CommitteeMember{},
@@ -96,6 +108,14 @@ func AutoMigrateAll() error {
 		&models.CommunicationMessage{},
 		&models.VoiceCall{},
 		&models.CommunicationSync{},
+
+		&models.TaskForce{},
+		&models.TaskForceMember{},
+		&models.TaskForceOfficer{},
+		&models.TaskForceInvite{},
+		&models.TaskForceChannel{},
+
+		&models.BookingRequest{},
 
 		&models.Report{},
 		&models.MediaLink{},
@@ -123,8 +143,10 @@ func AutoMigrateAll() error {
 		&models.LedgerSequence{},
 		&models.UnitFinancialYear{},
 		&models.PlatformDonation{},
+		&models.WebhookEvent{},
 
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.CounterStatement{},
 		&models.Appeal{},
@@ -142,6 +164,17 @@ func AutoMigrateAll() error {
 	// fixed by an approved data migration rather than silently.
 	if err := DB.Exec(
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendee_active ON event_attendees (event_id, user_id) WHERE deleted_at IS NULL`,
+	).Error; err != nil {
+		return err
+	}
+
+	// One live walkie-talkie room per unit. The channel is lazily created on
+	// first connection, so the partial unique index makes concurrent creates
+	// converge instead of leaving duplicate unit channels.
+	if err := DB.Exec(
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_communication_rooms_unit_walkie
+		   ON communication_rooms (unit_id)
+		   WHERE type = 'walkie_talkie' AND deleted_at IS NULL`,
 	).Error; err != nil {
 		return err
 	}
@@ -192,6 +225,72 @@ func AutoMigrateAll() error {
 		return err
 	}
 
+	if err := EnsureTaskForceIndexes(DB); err != nil {
+		return err
+	}
+	if err := EnsureCitizenChatIndexes(DB); err != nil {
+		return err
+	}
+
 	log.Println("auto-migration complete")
+	return nil
+}
+
+
+func EnsureCitizenChatIndexes(db *gorm.DB) error {
+	statements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_room_geo_active
+		   ON citizen_chat_rooms (scope, state, lga, locality, country)
+		   WHERE deleted_at IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_citizen_chat_message_order
+		   ON citizen_chat_messages (room_id, created_at DESC, id DESC)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_member_active
+		   ON citizen_chat_room_members (room_id, user_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_block_active
+		   ON citizen_chat_blocks (blocker_id, blocked_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_citizen_chat_report_active
+		   ON citizen_chat_reports (message_id, reporter_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_citizen_chat_report_queue
+		   ON citizen_chat_reports (status, created_at)`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil { return err }
+	}
+	return nil
+}
+
+func EnsureTaskForceIndexes(db *gorm.DB) error {
+	statements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_members_active_unit
+		   ON task_force_members (task_force_id, unit_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_officers_active_officer
+		   ON task_force_officers (officer_id)
+		   WHERE status = 'active' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_officers_active_pair
+		   ON task_force_officers (task_force_id, officer_id)
+		   WHERE status = 'active' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_invites_pending_unit
+		   ON task_force_invites (task_force_id, unit_id)
+		   WHERE status = 'pending' AND deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_channels_active
+		   ON task_force_channels (task_force_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_task_force_channels_room
+		   ON task_force_channels (room_id)
+		   WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_requests_active_pending
+		   ON booking_requests (user_id, unit_id)
+		   WHERE status = 'pending' AND deleted_at IS NULL`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }

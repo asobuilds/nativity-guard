@@ -1,10 +1,11 @@
-﻿package routes
+package routes
 
 import (
 	"github.com/gin-gonic/gin"
 
 	"security-solution/handlers"
 	"security-solution/middleware"
+	"security-solution/models"
 )
 
 func SetupRoutes(router *gin.Engine) {
@@ -16,21 +17,22 @@ func SetupRoutes(router *gin.Engine) {
 		api.GET("/terms/my-acceptance", middleware.AuthMiddleware(), handlers.GetMyAcceptances)
 		api.GET("/public/cases", middleware.RateLimitGeneral(), handlers.GetPublicCases)
 		api.GET("/public/units", middleware.RateLimitGeneral(), handlers.GetPublicUnits)
-		api.GET("/public/units/:id/bank-accounts", handlers.GetPublicBankAccounts)
+		api.GET("/public/units/:id/bank-accounts", middleware.RateLimitGeneral(), handlers.GetPublicBankAccounts)
 		api.GET("/public/units/:id/summary", middleware.RateLimitGeneral(), handlers.GetUnitPublicSummary)
 		api.GET("/public/units/:id/ledger", middleware.RateLimitGeneral(), handlers.GetPublicUnitLedger)
-		api.GET("/public/units/:id/financial-years", handlers.GetPublicFinancialYears)
-		api.GET("/public/units/:id/financial-summary", handlers.GetCurrentYearSummary)
-		api.GET("/public/platform/donation-info", handlers.GetPlatformDonationInfo)
-		api.POST("/public/platform/donations", handlers.CreatePlatformDonation)
-		api.GET("/public/platform/supporters", handlers.ListPublicSupporters)
-		api.GET("/public/leaderboard", handlers.GetPublicLeaderboard)
+		api.GET("/public/units/:id/financial-years", middleware.RateLimitGeneral(), handlers.GetPublicFinancialYears)
+		api.GET("/public/units/:id/financial-summary", middleware.RateLimitGeneral(), handlers.GetCurrentYearSummary)
+		api.GET("/public/platform/donation-info", middleware.RateLimitGeneral(), handlers.GetPlatformDonationInfo)
+		api.POST("/public/platform/donations", middleware.RateLimitGeneral(), handlers.CreatePlatformDonation)
+		api.GET("/public/platform/supporters", middleware.RateLimitGeneral(), handlers.ListPublicSupporters)
+		api.GET("/public/leaderboard", middleware.RateLimitGeneral(), handlers.GetPublicLeaderboard)
 		api.GET("/public/units/suggest", handlers.SuggestUnits)
 		api.GET("/public/officers/:id/rating", middleware.RateLimitGeneral(), handlers.GetOfficerRating)
 		api.GET("/public/units/:id/rating", middleware.RateLimitGeneral(), handlers.GetUnitRating)
 		api.GET("/public/blueprint", handlers.GetBlueprint)
 		api.GET("/public/units/:id/auth", handlers.GetPublicUnitAuth)
 		api.POST("/invites/validate", middleware.RateLimitAuth(), handlers.ValidateInvite)
+		api.GET("/news/local", middleware.RateLimitGeneral(), handlers.GetLocalNews)
 
 		// Live external data â€” weather, news, directions, POIs.
 		api.GET("/weather/current", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.GetWeatherNow)
@@ -49,6 +51,7 @@ func SetupRoutes(router *gin.Engine) {
 		{
 			auth.POST("/register", middleware.RateLimitAuth(), authHandler.Register)
 			auth.POST("/login", middleware.RateLimitAuth(), authHandler.Login)
+			auth.POST("/google", middleware.RateLimitAuth(), authHandler.GoogleAuth)
 			auth.POST("/logout", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.Logout)
 			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
 			auth.POST("/change-password", middleware.RateLimitAuth(), middleware.AuthMiddleware(), authHandler.ChangePassword)
@@ -83,9 +86,9 @@ func SetupRoutes(router *gin.Engine) {
 
 		otp := api.Group("/otp")
 		{
-			otp.POST("/send", middleware.RateLimitOTP(), handlers.SendOTP)
-			otp.POST("/verify", middleware.RateLimitOTP(), handlers.VerifyOTP)
-			otp.POST("/resend", middleware.RateLimitOTP(), handlers.ResendOTP)
+			otp.POST("/send", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.SendOTP)
+			otp.POST("/verify", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.VerifyOTP)
+			otp.POST("/resend", middleware.RateLimitOTP(), middleware.AuthMiddleware(), handlers.ResendOTP)
 		}
 
 		units := api.Group("/units")
@@ -108,19 +111,20 @@ func SetupRoutes(router *gin.Engine) {
 			units.POST("/:id/revocations", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), handlers.OpenRevocationCycle)
 			units.GET("/:id/auth", middleware.AuthMiddleware(), handlers.GetUnitAuth)
 			units.PUT("/:id/auth", middleware.AuthMiddleware(), handlers.UpsertUnitAuth)
+			units.POST("/:id/officers", middleware.AuthMiddleware(), handlers.CreateOfficer)
 			units.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersByUnit)
 			units.GET("/:id/officers/ranking", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetOfficersInUnitRanking)
 			units.GET("/:id/governance-audit", middleware.AuthMiddleware(), handlers.GetGovernanceAudit)
 			units.GET("/:id/inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitInbox)
 			units.GET("/:id/compliance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitCompliance)
-			        units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
-            units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
-            units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
-            units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
-            units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
-            units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
-            units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
-            units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
+			units.GET("/:id/governance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitGovernance)
+			units.POST("/:id/members/:membershipId/approve", middleware.AuthMiddleware(), handlers.ApproveUnitMember)
+			units.POST("/:id/members/:membershipId/reject", middleware.AuthMiddleware(), handlers.RejectUnitMember)
+			units.POST("/:id/members/:membershipId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitMember)
+			units.POST("/:id/members/:membershipId/promote", middleware.AuthMiddleware(), handlers.PromoteUnitMember)
+			units.GET("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListUnitInvites)
+			units.POST("/:id/invites", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.CreateUnitInvite)
+			units.POST("/:id/invites/:inviteId/revoke", middleware.AuthMiddleware(), handlers.RevokeUnitInvite)
 			units.GET("/:id/access", middleware.AuthMiddleware(), handlers.GetUnitAccess)
 			units.GET("/:id/roster", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitRoster)
 		}
@@ -150,32 +154,34 @@ func SetupRoutes(router *gin.Engine) {
 			notify.POST("/register", middleware.AuthMiddleware(), handlers.RegisterDevice)
 			notify.DELETE("/unregister", middleware.AuthMiddleware(), handlers.UnregisterDevice)
 			notify.POST("/test", middleware.AuthMiddleware(), handlers.TestNotification)
+			notify.POST("/subscribe", middleware.AuthMiddleware(), handlers.SubscribePush)
 		}
 
 		cases := api.Group("/cases")
 		{
 			cases.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAllCases)
-			cases.POST("", middleware.AuthMiddleware(), handlers.CreateCase)
-			cases.GET("/analytics", middleware.AuthMiddleware(), handlers.GetCaseAnalytics)
+			cases.POST("", middleware.AuthMiddleware(), middleware.RateLimitCasePost(), handlers.CreateCase)
+			cases.GET("/analytics", middleware.AuthMiddleware(), middleware.DenyAgencyAdminCaseMutation, handlers.GetCaseAnalytics)
 			cases.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), middleware.CanAccessCase, handlers.GetCaseByID)
-			cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.UpdateCaseStatus)
-			cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseTimeline)
+			cases.PUT("/:id", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.UpdateCaseStatus)
+			cases.POST("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.AddCaseTimeline)
 			cases.GET("/:id/timeline", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseTimeline)
 			cases.POST("/:id/feedback", middleware.AuthMiddleware(), handlers.SubmitCaseFeedback)
-			cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, handlers.AssignCase)
+			cases.GET("/:id/suspects", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseSuspects)
+			cases.POST("/:id/assign", middleware.AuthMiddleware(), middleware.IdempotencyMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.AssignCase)
 			cases.POST("/:id/claim", middleware.AuthMiddleware(), handlers.ClaimCase)
 			cases.GET("/:id/assignments", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseAssignments)
-			cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.DispatchCase)
-			cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ArriveAtCase)
-			cases.POST("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.AddCaseProgress)
+			cases.POST("/:id/dispatch", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.DispatchCase)
+			cases.POST("/:id/arrive", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.ArriveAtCase)
+			cases.POST("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.AddCaseProgress)
 			cases.GET("/:id/progress", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseProgress)
-			cases.POST("/:id/submit-review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitCaseForReview)
+			cases.POST("/:id/submit-review", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.SubmitCaseForReview)
 			cases.GET("/:id/review", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseReview)
-			cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.RequestCaseChanges)
-			cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ApproveCaseClosure)
-			cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.SubmitWeeklyCaseUpdate)
+			cases.POST("/:id/review/request-changes", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.RequestCaseChanges)
+			cases.POST("/:id/review/approve", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.ApproveCaseClosure)
+			cases.POST("/:id/weekly-update", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.SubmitWeeklyCaseUpdate)
 			cases.GET("/:id/weekly-updates", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCaseWeeklyUpdates)
-			cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PutCounterStatement)
+			cases.PUT("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.PutCounterStatement)
 			cases.GET("/:id/counter-statement", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetCounterStatement)
 		}
 
@@ -211,9 +217,9 @@ func SetupRoutes(router *gin.Engine) {
 		evidence := api.Group("/evidence")
 		{
 			evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
-			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
-			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
-			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
+			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.UploadEvidenceFile)
+			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.PresignEvidenceUpload)
+			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.ConfirmEvidenceUpload)
 			evidence.GET("/case/:caseId/:evidenceId/file", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ServeCaseEvidence)
 			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
 			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
@@ -228,7 +234,8 @@ func SetupRoutes(router *gin.Engine) {
 
 		sos := api.Group("/sos")
 		{
-			sos.POST("/send", middleware.AuthMiddleware(), handlers.SendSOSAlert)
+			sos.POST("/send", middleware.AuthMiddleware(), middleware.RateLimitSOSPost(), handlers.SendSOSAlert)
+			sos.POST("/:id/false", middleware.AuthMiddleware(), handlers.MarkFalseAlert)
 			// Attachment presign (RES-020). Caller-scoped because the alert does
 			// not exist until /sos/send; the returned key is only accepted by
 			// SendSOSAlert when it is a private sos_media/ key.
@@ -297,13 +304,13 @@ func SetupRoutes(router *gin.Engine) {
 
 		ai := api.Group("/ai")
 		{
-			ai.POST("/chatbot", middleware.AuthMiddleware(), handlers.AIChatbot)
-			ai.POST("/analyze-image", middleware.AuthMiddleware(), handlers.AIAnalyzeImage)
+			ai.POST("/chatbot", middleware.AuthMiddleware(), middleware.RateLimitAI(), handlers.AIChatbot)
+			ai.POST("/analyze-image", middleware.AuthMiddleware(), middleware.RateLimitAI(), handlers.AIAnalyzeImage)
 			ai.POST("/analyze-location", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIAnalyzeLocation)
 			ai.POST("/map-insights", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIGetMapInsights)
-			ai.POST("/security-warning", middleware.AuthMiddleware(), handlers.AIGenerateSecurityWarning)
-			ai.POST("/analyze-news", middleware.AuthMiddleware(), handlers.AIAnalyzeNews)
-			ai.POST("/smart-tips", middleware.AuthMiddleware(), handlers.AIGetSmartTips)
+			ai.POST("/security-warning", middleware.AuthMiddleware(), middleware.RateLimitAI(), handlers.AIGenerateSecurityWarning)
+			ai.POST("/analyze-news", middleware.AuthMiddleware(), middleware.RateLimitAI(), handlers.AIAnalyzeNews)
+			ai.POST("/smart-tips", middleware.AuthMiddleware(), middleware.RateLimitAI(), handlers.AIGetSmartTips)
 			ai.POST("/predict-hotspots", middleware.AuthMiddleware(), middleware.RateLimitMap(), handlers.AIPredictHotspots)
 			ai.GET("/status", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.AIStatus)
 		}
@@ -329,15 +336,36 @@ func SetupRoutes(router *gin.Engine) {
 			finance.GET("/units/:id/transactions", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTransactions)
 			finance.GET("/transactions/:id", middleware.AuthMiddleware(), handlers.GetTransactionByID)
 			finance.GET("/units/:id/summary", middleware.AuthMiddleware(), handlers.GetTransactionSummary)
+			finance.GET("/units/:id/ledger/balance", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetLedgerBalance)
+			finance.POST("/webhook/donation", handlers.DonationWebhook)
 			finance.POST("/budgets", middleware.AuthMiddleware(), handlers.CreateBudget)
 			finance.GET("/units/:id/budgets", middleware.AuthMiddleware(), handlers.GetBudgets)
 			finance.POST("/reports", middleware.AuthMiddleware(), handlers.GenerateFinancialReport)
 			finance.GET("/units/:id/reports", middleware.AuthMiddleware(), handlers.GetFinancialReports)
 		}
 
+		api.POST("/webhooks/donation", handlers.DonationWebhook)
+
+		unitsGroup := api.Group("/units")
+		{
+			unitsGroup.GET("/:id/landmarks", middleware.AuthMiddleware(), handlers.GetUnitLandmarks)
+			unitsGroup.POST("/:id/landmarks", middleware.AuthMiddleware(), handlers.CreateUnitLandmark)
+			unitsGroup.DELETE("/:id/landmarks/:landmarkId", middleware.AuthMiddleware(), handlers.DeleteUnitLandmark)
+		}
+
 		community := api.Group("/community")
 		{
-			community.POST("/posts", middleware.AuthMiddleware(), handlers.CreateForumPost)
+			// Geographic citizen chat is isolated from forum posts and security rooms.
+			community.POST("/chat/rooms/join", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.JoinCitizenChatRoom)
+			community.GET("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatMessages)
+			community.POST("/chat/rooms/:roomId/messages", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.SendCitizenChatMessage)
+			community.POST("/chat/messages/:messageId/report", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ReportCitizenChatMessage)
+			community.POST("/chat/blocks", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.BlockCitizenChatUser)
+			community.DELETE("/chat/blocks/:userId", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.UnblockCitizenChatUser)
+			community.GET("/chat/reports", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetCitizenChatReports)
+			community.POST("/chat/reports/:reportId/resolve", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ResolveCitizenChatReport)
+
+			community.POST("/posts", middleware.AuthMiddleware(), middleware.RateLimitCommunityPost(), handlers.CreateForumPost)
 			community.GET("/posts", middleware.AuthMiddleware(), handlers.GetForumPosts)
 			community.GET("/posts/:id", middleware.AuthMiddleware(), handlers.GetForumPostByID)
 			community.POST("/replies", middleware.AuthMiddleware(), handlers.CreateForumReply)
@@ -368,13 +396,10 @@ func SetupRoutes(router *gin.Engine) {
 
 		audit := api.Group("/audit")
 		{
-			audit.POST("/activity", middleware.AuthMiddleware(), handlers.LogActivity)
-			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
-			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
-			audit.POST("/logs", middleware.AuthMiddleware(), handlers.CreateAuditLog)
-			audit.GET("/health", middleware.AuthMiddleware(), handlers.GetSystemHealth)
-			audit.POST("/health", middleware.AuthMiddleware(), handlers.UpdateSystemHealth)
-			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
+			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleCitizen, models.RoleOfficer, models.RoleUnitAdmin, models.RoleSuperAdmin), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
+			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
+			audit.GET("/health", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetSystemHealth)
+			audit.GET("/notifications", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetNotificationLogs)
 		}
 
 		alerts := api.Group("/alerts")
@@ -393,7 +418,7 @@ func SetupRoutes(router *gin.Engine) {
 
 		analytics := api.Group("/analytics")
 		{
-			analytics.GET("/units/:id", middleware.AuthMiddleware(), handlers.GetUnitAnalytics)
+			analytics.GET("/units/:id", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetUnitAnalytics)
 			analytics.GET("/user-activity", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetUserActivity)
 		}
 
@@ -425,19 +450,45 @@ func SetupRoutes(router *gin.Engine) {
 
 		video := api.Group("/video")
 		{
-			video.POST("/cameras", middleware.AuthMiddleware(), handlers.AddCamera)
-			video.GET("/units/:id/cameras", middleware.AuthMiddleware(), handlers.GetCameras)
-			video.POST("/alerts", middleware.AuthMiddleware(), handlers.GenerateVideoAlert)
+			video.POST("/cameras", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.AddCamera)
+			video.GET("/units/:id/cameras", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetCameras)
+			video.POST("/alerts", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GenerateVideoAlert)
 			video.GET("/alerts", middleware.AuthMiddleware(), handlers.GetVideoAlerts)
-			video.PUT("/alerts/:id/review", middleware.AuthMiddleware(), handlers.ReviewVideoAlert)
-			video.POST("/social/monitor", middleware.AuthMiddleware(), handlers.MonitorSocialMedia)
+			video.PUT("/alerts/:id/review", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.ReviewVideoAlert)
+			video.POST("/social/monitor", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.MonitorSocialMedia)
 			video.GET("/social/posts", middleware.AuthMiddleware(), handlers.GetSocialMediaPosts)
+		}
+
+		taskForceGroup := api.Group("/taskforce")
+		{
+			taskForceGroup.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListMyTaskForces)
+			taskForceGroup.POST("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.CreateTaskForce)
+			taskForceGroup.GET("/:id", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForce)
+			taskForceGroup.GET("/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForceChannel)
+			taskForceGroup.GET("/:id/officers", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetTaskForceOfficers)
+			taskForceGroup.POST("/:id/invite", middleware.AuthMiddleware(), middleware.RateLimitInvite(), handlers.InviteTaskForceUnit)
+			taskForceGroup.POST("/:id/join", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.JoinTaskForce)
+			taskForceGroup.POST("/:id/enlist", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.EnlistTaskForceOfficers)
+			taskForceGroup.POST("/:id/disband", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.DisbandTaskForce)
+			taskForceGroup.POST("/:id/leave", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.LeaveTaskForce)
+
+			bookings := api.Group("/bookings")
+			{
+				bookings.POST("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.CreateBooking)
+				bookings.GET("", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.ListBookings)
+				bookings.POST("/:id/accept", middleware.AuthMiddleware(), handlers.AcceptBooking)
+				bookings.POST("/:id/decline", middleware.AuthMiddleware(), handlers.DeclineBooking)
+				bookings.POST("/:id/mark-paid", middleware.AuthMiddleware(), handlers.MarkBookingPaid)
+			}
 		}
 
 		commGroup := api.Group("/communication")
 		{
+			commGroup.POST("/citizen-inbox", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.OpenCitizenSecurityConversation)
+			commGroup.GET("/my-rooms", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetMyCommunicationRooms)
 			commGroup.POST("/rooms", middleware.AuthMiddleware(), handlers.CreateRoom)
 			commGroup.GET("/units/:id/rooms", middleware.AuthMiddleware(), handlers.GetRooms)
+			commGroup.GET("/units/:id/channel", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetUnitChannel)
 			commGroup.POST("/messages", middleware.AuthMiddleware(), handlers.SendMessage)
 			commGroup.GET("/rooms/:roomId/messages", middleware.AuthMiddleware(), handlers.GetMessages)
 			commGroup.POST("/calls", middleware.AuthMiddleware(), handlers.InitiateCall)
@@ -456,16 +507,48 @@ func SetupRoutes(router *gin.Engine) {
 		}
 
 		peace := api.Group("/peacebuilding")
+		peace.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin))
 		{
-			peace.POST("/committees", middleware.AuthMiddleware(), handlers.CreatePeaceCommittee)
-			peace.GET("/units/:id/committees", middleware.AuthMiddleware(), handlers.GetPeaceCommittees)
-			peace.POST("/committees/:id/members", middleware.AuthMiddleware(), handlers.AddCommitteeMember)
-			peace.POST("/conflicts", middleware.AuthMiddleware(), handlers.CreateConflictResolution)
-			peace.GET("/units/:id/conflicts", middleware.AuthMiddleware(), handlers.GetConflictResolutions)
-			peace.PUT("/conflicts/:id", middleware.AuthMiddleware(), handlers.UpdateConflictResolution)
-			peace.GET("/units/:id/peace-metrics", middleware.AuthMiddleware(), handlers.GetPeaceMetrics)
-			peace.GET("/units/:id/trust-scores", middleware.AuthMiddleware(), handlers.GetTrustScores)
-			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
+			peace.POST("/committees", handlers.CreatePeaceCommittee)
+			peace.GET("/units/:id/committees", handlers.GetPeaceCommittees)
+			peace.POST("/committees/:id/members", handlers.AddCommitteeMember)
+			peace.POST("/conflicts", handlers.CreateConflictResolution)
+			peace.GET("/units/:id/conflicts", handlers.GetConflictResolutions)
+			peace.PUT("/conflicts/:id", handlers.UpdateConflictResolution)
+			peace.GET("/units/:id/peace-metrics", handlers.GetPeaceMetrics)
+			peace.GET("/units/:id/trust-scores", handlers.GetTrustScores)
+			peace.POST("/trust-scores", handlers.UpdateTrustScore)
+		}
+
+		agency := api.Group("/agency")
+		agency.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyDivisionAdmin))
+		{
+			agency.POST("/observers", handlers.CreateAgencyObserver)
+			agency.GET("/observers", handlers.ListAgencyObservers)
+		}
+
+		// Officer safety (officer-initiated distress). Authenticated officers
+		// only; the handler resolves the officer's unit for notification scope.
+		officer := api.Group("/officer")
+		officer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleOfficer, models.RoleUnitAdmin, models.RoleSuperAdmin))
+		{
+			officer.POST("/panic", middleware.RateLimitGeneral(), handlers.TriggerPanic)
+		}
+
+		observer := api.Group("/observer")
+		observer.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleAgencyObserver, models.RoleAgencyDivisionAdmin))
+		{
+			observer.GET("/incidents", middleware.RateLimitGeneral(), handlers.GetObserverIncidents)
+			observer.GET("/units", middleware.RateLimitGeneral(), handlers.GetObserverUnits)
+		}
+
+		super := api.Group("/super")
+		super.Use(middleware.AuthMiddleware(), handlers.SuperAdminMiddleware())
+		{
+			super.GET("/agency-tenants", handlers.ListAgencyTenants)
+			super.POST("/agency-tenants", handlers.CreateAgencyTenant)
+			super.POST("/agency-tenants/:id/admin", handlers.AssignAgencyDivisionAdmin)
+			super.POST("/agency-tenants/:id/unit", handlers.LinkAgencyTenantUnit)
 		}
 
 		superAdmin := api.Group("/admin")
@@ -476,6 +559,7 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.PUT("/users/:id/role", handlers.UpdateUserRole)
 			superAdmin.POST("/users/:id/suspend", handlers.SuspendUser)
 			superAdmin.POST("/users/:id/activate", handlers.ActivateUser)
+			superAdmin.POST("/users/:id/ban", handlers.BanUser)
 			superAdmin.POST("/users/:id/impersonate", handlers.ImpersonateUser)
 			superAdmin.PUT("/users/:id/age-override", handlers.AgeOverride)
 			superAdmin.POST("/stop-impersonate", handlers.StopImpersonation)
@@ -498,15 +582,16 @@ func SetupRoutes(router *gin.Engine) {
 			superAdmin.POST("/feedback/:id/reply", handlers.ReplyToFeedback)
 			superAdmin.POST("/feedback/:id/close", handlers.CloseFeedback)
 		}
+
+		// Unit admins may restrict users in their own LGA. The handler performs
+		// the admin/LGA check, so only authentication is enforced here.
+		adminModeration := api.Group("/admin")
+		adminModeration.Use(middleware.AuthMiddleware())
+		{
+			adminModeration.POST("/users/:id/restrict", handlers.RestrictUser)
+		}
 	}
 
 	router.GET("/ws", middleware.AuthMiddleware(), handlers.HandleWebSocket)
 	router.GET("/metrics", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetMetrics)
 }
-
-
-
-
-
-
-

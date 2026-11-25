@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"security-solution/config"
@@ -26,19 +26,35 @@ func CreateCase(c *gin.Context) {
 	if !requireMinorApproved(c) {
 		return
 	}
-var input struct {
-		UnitID      string  `json:"unitId" binding:"required"`
-		Title       string  `json:"title" binding:"required"`
-		Description string  `json:"description" binding:"required"`
-		Latitude    float64 `json:"latitude" binding:"required"`
-		Longitude   float64 `json:"longitude" binding:"required"`
-		Location    string  `json:"location" binding:"required"`
-		Priority    string  `json:"priority"`
-		IsSOS       bool    `json:"isSOS"`
-		HideLocation bool   `json:"hideLocation"`
+	var input struct {
+		UnitID       string  `json:"unitId" binding:"required"`
+		Title        string  `json:"title" binding:"required"`
+		Description  string  `json:"description" binding:"required"`
+		Category     string  `json:"category"`
+		Latitude     float64 `json:"latitude" binding:"required"`
+		Longitude    float64 `json:"longitude" binding:"required"`
+		Location     string  `json:"location" binding:"required"`
+		Priority     string  `json:"priority"`
+		IsSOS        bool    `json:"isSOS"`
+		HideLocation bool    `json:"hideLocation"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	category, ok := normalizeIncidentCategory(input.Category)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "category must be one of infrastructure, vandalism, disaster, fire, road_accident, or traffic"})
+		return
+	}
+
+	if err := validateText("title", input.Title, maxUserTextLength); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateText("description", input.Description, maxUserTextLength); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -61,20 +77,21 @@ var input struct {
 		priorityLevel = "P2" // High
 	}
 
-// Create case
+	// Create case
 	geohash := utils.EncodeGeohash(input.Latitude, input.Longitude, 5)
 	anon := input.HideLocation || !userObj.LocationSharingEnabled
 
 	caseObj := models.Case{
-		TrackingID:    trackingID,
-		Title:         input.Title,
-		Description:   input.Description,
+		TrackingID:      trackingID,
+		Title:           input.Title,
+		Description:     input.Description,
+		Category:        category,
 		LocationGeohash: geohash,
-		Status:        "pending",
-		Priority:      input.Priority,
-		PriorityLevel: priorityLevel,
-		IsPublic:      true,
-		ReportedBy:    userObj.ID,
+		Status:          "pending",
+		Priority:        input.Priority,
+		PriorityLevel:   priorityLevel,
+		IsPublic:        true,
+		ReportedBy:      userObj.ID,
 	}
 
 	if anon {
@@ -101,7 +118,7 @@ var input struct {
 		}
 	}
 
-if err := config.DB.Create(&caseObj).Error; err != nil {
+	if err := config.DB.Create(&caseObj).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create case"})
 		return
 	}
@@ -251,6 +268,18 @@ func GetAllCases(c *gin.Context) {
 		query = query.Where("unit_id = ?", userObj.UnitID)
 	} else if userObj.Role == "unit_admin" && userObj.UnitID != nil {
 		query = query.Where("unit_id = ?", userObj.UnitID)
+	} else if userObj.Role == models.RoleAgencyDivisionAdmin {
+		var observer models.AgencyObserver
+		if err := config.DB.Where("user_id = ?", userObj.ID).First(&observer).Error; err != nil {
+			query = query.Where("1 = 0")
+		} else {
+			var tenant models.AgencyTenant
+			if err := config.DB.First(&tenant, "id = ?", observer.TenantID).Error; err != nil || tenant.UnitID == nil {
+				query = query.Where("1 = 0")
+			} else {
+				query = query.Where("unit_id = ?", *tenant.UnitID)
+			}
+		}
 	}
 
 	if err := query.Find(&cases).Error; err != nil {
@@ -377,7 +406,7 @@ func UpdateCaseStatus(c *gin.Context) {
 		return
 	}
 
-var caseObj models.Case
+	var caseObj models.Case
 	if err := config.DB.First(&caseObj, "id = ?", caseID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
 		return
@@ -411,6 +440,12 @@ var caseObj models.Case
 		c.ClientIP(),
 		c.Request.UserAgent(),
 	)
+
+	// Auto-archive linked suspects when the case transitions to a terminal
+	// status. Idempotent: running again from a terminal state changes nothing.
+	if models.IsClosedStatus(input.Status) && !models.IsClosedStatus(oldStatus) {
+		_ = services.ArchiveSuspectsForCase(caseID, userObj.ID)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Case status updated successfully",

@@ -15,6 +15,7 @@ import { MediaRecorderField } from '@/components/media/MediaRecorderField'
 import { SosTracker } from '@/components/sos/SosTracker'
 import { ApiError } from '@/lib/apiClient'
 import { formatDateTime } from '@/lib/format'
+import { useToast } from '@/components/ui/Toast'
 
 const statusLabel = {
   pending: 'Pending',
@@ -43,6 +44,7 @@ export function SosPage() {
   const alerts = useMySos()
   const units = useUnits()
   const send = useSendSos()
+  const { notify } = useToast()
 
   const { latitude: userLat, longitude: userLng, permission } = useLocation()
   const { data: geo, isLoading: geoLoading } = useReverseGeocode(userLat, userLng)
@@ -123,6 +125,9 @@ export function SosPage() {
       setMediaResetKey((current) => current + 1)
     } catch (err) {
       console.error('[SOS] send failed:', err)
+      const msg = err instanceof ApiError ? (typeof err.body === 'object' && err.body && 'error' in err.body ? String((err.body as Record<string, unknown>).error) : err.message) : (err instanceof Error ? err.message : 'Failed to send SOS')
+      notify(msg, 'error')
+      setConfirming(false)
     }
   }
 

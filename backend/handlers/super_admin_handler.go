@@ -228,6 +228,11 @@ func UpdateUserRole(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
+	if input.Role != models.RoleSuperAdmin {
+		if !ensureNotLastActiveSuperAdmin(c, &user, "demote") {
+			return
+		}
+	}
 	oldRole := user.Role
 	user.Role = input.Role
 	if err := config.DB.Save(&user).Error; err != nil {
@@ -274,6 +279,10 @@ func SuspendUser(c *gin.Context) {
 	var user models.User
 	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if !ensureNotLastActiveSuperAdmin(c, &user, "suspend") {
 		return
 	}
 

@@ -124,7 +124,7 @@ export function ActionAuthModal({
         ) : null}
 
         <p className="text-xs leading-relaxed text-ink-muted">
-          Read our <Link className="text-signal underline" to="/terms" onClick={onClose}>Terms and Privacy Notice</Link>
+          Read the <Link className="text-signal underline" to="/terms#terms" onClick={onClose}>Terms of Service</Link> and <Link className="text-signal underline" to="/terms#privacy" onClick={onClose}>Privacy Notice</Link>
           {' '}or learn <Link className="text-signal underline" to="/about" onClick={onClose}>about the team and platform</Link> before joining.
         </p>
         {/* Quick Login Form */}

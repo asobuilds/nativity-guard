@@ -7,16 +7,17 @@ import (
 )
 
 type SOSAlert struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	UserID      uuid.UUID      `gorm:"type:uuid;not null" json:"userId"`
-	UnitID      *uuid.UUID     `gorm:"type:uuid" json:"unitId,omitempty"`
-	Latitude    float64        `json:"latitude"`
-	Longitude   float64        `json:"longitude"`
-	LocationGeohash string      `gorm:"type:varchar(12);index:idx_sos_geohash" json:"locationGeohash,omitempty"`
-	IsAnonymous bool        `gorm:"default:false;index:idx_sos_anonymous" json:"isAnonymous"`
-	Description string         `json:"description"`
-	Status      string         `gorm:"default:pending" json:"status"` // pending, dispatched, resolved, cancelled
-	Priority    string         `gorm:"default:high" json:"priority"`  // high, medium, low
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	UserID          uuid.UUID  `gorm:"type:uuid;not null" json:"userId"`
+	UnitID          *uuid.UUID `gorm:"type:uuid" json:"unitId,omitempty"`
+	Latitude        float64    `json:"latitude"`
+	Longitude       float64    `json:"longitude"`
+	LocationGeohash string     `gorm:"type:varchar(12);index:idx_sos_geohash" json:"locationGeohash,omitempty"`
+	IsAnonymous     bool       `gorm:"default:false;index:idx_sos_anonymous" json:"isAnonymous"`
+	Description     string     `json:"description"`
+	Category        string     `gorm:"type:varchar(32);index:idx_sos_category" json:"category,omitempty"`
+	Status          string     `gorm:"default:pending" json:"status"` // pending, dispatched, resolved, cancelled, escalated
+	Priority        string     `gorm:"default:high" json:"priority"`  // high, medium, low, urgent
 	// Severity is distinct from Priority. Priority is the reporter's
 	// self-rated urgency (high/medium/low). Severity is the dispatch
 	// engine's own classification: "critical" allows multiple units to
@@ -40,9 +41,14 @@ type SOSAlert struct {
 	JurisdictionState string `gorm:"type:varchar(120);index:idx_sos_jurisdiction_state" json:"jurisdictionState,omitempty"`
 	JurisdictionLGA   string `gorm:"type:varchar(120);index:idx_sos_jurisdiction_lga"   json:"jurisdictionLga,omitempty"`
 
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	// False-alert adjudication. Set when an authorized responder marks the
+	// alert as a false alarm; the reporter's TrustScore is reduced once.
+	FalseAlert    bool       `gorm:"default:false;index:idx_sos_false_alert" json:"falseAlert"`
+	MarkedFalseAt *time.Time `json:"markedFalseAt,omitempty"`
+
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	User User          `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Unit *SecurityUnit `gorm:"foreignKey:UnitID" json:"unit,omitempty"`

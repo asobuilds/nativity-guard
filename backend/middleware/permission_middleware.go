@@ -19,10 +19,24 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		userObj := user.(*models.User)
+		userObj, ok := user.(*models.User)
+		if !ok || userObj == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			c.Abort()
+			return
+		}
+		if userObj.Status == "banned" || userObj.Status == "suspended" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+			c.Abort()
+			return
+		}
 
 		for _, role := range roles {
 			if userObj.Role == role {
+				c.Next()
+				return
+			}
+			if role == models.RoleSuperAdmin && userObj.IsSuperAdmin {
 				c.Next()
 				return
 			}
@@ -77,6 +91,19 @@ func CanAccessCase(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Case not found"})
 		c.Abort()
 		return
+	}
+
+	// Linked agency division admins may oversee cases in their exact verified unit.
+	if userObj.Role == models.RoleAgencyDivisionAdmin {
+		var observer models.AgencyObserver
+		if err := config.DB.Where("user_id = ?", userObj.ID).First(&observer).Error; err == nil {
+			var tenant models.AgencyTenant
+			if err := config.DB.First(&tenant, "id = ?", observer.TenantID).Error; err == nil && tenant.UnitID != nil && *tenant.UnitID == caseObj.UnitID {
+				c.Set("case_access_level", "agency_admin")
+				c.Next()
+				return
+			}
+		}
 	}
 
 	// Reporter (public-safe view only)
@@ -155,6 +182,9 @@ func CanAccessCase(c *gin.Context) {
 // CanAccessUnit checks if user can access a specific unit
 func CanAccessUnit(c *gin.Context) {
 	unitID := c.Param("unitId")
+	if unitID == "" {
+		unitID = c.Param("id")
+	}
 	id, err := uuid.Parse(unitID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
@@ -168,9 +198,19 @@ func CanAccessUnit(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.Abort()
+		return
+	}
+	if userObj.Status == "banned" || userObj.Status == "suspended" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+		c.Abort()
+		return
+	}
 
-	if userObj.Role == "super_admin" {
+	if userObj.IsSuperAdmin || userObj.Role == models.RoleSuperAdmin {
 		c.Next()
 		return
 	}
@@ -181,5 +221,25 @@ func CanAccessUnit(c *gin.Context) {
 		return
 	}
 
+	c.Next()
+}
+
+
+// DenyAgencyAdminCaseMutation keeps agency division oversight read-only until
+// an explicit, audited agency-to-officer assignment workflow is implemented.
+func DenyAgencyAdminCaseMutation(c *gin.Context) {
+	userValue, exists := c.Get("user")
+	if exists {
+		if user, ok := userValue.(*models.User); ok && user.Role == models.RoleAgencyDivisionAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Agency division access is read-only for this operation"})
+			c.Abort()
+			return
+		}
+	}
+	if c.GetString("case_access_level") == "agency_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Agency division access is read-only for this operation"})
+		c.Abort()
+		return
+	}
 	c.Next()
 }

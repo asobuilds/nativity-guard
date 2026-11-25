@@ -1,237 +1,197 @@
 package handlers
 
 import (
+	cryptorand "crypto/rand"
+	"crypto/subtle"
+	"errors"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/models"
 	"security-solution/services"
 )
 
-// OTP cache for faster validation (in-memory)
-var otpCache = make(map[string]OTPCacheEntry)
+const (
+	otpTTL            = 10 * time.Minute
+	maxOTPAttempts    = 5
+	otpQueuedMessage  = "If this account can receive an OTP, one has been sent."
+	otpInvalidMessage = "Invalid or expired OTP"
+)
 
-type OTPCacheEntry struct {
-	Code      string
-	ExpiresAt time.Time
+type otpRequest struct {
+	Type string `json:"type"`
 }
 
-func generateOTP() string {
-	return fmt.Sprintf("%06d", rand.Intn(1000000))
+type otpVerifyRequest struct {
+	Code string `json:"code" binding:"required"`
 }
 
-// SendOTP - OPTIMIZED: Returns immediately, sends in background
+func generateOTP() (string, error) {
+	n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+func currentOTPUser(c *gin.Context) (*models.User, bool) {
+	value, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return nil, false
+	}
+
+	user, ok := value.(*models.User)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authenticated user"})
+		return nil, false
+	}
+	return user, true
+}
+
+func issueOTP(user *models.User, otpType string) error {
+	code, err := generateOTP()
+	if err != nil {
+		return err
+	}
+
+	expiresAt := time.Now().UTC().Add(otpTTL)
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ? AND verified = ?", user.ID, false).
+			Delete(&models.OTP{}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&models.OTP{
+			UserID:    user.ID,
+			Code:      code,
+			Type:      otpType,
+			Attempts:  0,
+			ExpiresAt: expiresAt,
+			Verified:  false,
+		}).Error
+	}); err != nil {
+		return err
+	}
+
+	if user.Phone != "" {
+		phone := user.Phone
+		go func() {
+			if err := services.SendOTPSMS(phone, code); err != nil {
+				log.Printf("otp: SMS delivery failed: %v", err)
+			}
+		}()
+	}
+
+	return nil
+}
+
+func respondOTPQueued(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": otpQueuedMessage})
+}
+
+// SendOTP sends an OTP to the authenticated user's phone number.
 func SendOTP(c *gin.Context) {
-	var input struct {
-		UserID string `json:"userId" binding:"required"`
-		Type   string `json:"type"`
+	user, ok := currentOTPUser(c)
+	if !ok {
+		return
 	}
 
+	var input otpRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID, err := uuid.Parse(input.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	if err := issueOTP(user, input.Type); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP"})
 		return
 	}
-
-	var user models.User
-	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	code := generateOTP()
-	expiresAt := time.Now().Add(10 * time.Minute)
-
-	// Store in cache for instant validation
-	otpCache[userID.String()] = OTPCacheEntry{
-		Code:      code,
-		ExpiresAt: expiresAt,
-	}
-
-	// Store in DB for persistence (async)
-	go func() {
-		otp := models.OTP{
-			UserID:    userID,
-			Code:      code,
-			Type:      input.Type,
-			Attempts:  0,
-			ExpiresAt: expiresAt,
-			Verified:  false,
-		}
-		if err := config.DB.Create(&otp).Error; err != nil {
-			log.Printf("otp create failed: %v", err)
-		}
-	}()
-
-	// Send SMS in background (non-blocking)
-	if user.Phone != "" {
-		go func() {
-			if err := services.SendOTPSMS(user.Phone, code); err != nil {
-				log.Printf("⚠️ SMS delivery failed: %v", err)
-			}
-		}()
-	}
-
-	// Send Email in background (non-blocking)
-	if user.Email != "" {
-		go func() {
-			// Email sending logic
-			log.Printf("otp: issued for user %s (background)", userID.String())
-		}()
-	}
-
-	// IMMEDIATE RESPONSE - user doesn't wait for SMS/Email
-	c.JSON(http.StatusCreated, gin.H{
-		"message":   "OTP sent successfully",
-		"otpId":     userID.String(),
-		"delivered": false, // Indicates SMS/Email is in progress
-	})
+	respondOTPQueued(c)
 }
 
-// VerifyOTP - OPTIMIZED: Checks cache first, then DB
+// VerifyOTP verifies an OTP for the authenticated user.
 func VerifyOTP(c *gin.Context) {
-	var input struct {
-		UserID string `json:"userId" binding:"required"`
-		Code   string `json:"code" binding:"required"`
+	user, ok := currentOTPUser(c)
+	if !ok {
+		return
 	}
 
+	var input otpVerifyRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID, err := uuid.Parse(input.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
-	// CHECK CACHE FIRST (FAST)
-	if cacheEntry, exists := otpCache[userID.String()]; exists {
-		if time.Now().Before(cacheEntry.ExpiresAt) && cacheEntry.Code == input.Code {
-			// Valid OTP - mark user as verified
-			go func() {
-				if err := config.DB.Model(&models.User{}).Where("id = ?", userID).Update("status", "verified").Error; err != nil {
-					log.Printf("otp update failed: %v", err)
-				}
-				if err := config.DB.Where("user_id = ? AND code = ?", userID, input.Code).Delete(&models.OTP{}).Error; err != nil {
-					log.Printf("otp delete failed: %v", err)
-				}
-			}()
-			delete(otpCache, userID.String())
-			c.JSON(http.StatusOK, gin.H{"message": "OTP verified successfully"})
-			return
+	invalid := false
+	err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var otp models.OTP
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? AND verified = ?", user.ID, false).
+			Order("created_at DESC").
+			First(&otp).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			invalid = true
+			return nil
 		}
-	}
-
-	// FALLBACK TO DATABASE (if not in cache)
-	var otp models.OTP
-	if err := config.DB.Where("user_id = ? AND code = ? AND verified = ?", userID, input.Code, false).First(&otp).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired OTP"})
-		return
-	}
-
-	if time.Now().After(otp.ExpiresAt) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "OTP has expired"})
-		return
-	}
-
-	// Mark as verified
-	otp.Verified = true
-	config.DB.Save(&otp)
-	config.DB.Model(&models.User{}).Where("id = ?", userID).Update("status", "verified")
-
-	// Clean cache
-	delete(otpCache, userID.String())
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "OTP verified successfully",
-	})
-}
-
-// ResendOTP - OPTIMIZED: Instant response
-func ResendOTP(c *gin.Context) {
-	var input struct {
-		UserID string `json:"userId" binding:"required"`
-		Type   string `json:"type"`
-	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	userID, err := uuid.Parse(input.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
-	// Delete old OTPs
-	go config.DB.Where("user_id = ? AND verified = ?", userID, false).Delete(&models.OTP{})
-
-	code := generateOTP()
-	expiresAt := time.Now().Add(10 * time.Minute)
-
-	// Update cache
-	otpCache[userID.String()] = OTPCacheEntry{
-		Code:      code,
-		ExpiresAt: expiresAt,
-	}
-
-	// Store in DB (async)
-	go func() {
-		otp := models.OTP{
-			UserID:    userID,
-			Code:      code,
-			Type:      input.Type,
-			Attempts:  0,
-			ExpiresAt: expiresAt,
-			Verified:  false,
+		if err != nil {
+			return err
 		}
-		if err := config.DB.Create(&otp).Error; err != nil {
-			log.Printf("otp create failed: %v", err)
+
+		if time.Now().UTC().After(otp.ExpiresAt) {
+			invalid = true
+			return nil
 		}
-	}()
-
-	// Get user info
-	var user models.User
-	config.DB.First(&user, "id = ?", userID)
-
-	// Send in background
-	if user.Phone != "" {
-		go services.SendOTPSMS(user.Phone, code)
-	}
-
-	// IMMEDIATE RESPONSE
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "OTP resent successfully",
-		"otpId":   userID.String(),
-	})
-}
-
-// Clean expired OTPs from cache (run every 10 minutes)
-func CleanOTPCache() {
-	ticker := time.NewTicker(10 * time.Minute)
-	go func() {
-		for range ticker.C {
-			for key, entry := range otpCache {
-				if time.Now().After(entry.ExpiresAt) {
-					delete(otpCache, key)
-				}
+		if otp.Attempts >= maxOTPAttempts {
+			invalid = true
+			return nil
+		}
+		if subtle.ConstantTimeCompare([]byte(otp.Code), []byte(input.Code)) != 1 {
+			otp.Attempts++
+			if err := tx.Model(&otp).Update("attempts", otp.Attempts).Error; err != nil {
+				return err
 			}
+			invalid = true
+			return nil
 		}
-	}()
+
+		return tx.Model(&otp).Update("verified", true).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify OTP"})
+		return
+	}
+	if invalid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": otpInvalidMessage})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "OTP verified successfully"})
+}
+
+// ResendOTP replaces the authenticated user's pending OTP and sends a new one.
+func ResendOTP(c *gin.Context) {
+	user, ok := currentOTPUser(c)
+	if !ok {
+		return
+	}
+
+	var input otpRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := issueOTP(user, input.Type); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP"})
+		return
+	}
+	respondOTPQueued(c)
 }

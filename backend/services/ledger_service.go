@@ -1,4 +1,4 @@
-﻿package services
+package services
 
 import (
 	"errors"
@@ -26,7 +26,7 @@ type LedgerEntryInput struct {
 	Amount       float64 // positive magnitude; direction carries the sign
 	Counterparty string
 	Description  string
-	SourceType   string  // donation, transaction, manual
+	SourceType   string // donation, transaction, manual
 	SourceID     *uuid.UUID
 	Metadata     string // optional JSON blob
 	CreatedBy    uuid.UUID
@@ -35,67 +35,75 @@ type LedgerEntryInput struct {
 // Append writes a new ledger entry. Append-only: never updates or deletes.
 // Reference format: NG-YYYY-NNNNNNNN (year-scoped, monotonic).
 func (s *LedgerService) Append(entry LedgerEntryInput) (*models.FinancialLedger, error) {
+	if err := validateLedgerEntry(entry); err != nil {
+		return nil, err
+	}
+	ledger, err := s.appendWithRetry(entry, 3)
+	if err != nil {
+		return nil, err
+	}
+	s.NotifyAdmins(ledger)
+	return ledger, nil
+}
+
+func (s *LedgerService) AppendTx(tx *gorm.DB, entry LedgerEntryInput) (*models.FinancialLedger, error) {
+	if tx == nil {
+		return nil, errors.New("transaction is required")
+	}
+	if err := validateLedgerEntry(entry); err != nil {
+		return nil, err
+	}
+	return s.appendToDB(tx, entry)
+}
+
+func (s *LedgerService) NotifyAdmins(ledger *models.FinancialLedger) {
+	if ledger == nil {
+		return
+	}
+	go func(uID uuid.UUID, eType, dir string, amt float64, curr string) {
+		var admins []models.User
+		config.DB.Where("unit_id = ? AND role IN (?)", uID, []string{"unit_admin", "super_admin"}).Find(&admins)
+		for _, admin := range admins {
+			notif := models.Notification{
+				UserID:     admin.ID,
+				Title:      "New Financial Ledger Entry",
+				Message:    fmt.Sprintf("A new %s entry (%s) of %s %.2f was recorded.", eType, dir, curr, amt),
+				Type:       "finance",
+				Status:     "unread",
+				EntityType: "unit",
+				EntityID:   uID,
+				LinkTo:     fmt.Sprintf("/units/%s/ledger", uID.String()),
+			}
+			config.DB.Create(&notif)
+		}
+	}(ledger.UnitID, ledger.EntryType, ledger.Direction, ledger.Amount, ledger.Currency)
+}
+
+func validateLedgerEntry(entry LedgerEntryInput) error {
 	if entry.UnitID == uuid.Nil {
-		return nil, errors.New("unitId is required")
+		return errors.New("unitId is required")
 	}
 	if entry.Amount <= 0 {
-		return nil, errors.New("amount must be positive")
+		return errors.New("amount must be positive")
 	}
 	if entry.Direction != "in" && entry.Direction != "out" {
-		return nil, errors.New("direction must be 'in' or 'out'")
+		return errors.New("direction must be 'in' or 'out'")
 	}
 	if entry.EntryType == "" {
-		return nil, errors.New("entryType is required")
+		return errors.New("entryType is required")
 	}
 	if entry.CreatedBy == uuid.Nil {
-		return nil, errors.New("createdBy is required")
+		return errors.New("createdBy is required")
 	}
-	return s.appendWithRetry(entry, 3)
+	return nil
 }
 
 func (s *LedgerService) appendWithRetry(entry LedgerEntryInput, remaining int) (*models.FinancialLedger, error) {
-	now := time.Now().UTC()
-	year := now.Year()
-
-	// Primary correctness: atomic counter increment inside the same
-	// transaction as the ledger insert. The INSERT ... ON CONFLICT
-	// ensures the counter row exists, and UPDATE ... RETURNING
-	// serializes concurrent appends for the same year.
-	// The 3-retry loop below is defense-in-depth only.
-	var seq int64
 	var ledger *models.FinancialLedger
 	err := config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(
-			"INSERT INTO ledger_sequences(year, last_seq) VALUES (?, 0) ON CONFLICT (year) DO NOTHING",
-			year,
-		).Error; err != nil {
-			return err
-		}
-		if err := tx.Raw(
-			"UPDATE ledger_sequences SET last_seq = last_seq + 1 WHERE year = ? RETURNING last_seq",
-			year,
-		).Scan(&seq).Error; err != nil {
-			return err
-		}
-		ledger = &models.FinancialLedger{
-			Reference:      fmt.Sprintf("NG-%d-%08d", year, seq),
-			UnitID:         entry.UnitID,
-			Year:           year,
-			SequenceNumber: seq,
-			Direction:      entry.Direction,
-			EntryType:      entry.EntryType,
-			Amount:         entry.Amount,
-			Currency:       "NGN",
-			Counterparty:   entry.Counterparty,
-			Description:    entry.Description,
-			SourceType:     entry.SourceType,
-			SourceID:       entry.SourceID,
-			Status:         "posted",
-			Metadata:       entry.Metadata,
-			CreatedBy:      entry.CreatedBy,
-			CreatedAt:      now,
-		}
-		return tx.Create(ledger).Error
+		var err error
+		ledger, err = s.appendToDB(tx, entry)
+		return err
 	})
 	if err != nil {
 		if remaining <= 1 {
@@ -103,7 +111,52 @@ func (s *LedgerService) appendWithRetry(entry LedgerEntryInput, remaining int) (
 		}
 		return s.appendWithRetry(entry, remaining-1)
 	}
+	return ledger, nil
+}
 
+func (s *LedgerService) appendToDB(tx *gorm.DB, entry LedgerEntryInput) (*models.FinancialLedger, error) {
+	now := time.Now().UTC()
+	year := now.Year()
+
+	// Primary correctness: atomic counter increment inside the same
+	// transaction as the ledger insert. The INSERT ... ON CONFLICT
+	// ensures the counter row exists, and UPDATE ... RETURNING
+	// serializes concurrent appends for the same year.
+	// The 3-retry loop in appendWithRetry is defense-in-depth only.
+	var seq int64
+	if err := tx.Exec(
+		"INSERT INTO ledger_sequences(year, last_seq) VALUES (?, 0) ON CONFLICT (year) DO NOTHING",
+		year,
+	).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.Raw(
+		"UPDATE ledger_sequences SET last_seq = last_seq + 1 WHERE year = ? RETURNING last_seq",
+		year,
+	).Scan(&seq).Error; err != nil {
+		return nil, err
+	}
+	ledger := &models.FinancialLedger{
+		Reference:      fmt.Sprintf("NG-%d-%08d", year, seq),
+		UnitID:         entry.UnitID,
+		Year:           year,
+		SequenceNumber: seq,
+		Direction:      entry.Direction,
+		EntryType:      entry.EntryType,
+		Amount:         entry.Amount,
+		Currency:       "NGN",
+		Counterparty:   entry.Counterparty,
+		Description:    entry.Description,
+		SourceType:     entry.SourceType,
+		SourceID:       entry.SourceID,
+		Status:         "posted",
+		Metadata:       entry.Metadata,
+		CreatedBy:      entry.CreatedBy,
+		CreatedAt:      now,
+	}
+	if err := tx.Create(ledger).Error; err != nil {
+		return nil, err
+	}
 	return ledger, nil
 }
 

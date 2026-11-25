@@ -1,24 +1,30 @@
-﻿import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/States'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
+  CalendarDays,
   BarChart3,
+  Bell,
   Bot,
   Building2,
   FileText,
   FolderKanban,
+  Handshake,
   LayoutDashboard,
   LogOut,
   Map as MapIcon,
   Megaphone,
   Menu,
   MessageSquare,
+  Newspaper,
+  Radio,
   Shield,
   ShieldAlert,
   Settings,
   UserCircle,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -27,6 +33,7 @@ import { fullName, initials } from '@/lib/format'
 import { Logo } from '@/components/brand/Logo'
 import { NotificationBell } from './NotificationBell'
 import { AppBackground } from './AppBackground'
+import { WalkieTalkieDock } from '@/components/unit/WalkieTalkieDock'
 import type { Role } from '@/types/api'
 import { MOBILE_PRIMARY_ROUTES } from '@/lib/mobileNav'
 
@@ -38,6 +45,12 @@ interface NavItem {
   soon?: boolean
 }
 
+const AGENCY_NAV: NavItem[] = [
+  { to: '/observer/dashboard', label: 'Oversight', icon: <Shield className="size-4" /> },
+  { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+  { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
+]
+
 const NAV: Record<Role, NavItem[]> = {
   citizen: [
     { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
@@ -45,28 +58,43 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
+    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
+    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
+    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
+    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
     { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+    { to: '/bookings/new', label: 'Request security', icon: <Shield className="size-4" /> },
   ],
   officer: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
+    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
+    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
     { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
   unit_admin: [
     { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
+    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
     { to: '/admin/community', label: 'Community', icon: <Users className="size-4" /> },
+    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
+    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
     { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
     { to: '/admin/unit', label: 'Unit dashboard', icon: <LayoutDashboard className="size-4" /> },
+    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Units', icon: <Users className="size-4" /> },
     { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
@@ -75,15 +103,22 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
   super_admin: [
     { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
     { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
+    { to: '/officer/walkie-talkie', label: 'Unit channels', icon: <Radio className="size-4" /> },
+    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
     { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
+    { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
+    { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
     { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
     { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
     { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
     { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
+    { to: '/super/agencies', label: 'Agencies', icon: <Building2 className="size-4" /> },
+    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
     { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
     { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
     { to: '/admin/community', label: 'Community management', icon: <ShieldAlert className="size-4" /> },
@@ -96,7 +131,10 @@ const NAV: Record<Role, NavItem[]> = {
     { to: '/super/audit', label: 'Audit & oversight', icon: <FileText className="size-4" /> },
     { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
     { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
+    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
   ],
+  agency_observer: AGENCY_NAV,
+  agency_division_admin: AGENCY_NAV,
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -104,6 +142,8 @@ const ROLE_LABEL: Record<Role, string> = {
   officer: 'Officer',
   unit_admin: 'Unit admin',
   super_admin: 'Super admin',
+  agency_observer: 'Agency observer',
+  agency_division_admin: 'Agency division admin',
 }
 
 function NavItems({
@@ -340,6 +380,10 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
             </Suspense>
           </ErrorBoundary>
         </main>
+
+        {role === 'officer' || role === 'unit_admin' ? (
+          <WalkieTalkieDock unitId={user?.unitId ?? null} />
+        ) : null}
 
         {role !== null ? (
           <NavLink

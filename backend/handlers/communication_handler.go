@@ -1,15 +1,36 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"security-solution/config"
 	"security-solution/models"
+	ws "security-solution/websocket"
 )
+
+func communicationMessageResponse(message models.CommunicationMessage) gin.H {
+	sender := gin.H{"id": message.SenderID}
+	if message.Sender.ID != uuid.Nil {
+		sender["firstName"] = message.Sender.FirstName
+		sender["lastName"] = message.Sender.LastName
+		sender["avatarPath"] = message.Sender.AvatarPath
+	}
+	return gin.H{
+		"id": message.ID, "roomId": message.RoomID, "senderId": message.SenderID,
+		"message": message.Message, "messageType": message.MessageType,
+		"status": message.Status, "priority": message.Priority,
+		"isBroadcast": message.IsBroadcast, "isEmergency": message.IsEmergency,
+		"createdAt": message.CreatedAt, "sender": sender,
+	}
+}
 
 // CreateRoom creates a communication room
 func CreateRoom(c *gin.Context) {
@@ -115,7 +136,7 @@ func GetRooms(c *gin.Context) {
 	}
 
 	var rooms []models.CommunicationRoom
-	if err := config.DB.Where("unit_id = ?", id).Order("created_at desc").Find(&rooms).Error; err != nil {
+	if err := config.DB.Where("unit_id = ? AND type <> ? AND type <> ?", id, models.TaskForceRoomType, "private").Order("created_at desc").Find(&rooms).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
 		return
 	}
@@ -154,12 +175,33 @@ func SendMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room ID"})
 		return
 	}
+	if !roomAccessAllowed(c, userObj, roomID) {
+		return
+	}
 
 	if input.MessageType == "" {
 		input.MessageType = "text"
 	}
 	if input.Priority == "" {
 		input.Priority = "normal"
+	}
+	input.Message = strings.TrimSpace(input.Message)
+	if input.MessageType == "text" && (input.Message == "" || !utf8.ValidString(input.Message) || utf8.RuneCountInString(input.Message) > 4000) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Text messages must contain 1 to 4000 valid characters"})
+		return
+	}
+	var targetRoom models.CommunicationRoom
+	if err := config.DB.First(&targetRoom, "id = ?", roomID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+	if targetRoom.Type == "private" && (input.MessageType != "text" || input.IsBroadcast || input.IsEmergency) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Private citizen-security conversations support text messages only"})
+		return
+	}
+	if (input.IsBroadcast || input.IsEmergency) && userObj.Role != "officer" && userObj.Role != "unit_admin" && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only authorised security staff can broadcast or raise an operational emergency"})
+		return
 	}
 	if input.IsEmergency {
 		input.Priority = "emergency"
@@ -176,14 +218,15 @@ func SendMessage(c *gin.Context) {
 		Priority:    input.Priority,
 	}
 
-	if !roomAccessAllowed(c, userObj, roomID) {
-		return
+	if targetRoom.Type == "private" {
+		input.Priority = "normal"
+		message.Priority = "normal"
 	}
-
 	if err := config.DB.Create(&message).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
 	}
+	notifyCommunicationRoomMembers(roomID, userObj.ID)
 
 	// If emergency, create alert
 	if input.IsEmergency {
@@ -192,7 +235,7 @@ func SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Message sent successfully",
-		"data":    message,
+		"data":    communicationMessageResponse(message),
 	})
 }
 
@@ -249,8 +292,12 @@ func GetMessages(c *gin.Context) {
 	}
 	config.DB.Create(&sync)
 
+	response := make([]gin.H, 0, len(messages))
+	for _, message := range messages {
+		response = append(response, communicationMessageResponse(message))
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"messages": messages,
+		"messages": response,
 		"syncTime": time.Now().Format(time.RFC3339),
 		"hasMore":  len(messages) > 0,
 	})
@@ -665,6 +712,89 @@ func RemoveRoomMember(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Member removed from room", "member": member})
+}
+
+const walkieTalkieRoomType = "walkie_talkie"
+
+// ensureUnitChannel returns the unit's persistent walkie-talkie room, creating
+// it on first use. Audio is never persisted; the room row is the shared channel
+// identity used by the REST helper and audit entries.
+func ensureUnitChannel(unitID, createdBy uuid.UUID) (models.CommunicationRoom, error) {
+	var room models.CommunicationRoom
+	err := config.DB.Where("unit_id = ? AND type = ?", unitID, walkieTalkieRoomType).First(&room).Error
+	if err == nil {
+		return room, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return room, err
+	}
+
+	room = models.CommunicationRoom{
+		UnitID:      unitID,
+		Name:        "Unit Channel",
+		Type:        walkieTalkieRoomType,
+		Status:      "active",
+		IsEncrypted: true,
+		Priority:    "normal",
+		CreatedBy:   createdBy,
+	}
+	if createErr := config.DB.Create(&room).Error; createErr != nil {
+		// A concurrent connection may have created the channel first.
+		if findErr := config.DB.Where("unit_id = ? AND type = ?", unitID, walkieTalkieRoomType).First(&room).Error; findErr == nil {
+			return room, nil
+		}
+		return room, createErr
+	}
+	return room, nil
+}
+
+func canAccessUnitChannel(user *models.User, unitID uuid.UUID) bool {
+	if user.Role == models.RoleSuperAdmin || user.IsSuperAdmin {
+		return true
+	}
+	if user.Role != models.RoleOfficer && user.Role != models.RoleUnitAdmin {
+		return false
+	}
+	return user.UnitID != nil && *user.UnitID == unitID
+}
+
+// GetUnitChannel returns the walkie-talkie channel metadata and live floor
+// state for a unit. Super admins may inspect any unit.
+func GetUnitChannel(c *gin.Context) {
+	unitID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	userObj, ok := getAuthUser(c)
+	if !ok {
+		return
+	}
+	if !canAccessUnitChannel(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this unit"})
+		return
+	}
+
+	var unit models.SecurityUnit
+	if err := config.DB.First(&unit, "id = ?", unitID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Unit not found"})
+		return
+	}
+
+	room, err := ensureUnitChannel(unitID, userObj.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resolve unit channel"})
+		return
+	}
+
+	state := ws.GetPTTManager().Snapshot(unitID.String())
+	c.JSON(http.StatusOK, gin.H{
+		"channel":     room,
+		"ptt":         state,
+		"online":      ws.GetHub().RoomSize(unitID.String()),
+		"canTransmit": userObj.Role != models.RoleSuperAdmin && !userObj.IsSuperAdmin,
+	})
 }
 
 // Helper functions
