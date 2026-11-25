@@ -116,7 +116,12 @@ Community reads and writes are live. The feed is scoped server-side to the calle
 
 **React frontend**: React 19, TypeScript, Vite, Tailwind CSS, React Query for data fetching, Leaflet for map rendering, responsive AppShell drawer at `lg` breakpoint with five theme palettes and carved-mask artwork.
 
-**Infra**: Docker Compose for local development; Render for backend+frontend hosting; Supabase PostgreSQL for the production database; env variables stored outside the repository (never committed).
+**Infra**: Docker Compose for local development; Vercel for frontend hosting (`https://nativityguard.com`, `https://www.nativityguard.com`); Render for backend API hosting (`https://nativityguard-backend.onrender.com`, CORS configured via `ALLOWED_ORIGINS`); Supabase PostgreSQL for the production database; env variables stored outside the repository (never committed).
+
+**Wave-1 Production Hardening (PRs #179–#184)**:
+- CI & Infra: `integration-race.yml` Go version synced to `backend/go.mod` (PR #179); retired Render static-site frontend removed and Vercel + Render CORS/env configuration aligned (PR #180).
+- Backend Security: Last remaining active `super_admin` protected from deletion, suspension, ban, or demotion (PR #181); finance routes hardened with unit-scoped authorization, atomic approvals, and bank account encryption guards (PR #182).
+- Frontend Cleanup: `UnitDetailPage` `cases`, `sos`, and `compliance` tabs wired to live views with `ComingSoonPage.tsx` removed (PR #183); unreferenced demo `CommunityPage.tsx` and `mocks/community.ts` removed (PR #184).
 
 **Authorization tiered**: Per-IP and per-identity rate limiting on auth, OTP, vote, invite, SOS, case and community-post writes; banned/suspended accounts rejected at login and on every request; JWT revocation list checked on every request; refresh token rotation (one-time-use); password change revokes all existing sessions; tiered case access controls (primary/paired/support officers see only their assigned cases).
 

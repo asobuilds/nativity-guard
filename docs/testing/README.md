@@ -336,3 +336,17 @@ Copy this block into a release record for each test cycle:
 - [x] PR #178 integration-race failed on the earlier head `a67fc0f8166638e0e0849b0b825461929517c85a`; the issue was the duplicate response-recorder declaration in `backend/handlers/agency_tenant_test.go`. It was corrected in `cd3edc01a1823649ec467554d4660b9496771f19`, after which the branch integration-race run passed. See [initial failed run 43884034357](https://github.com/asobuilds/nativity-guard/actions/runs/43884034357) and [repaired run 43885174812](https://github.com/asobuilds/nativity-guard/actions/runs/43885174812).
 
 - Follow-up required: once the Render deployment is reachable, rerun the blocked smoke and end-to-end checks, capture the exact error and sanitized logs, and update this section with PASS/FAIL and evidence. A blocked test is not a failure until it is actually executed and fails.
+
+---
+
+## Topology & Wave-1 Update — 2026-11-25
+
+- **Production topology updated**: The retired Render static-site frontend (`nativityguard-frontend.onrender.com`) was removed in PR #180. Frontend is now hosted on **Vercel** (`https://nativityguard.com`, `https://www.nativityguard.com`), backend API on **Render** (`https://nativityguard-backend.onrender.com` with `ALLOWED_ORIGINS` configured for the Vercel origins), and PostgreSQL on **Supabase**.
+- **Wave-1 fixes merged on `main` (PRs #179–#184)**:
+  - PR #179: `integration-race.yml` Go version synced to `backend/go.mod`.
+  - PR #180: Vercel frontend + Render backend CORS and env configuration (`render.yaml`, `vercel.json`, `frontend/vercel.json`, `frontend/.env.example`).
+  - PR #181: Last remaining active `super_admin` protected from deletion, suspension, ban, or demotion.
+  - PR #182: Finance route authorization, atomic approvals, and bank account encryption guards hardened.
+  - PR #183: `UnitDetailPage` `cases`, `sos`, and `compliance` tabs wired to live views; `ComingSoonPage.tsx` removed.
+  - PR #184: Unreferenced demo `CommunityPage.tsx` and `mocks/community.ts` removed.
+- **Pending live verification**: Execute smoke tests against `https://nativityguard.com` and `https://nativityguard-backend.onrender.com/health` (including CORS preflight, auth, unit tabs, and community feed) and record sanitized evidence before marking staging/production release gates as passed.
