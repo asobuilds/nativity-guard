@@ -30,7 +30,8 @@ describe('Landing quick views and public trust information', () => {
 
   it('links to published about and legal pages without false certification', () => {
     const html = renderToStaticMarkup(<MemoryRouter><LandingTrustFooter /></MemoryRouter>)
-    expect(html).toContain('href="/terms"')
+    expect(html).toContain('href="/terms#terms"')
+    expect(html).toContain('href="/terms#privacy"')
     expect(html).toContain('href="/about"')
     expect(html).toContain('tel:112')
     expect(html).toContain('not a police force or emergency response service')
