@@ -12,10 +12,76 @@ import (
 	"gorm.io/gorm/clause"
 
 	"security-solution/config"
-	"security-solution/cryptoutil"
 	"security-solution/models"
 	"security-solution/services"
 )
+
+// callerIsUnitAdminOfUnit reports whether user is a super admin or an active
+// unit_admin for the given unit.
+func callerIsUnitAdminOfUnit(user *models.User, unitID uuid.UUID) bool {
+	if user == nil {
+		return false
+	}
+	if user.IsSuperAdmin || user.Role == "super_admin" {
+		return true
+	}
+	if user.Role != "unit_admin" {
+		return false
+	}
+	if user.UnitID != nil && *user.UnitID == unitID {
+		return true
+	}
+	var membership models.UnitMembership
+	return config.DB.
+		Where("unit_id = ? AND user_id = ? AND status = ?", unitID, user.ID, models.MembershipActive).
+		First(&membership).Error == nil
+}
+
+func maskAccountNumber(num string) string {
+	trimmed := strings.TrimSpace(num)
+	if len(trimmed) <= 4 {
+		return "****"
+	}
+	return strings.Repeat("*", len(trimmed)-4) + trimmed[len(trimmed)-4:]
+}
+
+type bankAccountResponse struct {
+	ID            uuid.UUID `json:"id"`
+	UnitID        uuid.UUID `json:"unitId"`
+	BankName      string    `json:"bankName"`
+	AccountNumber string    `json:"accountNumber"`
+	AccountName   string    `json:"accountName"`
+	BankCode      string    `json:"bankCode,omitempty"`
+	Branch        string    `json:"branch,omitempty"`
+	SwiftCode     string    `json:"swiftCode,omitempty"`
+	IsVerified    bool      `json:"isVerified"`
+	IsDefault     bool      `json:"isDefault"`
+	IsPublic      bool      `json:"isPublic"`
+	DisplayOrder  int       `json:"displayOrder"`
+	Status        string    `json:"status"`
+	Notes         string    `json:"notes,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
+func toBankAccountResponse(a models.BankAccount) bankAccountResponse {
+	return bankAccountResponse{
+		ID:            a.ID,
+		UnitID:        a.UnitID,
+		BankName:      a.BankName,
+		AccountNumber: maskAccountNumber(a.AccountNumber),
+		AccountName:   a.AccountName,
+		BankCode:      a.BankCode,
+		Branch:        a.Branch,
+		SwiftCode:     a.SwiftCode,
+		IsVerified:    a.IsVerified,
+		IsDefault:     a.IsDefault,
+		IsPublic:      a.IsPublic,
+		DisplayOrder:  a.DisplayOrder,
+		Status:        a.Status,
+		Notes:         a.Notes,
+		CreatedAt:     a.CreatedAt,
+	}
+}
 
 // AddBankAccount adds a bank account for a unit
 func AddBankAccount(c *gin.Context) {
@@ -41,11 +107,9 @@ func AddBankAccount(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	// Only admins can add bank accounts
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can add bank accounts"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -55,30 +119,35 @@ func AddBankAccount(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != unitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only add accounts for your unit"})
-			return
-		}
-	}
-
-	// Check if account already exists (compare against encrypted value)
-	var existing models.BankAccount
-	encAccountNum, _ := cryptoutil.Encrypt(input.AccountNumber)
-	if err := config.DB.Where("unit_id = ? AND account_number = ?", unitID, encAccountNum).First(&existing).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "This bank account is already registered"})
+	if !callerIsUnitAdminOfUnit(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only unit admins can add bank accounts for this unit"})
 		return
 	}
 
-	// If this is set as default, unset other defaults
-	if input.IsDefault {
-		config.DB.Model(&models.BankAccount{}).Where("unit_id = ?", unitID).Update("is_default", false)
+	accountNumber := strings.TrimSpace(input.AccountNumber)
+	if accountNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Account number is required"})
+		return
+	}
+
+	// Check if account already exists by comparing decrypted account numbers
+	// (AES-GCM uses a random nonce per encryption, so ciphertext equality does not match).
+	var existingAccounts []models.BankAccount
+	if err := config.DB.Where("unit_id = ? AND status = ?", unitID, "active").Find(&existingAccounts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify existing bank accounts"})
+		return
+	}
+	for _, existing := range existingAccounts {
+		if strings.TrimSpace(existing.AccountNumber) == accountNumber {
+			c.JSON(http.StatusConflict, gin.H{"error": "This bank account is already registered"})
+			return
+		}
 	}
 
 	bankAccount := models.BankAccount{
 		UnitID:        unitID,
 		BankName:      input.BankName,
-		AccountNumber: input.AccountNumber,
+		AccountNumber: accountNumber,
 		AccountName:   input.AccountName,
 		BankCode:      input.BankCode,
 		Branch:        input.Branch,
@@ -89,14 +158,21 @@ func AddBankAccount(c *gin.Context) {
 		CreatedBy:     userObj.ID,
 	}
 
-	if err := config.DB.Create(&bankAccount).Error; err != nil {
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if input.IsDefault {
+			if err := tx.Model(&models.BankAccount{}).Where("unit_id = ?", unitID).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(&bankAccount).Error
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add bank account"})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":     "Bank account added successfully",
-		"bankAccount": bankAccount,
+		"bankAccount": toBankAccountResponse(bankAccount),
 	})
 }
 
@@ -114,23 +190,31 @@ func GetBankAccounts(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these accounts"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these accounts"})
+		return
 	}
 
 	var bankAccounts []models.BankAccount
-	if err := config.DB.Where("unit_id = ? AND status = ?", id, "active").Order("created_at desc").Find(&bankAccounts).Error; err != nil {
+	if err := config.DB.Where("unit_id = ? AND status = ?", id, "active").Order("created_at desc").Limit(100).Find(&bankAccounts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch bank accounts"})
 		return
 	}
 
+	out := make([]bankAccountResponse, 0, len(bankAccounts))
+	for _, a := range bankAccounts {
+		out = append(out, toBankAccountResponse(a))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"bankAccounts": bankAccounts,
+		"accounts":     out,
+		"bankAccounts": out,
 	})
 }
 
@@ -164,10 +248,9 @@ func UpdateBankAccount(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can update bank accounts"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -177,11 +260,9 @@ func UpdateBankAccount(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != bankAccount.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this account"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, bankAccount.UnitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to update this account"})
+		return
 	}
 
 	if input.BankName != "" {
@@ -205,22 +286,27 @@ func UpdateBankAccount(c *gin.Context) {
 	if input.Status != "" {
 		bankAccount.Status = input.Status
 	}
-	if input.IsDefault != nil && *input.IsDefault {
-		// Unset other defaults for this unit
-		config.DB.Model(&models.BankAccount{}).Where("unit_id = ?", bankAccount.UnitID).Update("is_default", false)
-		bankAccount.IsDefault = true
-	} else if input.IsDefault != nil && !*input.IsDefault {
-		bankAccount.IsDefault = false
+	if input.IsDefault != nil {
+		bankAccount.IsDefault = *input.IsDefault
 	}
 
-	if err := config.DB.Save(&bankAccount).Error; err != nil {
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if input.IsDefault != nil && *input.IsDefault {
+			if err := tx.Model(&models.BankAccount{}).
+				Where("unit_id = ? AND id <> ?", bankAccount.UnitID, bankAccount.ID).
+				Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Save(&bankAccount).Error
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bank account"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "Bank account updated successfully",
-		"bankAccount": bankAccount,
+		"bankAccount": toBankAccountResponse(bankAccount),
 	})
 }
 
@@ -238,10 +324,9 @@ func DeleteBankAccount(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete bank accounts"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -251,11 +336,9 @@ func DeleteBankAccount(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != bankAccount.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this account"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, bankAccount.UnitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to delete this account"})
+		return
 	}
 
 	// Soft delete
@@ -523,17 +606,19 @@ func GetDonations(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these donations"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these donations"})
+		return
 	}
 
 	var donations []models.Donation
-	if err := config.DB.Where("unit_id = ?", id).Order("created_at desc").Find(&donations).Error; err != nil {
+	if err := config.DB.Where("unit_id = ?", id).Order("created_at desc").Limit(200).Find(&donations).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch donations"})
 		return
 	}
