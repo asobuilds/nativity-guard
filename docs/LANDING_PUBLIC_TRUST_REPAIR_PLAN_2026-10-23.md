@@ -17,7 +17,7 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-06 | P1 | Published Terms/Privacy content is backend-dependent; production availability unverified | Patched – awaiting browser/API QA | Independent requests, active document validation, retry and section anchors; verify live rendered versions |
 | NG-07 | P1 | About page does not publish complete legal operator/data-controller identification | Partially patched – identity evidence outstanding | Clearly disclose unverified identity; publish verified registered entity, controller and contact only after accountable review |
 | NG-08 | P1 | Governance/immutable-audit/constitutional claims require backend behavior validation | Patched in landing/blueprint – awaiting QA | Describe policy as conditional and illustrative; retain separate backend security/audit verification |
-| NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Review | Meaning and source of each statistic are evident and current |
+| NG-09 | P2 | Homepage counts and geography can imply verified national coverage | Patched – awaiting browser QA | Shared API count labels platform verification; coverage and case review shown as variable, not nationwide performance stats |
 | NG-10 | P1 | Mobile drawer/popups not fully verified on Safari/Android, narrow screens and onscreen keyboards | Open | Test scroll, focus, all interactive controls, and accessible labels |
 | NG-11 | P1 | Public map/search/error behavior can obscure API errors or show false data | Patched in part – awaiting QA | Distinguish unavailable/no-match; no invented map or case entries; end-to-end tests |
 | NG-12 | P2 | Authentication popup action persistence, wrong credentials and cancellation need regression checks | Open | No stale pending action after failed login, close, or route change |
@@ -29,9 +29,9 @@ Status legend: **Patched – awaiting QA** means code was changed on this branch
 | NG-18 | P1 | Public blueprint fallback embeds detailed security, encryption, and governance claims despite API failure | Patched – awaiting QA | No invented fallback on API error; published data needed for calculator |
 | NG-19 | P1 | AI safety sandbox contains simulation language implying validated officer credentials/services | Patched – awaiting QA | Static examples labeled; 24/7, verified badges, accreditation claims removed; assistant availability not guaranteed |
 | NG-20 | P1 | Map can generate a default country-center location and describe it as captured coordinates | Patched – awaiting QA | Do not represent a default map center as visitor GPS; show location not chosen |
-| NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Open | Success notification only after successful clipboard write; informative failure message |
+| NG-21 | P2 | Copy-to-clipboard UI can claim success even if clipboard permissions reject | Patched – awaiting browser QA | Only show Copied after awaited clipboard promise; error toast on denial/missing API |
 | NG-22 | P1 | Urgent trust changes lack documented browser regression evidence | Open | Run frontend typecheck/lint/tests/build plus real-browser and mobile acceptance checklist |
-| NG-23 | P1 | CI dependency install reports 6 npm advisories (3 moderate, 1 high, 2 critical) | Open | Review npm audit tree, direct vs transitive dependencies, reachable risk, patched versions, and regression testing; do not use --force blindly |
+| NG-23 | P1 | 6 npm advisories in development/test tools; production-only audit reported 0 | Triaged – dependency upgrades pending | Review Vitest 5.0.5 major-version upgrade path, regenerate lockfile with npm, rerun full and prod audits and CI; no forced upgrades |
 | NG-24 | P1 | Terms API returned a static acceptance version potentially differing from active Terms document | Patched – awaiting Go regression checks | API response version equals the served active document version; signup acceptance remains consistent |
 | NG-25 | P0 | Existing Render Free Postgres expired on 2026-10-23, is suspended and makes backend fail startup | BLOCKED – recovery requires Render plan change | Upgrade existing database during grace period; preserve records; verify backend/API health before merges |
 
@@ -109,6 +109,16 @@ Render documentation allows a 14-day grace period to upgrade an expired Free dat
 
 See `docs/RENDER_POSTGRES_EXPIRATION_RECOVERY_2026-10-23.md` for data-preserving recovery steps. The current connected Render tool does not offer changing the database compute plan; a workspace operator must use Render's dashboard. Do not place database secrets in the issue tracker.
 
+## Statistics and clipboard integrity phase (draft PR)
+
+- Landing unit counts are computed from the same public API data as the map/directory rather than an extra competing fetch.
+- Distinguishes a genuine API result of 0 active platform-verified units from pending and unavailable API responses.
+- Removes fixed marketing-looking 36-state and two-approval statistics from the hero. They are replaced with conditional locality and case-review descriptions, not claims of geographic coverage or guaranteed case resolution.
+- Donation account Copy buttons now await the browser's clipboard API and show confirmation only when it resolves. Denied, absent, or insecure-context clipboard access produces an error notification and does not falsely mark the account number as copied.
+- Unit and platform donation panels share a small tested clipboard helper. Includes regression tests for pending, successful, rejected and absent clipboard operations.
+- Remaining QA: check visual alignment of text stats at mobile widths and test copy success/denial on HTTPS mobile Chrome, Safari, Firefox and desktop.
+- NG-23 npm security advisories remain open until exact affected dependency paths, versions and risk are identified; do not apply blanket `npm audit fix --force`.
+
 ## Manual acceptance matrix
 
 1. Empty /public/units: no patrol organisation or verified badge invented.
@@ -130,3 +140,7 @@ See `docs/RENDER_POSTGRES_EXPIRATION_RECOVERY_2026-10-23.md` for data-preserving
 ## Verification status at authoring
 
 GitHub source was inspected; Render showed a live frontend deployment on 2026-10-22. The live website and backend routes could not be accessed from this audit environment. Code changes on this branch do **not** prove the production deployment has been updated. CI, live API verification, external counsel for legal matters and actual browser testing remain outstanding.
+
+## Dependency advisory follow-up (23 October 2026)
+
+Full npm audit: 6 affected packages (3 moderate, 1 high, 2 critical); production-only `npm audit --omit=dev`: **0 reported advisories**. The affected set is tied to Vitest/Vite and their development dependencies, which still need review and upgrades. See `docs/FRONTEND_DEPENDENCY_AUDIT_2026-10-23.md` on the diagnostic PR branch for package names, advisories and release criteria. Browser/device acceptance remains open and these npm audit results do not validate application security.

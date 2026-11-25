@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { copyText } from '@/lib/copyText'
+import { useToast } from '@/components/ui/Toast'
 import {
   Check,
   Copy,
@@ -27,11 +29,17 @@ export function FinancialTransparencySection({
   const { data: supporters = [], isPending: supportersLoading, isError: supportersError } = usePublicSupporters()
   const { data: donationInfo } = usePlatformDonationInfo()
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const { notify } = useToast()
 
-  function handleCopy(text: string, field: string) {
-    navigator.clipboard.writeText(text)
+  async function handleCopy(text: string, field: string) {
+    setCopiedField(null)
+    if (!(await copyText(text))) {
+      notify('Could not copy the account number. Select and copy it manually.', 'error')
+      return
+    }
     setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2500)
+    notify('Account number copied to clipboard', 'success')
+    setTimeout(() => setCopiedField(current => current === field ? null : current), 2500)
   }
 
   function handleDonateClick() {
