@@ -231,6 +231,10 @@ func BanUser(c *gin.Context) {
 		return
 	}
 
+	if !ensureNotLastActiveSuperAdmin(c, &target, "ban") {
+		return
+	}
+
 	previous := target.Status
 	target.Status = "banned"
 	if err := config.DB.Save(&target).Error; err != nil {

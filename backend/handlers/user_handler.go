@@ -1,15 +1,58 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"security-solution/config"
 	"security-solution/models"
 	"security-solution/services"
 )
+
+// isActiveSuperAdmin reports whether u is an active super admin account.
+func isActiveSuperAdmin(u *models.User) bool {
+	if u == nil {
+		return false
+	}
+	if u.Role != models.RoleSuperAdmin && !u.IsSuperAdmin {
+		return false
+	}
+	return u.Status == "active"
+}
+
+// countOtherActiveSuperAdmins counts active super_admin accounts other than excludeID.
+func countOtherActiveSuperAdmins(db *gorm.DB, excludeID uuid.UUID) (int64, error) {
+	var count int64
+	err := db.Model(&models.User{}).
+		Where("id <> ? AND status = ? AND (role = ? OR is_super_admin = ?)", excludeID, "active", models.RoleSuperAdmin, true).
+		Count(&count).Error
+	return count, err
+}
+
+// ensureNotLastActiveSuperAdmin prevents deleting, banning, suspending, or
+// demoting the last remaining active super admin. Returns true if the action
+// may proceed; otherwise writes an error response and returns false.
+func ensureNotLastActiveSuperAdmin(c *gin.Context, target *models.User, action string) bool {
+	if !isActiveSuperAdmin(target) {
+		return true
+	}
+	otherCount, err := countOtherActiveSuperAdmins(config.DB, target.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify remaining super admins"})
+		return false
+	}
+	if otherCount == 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": fmt.Sprintf("Cannot %s the last remaining active super admin", action),
+		})
+		return false
+	}
+	return true
+}
 
 // callerIsSuperAdmin returns true if the authenticated caller is a super admin.
 func callerIsSuperAdmin(c *gin.Context) (*models.User, bool) {
@@ -91,6 +134,12 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	if input.Status != "" && input.Status != "active" {
+		if !ensureNotLastActiveSuperAdmin(c, &user, "deactivate") {
+			return
+		}
+	}
+
 	if input.FirstName != "" {
 		user.FirstName = input.FirstName
 	}
@@ -154,6 +203,10 @@ func DeleteUser(c *gin.Context) {
 	var user models.User
 	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if !ensureNotLastActiveSuperAdmin(c, &user, "delete") {
 		return
 	}
 
