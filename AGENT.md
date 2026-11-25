@@ -230,13 +230,14 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 ## Current production state
 
-- Backend and frontend are deployed on Render; PostgreSQL is hosted on Supabase.
+- Frontend is deployed on Vercel (`https://nativityguard.com` and `https://www.nativityguard.com`); backend API is deployed on Render (`https://nativityguard-backend.onrender.com`); PostgreSQL is hosted on Supabase.
 - Production domain: `nativityguard.com`.
 - Community reads and writes are live. The feed is scoped server-side to the caller's own place (locality → LGA → state → country → world) and replies are gated by that same visibility rule; the former `VITE_COMMUNITY_WRITES_ENABLED` gate is retired. Never trust a client-supplied place name — the server derives it (decisions D-011…D-016 in `resolution.md`).
 - Super-admin navigation must expose only real, usable capabilities. Do not reintroduce fake/Coming Soon fallbacks for implemented admin routes.
 - Unit analytics authorization is scoped: super admins may inspect any unit; unit admins may inspect only their own unit.
-- Super-admin user mutations already block self-role-change/self-suspension and validate role values.
-- Next security work: global settings authorization, last-super-admin protection, RSVP concurrency/capacity safety, real Community moderation, finance-route review, and final role-by-role authorization audit.
+- Super-admin user mutations block self-role-change/self-suspension, validate role values, and protect the last remaining active `super_admin` from deletion, suspension, ban, or demotion (PR #181).
+- Wave-1 fixes merged (PRs #179–#184): `integration-race` Go version synced to `backend/go.mod` (PR #179); retired Render static-site removed and Vercel + Render CORS/env configured (PR #180); last-super-admin protection (PR #181); finance-route authorization, atomic approvals, and encryption guards (PR #182); `UnitDetailPage` live `cases`/`sos`/`compliance` tabs with `ComingSoonPage.tsx` removed (PR #183); unreferenced demo `CommunityPage.tsx` and `mocks/community.ts` removed (PR #184).
+- Remaining security/reliability work: role-by-role authorization audit across routes and middleware, password-reset email delivery wiring, frontend reliability pass, global settings authorization, and RSVP concurrency/capacity safety.
 - PRs 6–8 are merged: officer safety (panic + 200 m arrival geofence), suspect workflow (locked reads, auto-archive, NDPA expungement), anti-abuse (rate limits, TrustScore, restrict/ban, input validation), and agency tenancy (police/NSCDC/fire/FRSC tenants with LGA-scoped observer dashboards).
 - Every production-facing control must be wired to a real backend action or removed/clearly unavailable. Never present mock/demo behavior as live.
 
