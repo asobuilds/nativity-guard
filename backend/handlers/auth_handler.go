@@ -818,17 +818,10 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	svc := services.NewPasswordResetService()
-	_, rawToken, err := svc.RequestReset(input.Identifier)
-	if err != nil {
+	if _, _, err := svc.RequestReset(input.Identifier); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
 		return
 	}
-
-	// TODO: email delivery is not yet wired. When the identifier is an
-	// email, the token is currently sent to the resolved user's PHONE
-	// number (Correction 1). Replace this SMS branch with an email
-	// dispatch once an email service is added.
-	_ = rawToken
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "If an account with that email or phone number exists, we've sent a password reset link.",
