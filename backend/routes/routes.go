@@ -217,9 +217,9 @@ func SetupRoutes(router *gin.Engine) {
 		evidence := api.Group("/evidence")
 		{
 			evidence.POST("/upload", middleware.AuthMiddleware(), handlers.UploadEvidence)
-			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, handlers.UploadEvidenceFile)
-			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.PresignEvidenceUpload)
-			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ConfirmEvidenceUpload)
+			evidence.POST("/case/:caseId/file", middleware.AuthMiddleware(), middleware.UploadValidationMiddleware("evidence"), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.UploadEvidenceFile)
+			evidence.POST("/case/:caseId/presign", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.PresignEvidenceUpload)
+			evidence.POST("/case/:caseId/confirm", middleware.AuthMiddleware(), middleware.CanAccessCase, middleware.DenyAgencyAdminCaseMutation, handlers.ConfirmEvidenceUpload)
 			evidence.GET("/case/:caseId/:evidenceId/file", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.ServeCaseEvidence)
 			evidence.GET("/case/:caseId", middleware.AuthMiddleware(), middleware.CanAccessCase, handlers.GetEvidenceByCase)
 			evidence.DELETE("/:id", middleware.AuthMiddleware(), handlers.DeleteEvidence)
@@ -396,10 +396,10 @@ func SetupRoutes(router *gin.Engine) {
 
 		audit := api.Group("/audit")
 		{
-			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
-			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
-			audit.GET("/health", middleware.AuthMiddleware(), handlers.GetSystemHealth)
-			audit.GET("/notifications", middleware.AuthMiddleware(), handlers.GetNotificationLogs)
+			audit.GET("/activities", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleCitizen, models.RoleOfficer, models.RoleUnitAdmin, models.RoleSuperAdmin), middleware.RateLimitGeneral(), handlers.GetActivityLogs)
+			audit.GET("/logs", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), middleware.RateLimitGeneral(), handlers.GetAuditLogs)
+			audit.GET("/health", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetSystemHealth)
+			audit.GET("/notifications", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetNotificationLogs)
 		}
 
 		alerts := api.Group("/alerts")
@@ -418,7 +418,7 @@ func SetupRoutes(router *gin.Engine) {
 
 		analytics := api.Group("/analytics")
 		{
-			analytics.GET("/units/:id", middleware.AuthMiddleware(), handlers.GetUnitAnalytics)
+			analytics.GET("/units/:id", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetUnitAnalytics)
 			analytics.GET("/user-activity", middleware.AuthMiddleware(), handlers.SuperAdminMiddleware(), handlers.GetUserActivity)
 		}
 
@@ -450,12 +450,12 @@ func SetupRoutes(router *gin.Engine) {
 
 		video := api.Group("/video")
 		{
-			video.POST("/cameras", middleware.AuthMiddleware(), handlers.AddCamera)
-			video.GET("/units/:id/cameras", middleware.AuthMiddleware(), handlers.GetCameras)
-			video.POST("/alerts", middleware.AuthMiddleware(), handlers.GenerateVideoAlert)
+			video.POST("/cameras", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.AddCamera)
+			video.GET("/units/:id/cameras", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GetCameras)
+			video.POST("/alerts", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.GenerateVideoAlert)
 			video.GET("/alerts", middleware.AuthMiddleware(), handlers.GetVideoAlerts)
-			video.PUT("/alerts/:id/review", middleware.AuthMiddleware(), handlers.ReviewVideoAlert)
-			video.POST("/social/monitor", middleware.AuthMiddleware(), handlers.MonitorSocialMedia)
+			video.PUT("/alerts/:id/review", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.ReviewVideoAlert)
+			video.POST("/social/monitor", middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin), handlers.MonitorSocialMedia)
 			video.GET("/social/posts", middleware.AuthMiddleware(), handlers.GetSocialMediaPosts)
 		}
 
@@ -507,16 +507,17 @@ func SetupRoutes(router *gin.Engine) {
 		}
 
 		peace := api.Group("/peacebuilding")
+		peace.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware(models.RoleSuperAdmin, models.RoleUnitAdmin))
 		{
-			peace.POST("/committees", middleware.AuthMiddleware(), handlers.CreatePeaceCommittee)
-			peace.GET("/units/:id/committees", middleware.AuthMiddleware(), handlers.GetPeaceCommittees)
-			peace.POST("/committees/:id/members", middleware.AuthMiddleware(), handlers.AddCommitteeMember)
-			peace.POST("/conflicts", middleware.AuthMiddleware(), handlers.CreateConflictResolution)
-			peace.GET("/units/:id/conflicts", middleware.AuthMiddleware(), handlers.GetConflictResolutions)
-			peace.PUT("/conflicts/:id", middleware.AuthMiddleware(), handlers.UpdateConflictResolution)
-			peace.GET("/units/:id/peace-metrics", middleware.AuthMiddleware(), handlers.GetPeaceMetrics)
-			peace.GET("/units/:id/trust-scores", middleware.AuthMiddleware(), handlers.GetTrustScores)
-			peace.POST("/trust-scores", middleware.AuthMiddleware(), handlers.UpdateTrustScore)
+			peace.POST("/committees", handlers.CreatePeaceCommittee)
+			peace.GET("/units/:id/committees", handlers.GetPeaceCommittees)
+			peace.POST("/committees/:id/members", handlers.AddCommitteeMember)
+			peace.POST("/conflicts", handlers.CreateConflictResolution)
+			peace.GET("/units/:id/conflicts", handlers.GetConflictResolutions)
+			peace.PUT("/conflicts/:id", handlers.UpdateConflictResolution)
+			peace.GET("/units/:id/peace-metrics", handlers.GetPeaceMetrics)
+			peace.GET("/units/:id/trust-scores", handlers.GetTrustScores)
+			peace.POST("/trust-scores", handlers.UpdateTrustScore)
 		}
 
 		agency := api.Group("/agency")

@@ -19,10 +19,24 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		userObj := user.(*models.User)
+		userObj, ok := user.(*models.User)
+		if !ok || userObj == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			c.Abort()
+			return
+		}
+		if userObj.Status == "banned" || userObj.Status == "suspended" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+			c.Abort()
+			return
+		}
 
 		for _, role := range roles {
 			if userObj.Role == role {
+				c.Next()
+				return
+			}
+			if role == models.RoleSuperAdmin && userObj.IsSuperAdmin {
 				c.Next()
 				return
 			}
@@ -168,6 +182,9 @@ func CanAccessCase(c *gin.Context) {
 // CanAccessUnit checks if user can access a specific unit
 func CanAccessUnit(c *gin.Context) {
 	unitID := c.Param("unitId")
+	if unitID == "" {
+		unitID = c.Param("id")
+	}
 	id, err := uuid.Parse(unitID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
@@ -181,9 +198,19 @@ func CanAccessUnit(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.Abort()
+		return
+	}
+	if userObj.Status == "banned" || userObj.Status == "suspended" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
+		c.Abort()
+		return
+	}
 
-	if userObj.Role == "super_admin" {
+	if userObj.IsSuperAdmin || userObj.Role == models.RoleSuperAdmin {
 		c.Next()
 		return
 	}
