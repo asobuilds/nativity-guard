@@ -27,7 +27,13 @@ const denialCooldownYears = 1
 const eligibilityYears = 5
 
 // RequestExpungement validates eligibility and creates a pending request.
-// Guards run in order; each returns a distinct message.
+//
+// NDPA: a suspect record whose UserID is set to a registered user is personal
+// data that the user may request removal of. The request is the filing step;
+// actual removal happens only in DecideExpungement when the decision is
+// "approve" (i.e. the appeal is upheld). A "deny" decision retains the row for
+// the 5-year eligibility window and allows re-filing after the 12-month
+// denial cooldown — it must NOT delete the record.
 func (s *ExpungementService) RequestExpungement(req ExpungementRequestInput) (*models.ExpungementRequest, error) {
 	var suspect models.Suspect
 	if err := config.DB.First(&suspect, "id = ?", req.SuspectID).Error; err != nil {
@@ -94,6 +100,13 @@ func (s *ExpungementService) RequestExpungement(req ExpungementRequestInput) (*m
 
 // DecideExpungement approves or denies a pending request. Only a head admin of
 // the suspect's unit (or a super admin) may decide.
+//
+// NDPA: when the decision is "approve" (the appeal is upheld), the linked
+// suspect record is soft-deleted and any sibling suspect rows for the same
+// UserID have their UserID link cleared — the person's personal data is
+// removed from active tracking. When the decision is "deny", nothing is
+// deleted; the row stays for the 5-year eligibility window and may be
+// re-appealed after the 12-month denial cooldown.
 func (s *ExpungementService) DecideExpungement(requestID, reviewerID uuid.UUID, decision, reason string) (*models.ExpungementRequest, error) {
 	var reqRecord models.ExpungementRequest
 	if err := config.DB.First(&reqRecord, "id = ?", requestID).Error; err != nil {
@@ -141,10 +154,54 @@ func (s *ExpungementService) DecideExpungement(requestID, reviewerID uuid.UUID, 
 		if err := config.DB.Save(&suspect).Error; err != nil {
 			return nil, err
 		}
+
+		// NDPA: removal is permitted only when the appeal is upheld.
+		// Soft-delete the suspect row (retains the audit trail) and clear the
+		// UserID link on any sibling suspect rows for the same user.
+		if err := config.DB.Delete(&suspect).Error; err != nil {
+			return nil, err
+		}
+		if suspect.UserID != nil && *suspect.UserID != uuid.Nil {
+			config.DB.Model(&models.Suspect{}).
+				Where("user_id = ? AND id <> ?", *suspect.UserID, suspect.ID).
+				Update("user_id", nil)
+		}
 	}
 	if err := config.DB.Save(&reqRecord).Error; err != nil {
 		return nil, err
 	}
+
+	auditSvc := NewAuditService()
+	if decision == "approve" {
+		// Two rows: one for the expungement decision itself (with the PII
+		// snapshot before deletion), one for the removal event so the audit
+		// trail stays queryable even though the suspect row is soft-deleted.
+		_ = auditSvc.LogAction(
+			reviewerID,
+			"suspect.expunged",
+			"suspect",
+			reqRecord.SuspectID.String(),
+			nil,
+			map[string]interface{}{"reason": reason, "expungedAt": now},
+			"",
+			"",
+		)
+		_ = auditSvc.LogAction(
+			reviewerID,
+			"suspect.removed",
+			"suspect",
+			reqRecord.SuspectID.String(),
+			nil,
+			map[string]interface{}{
+				"note":       "removed via upheld expungement appeal",
+				"expungedAt": now,
+				"expungedBy": reviewerID,
+			},
+			"",
+			"",
+		)
+	}
+
 	return &reqRecord, nil
 }
 

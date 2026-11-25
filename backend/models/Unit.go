@@ -38,6 +38,7 @@ type SecurityUnit struct {
 	BrandName               string     `gorm:"type:varchar(120)" json:"brandName,omitempty"`
 	BrandLogoURL            string     `gorm:"type:text" json:"brandLogoUrl,omitempty"`
 	BrandCoverURL           string     `gorm:"type:text" json:"brandCoverUrl,omitempty"`
+	BaseRate                float64    `gorm:"not null;default:0" json:"baseRate"`
 
 	// Registration form, Section B — commander.
 	CommanderName            string `gorm:"type:varchar(160)" json:"commanderName,omitempty"`

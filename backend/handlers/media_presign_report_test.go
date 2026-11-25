@@ -67,13 +67,16 @@ func TestPresignReportMedia_RequiresPostVisibility(t *testing.T) {
 		t.Errorf("a refused presign must not return a storage key, got %s", recorder.Body.String())
 	}
 
-	// A post the caller can open passes the gate and reaches the storage step
-	// (503 in local-disk mode, which cannot presign a PUT URL).
+	// A post the caller can open passes the gate and reaches the storage step.
+	// With MEDIA_* unset, presignMedia returns the local upload fallback.
 	ctx, recorder = mediaContext(t, "POST", "/community/posts/"+open.ID.String()+"/report/presign",
 		gin.Params{{Key: "id", Value: open.ID.String()}}, caller, body)
 	PresignReportMedia(ctx)
-	if recorder.Code != http.StatusServiceUnavailable {
+	if recorder.Code != http.StatusOK {
 		t.Fatalf("a visible post must pass the visibility gate and reach the storage step, got %d %s",
 			recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "/community/posts/report/upload") {
+		t.Errorf("a visible post must return the report upload fallback, got %s", recorder.Body.String())
 	}
 }

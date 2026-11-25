@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "ng_token",
+      "value": "mock-citizen-token",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1800000000,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "ng_user",
+          "value": "{\"id\":\"citizen-1\",\"email\":\"citizen@example.com\",\"role\":\"citizen\",\"firstName\":\"Test\",\"lastName\":\"Citizen\"}"
+        }
+      ]
+    }
+  ]
+}

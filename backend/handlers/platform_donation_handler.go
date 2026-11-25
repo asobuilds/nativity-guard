@@ -1,12 +1,16 @@
 ﻿package handlers
 
 import (
+	"errors"
+	"math"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -53,7 +57,7 @@ func CreatePlatformDonation(c *gin.Context) {
 		return
 	}
 
-	if input.Amount <= 0 {
+	if math.IsNaN(input.Amount) || math.IsInf(input.Amount, 0) || input.Amount <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "amount must be positive"})
 		return
 	}
@@ -106,6 +110,10 @@ func CreatePlatformDonation(c *gin.Context) {
 
 // ListPlatformDonations — super admin only. Full list with donor detail.
 func ListPlatformDonations(c *gin.Context) {
+	if _, ok := requireSuperAdminUser(c); !ok {
+		return
+	}
+
 	var donations []models.PlatformDonation
 	if err := config.DB.Order("created_at DESC").Limit(500).Find(&donations).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch donations"})
@@ -123,34 +131,50 @@ func ConfirmPlatformDonation(c *gin.Context) {
 		return
 	}
 
-	userValue, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	userObj, ok := userValue.(*models.User)
+	userObj, ok := requireSuperAdminUser(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
 	var donation models.PlatformDonation
-	if err := config.DB.First(&donation, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Donation not found"})
-		return
-	}
+	var errStatus int
+	var errMsg string
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var locked models.PlatformDonation
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&locked, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				errStatus = http.StatusNotFound
+				errMsg = "Donation not found"
+			}
+			return err
+		}
 
-	if donation.Status == "confirmed" {
-		c.JSON(http.StatusConflict, gin.H{"error": "Donation is already confirmed"})
-		return
-	}
+		if locked.Status == "confirmed" {
+			errStatus = http.StatusConflict
+			errMsg = "Donation is already confirmed"
+			return errors.New(errMsg)
+		}
+		if locked.Status != "pending" {
+			errStatus = http.StatusBadRequest
+			errMsg = "Donation is no longer pending"
+			return errors.New(errMsg)
+		}
 
-	now := time.Now().UTC()
-	donation.Status = "confirmed"
-	donation.ConfirmedBy = &userObj.ID
-	donation.ConfirmedAt = &now
-
-	if err := config.DB.Save(&donation).Error; err != nil {
+		now := time.Now().UTC()
+		locked.Status = "confirmed"
+		locked.ConfirmedBy = &userObj.ID
+		locked.ConfirmedAt = &now
+		if err := tx.Save(&locked).Error; err != nil {
+			return err
+		}
+		donation = locked
+		return nil
+	}); err != nil {
+		if errStatus != 0 {
+			c.JSON(errStatus, gin.H{"error": errMsg})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm donation"})
 		return
 	}
@@ -159,6 +183,24 @@ func ConfirmPlatformDonation(c *gin.Context) {
 		"message":  "Donation confirmed",
 		"donation": donation,
 	})
+}
+
+func requireSuperAdminUser(c *gin.Context) (*models.User, bool) {
+	userValue, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return nil, false
+	}
+	userObj, ok := userValue.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return nil, false
+	}
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Super admin access required"})
+		return nil, false
+	}
+	return userObj, true
 }
 
 // ListPublicSupporters — public. Returns confirmed donations where IsPublic=true.

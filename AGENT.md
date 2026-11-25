@@ -45,6 +45,8 @@ Support officers see a **limited** view of their assigned case only.
 - Sensitive suspect tracking is never a generic officer capability.
 - Citizen-facing responses never expose officer identity, evidence internals, admin comments, or other suspects.
 - Presumed innocence: a citizen named as a suspect sees only case ID, category, status, and public-safe progress.
+- Suspect reads are locked to `canReadSuspect`: super admin, the unit admin who owns the suspect, an officer personally assigned to a linked case in that unit, and the linked citizen. Pending cross-unit transfers do not grant reads.
+- Banned and suspended accounts must be rejected at login and by `AuthMiddleware`; do not reintroduce a path that lets them act.
 
 ---
 
@@ -124,6 +126,47 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 ---
 
+## Officer Safety, Suspect Workflow, Anti-Abuse & Agency Oversight (PRs 6–8)
+
+### Officer safety
+- `POST /officer/panic` is available to officer, unit admin and super admin. It must create an `OfficerPanic` row, notify the officer's unit admins and agency observers, and attempt an SMS. Do not remove the audit row.
+- `POST /cases/:id/arrive` must enforce a 200 m haversine geofence against the case coordinates, reject with 400 outside it, and only transition `dispatched` → `on_scene`.
+
+### Suspect workflow & NDPA
+- All suspect-scoped reads go through `canReadSuspect`. Write paths use `checkAdminAccess`. Sightings are officer/admin-only; associations are admin-only.
+- Closing, resolving or cancelling a case must call `ArchiveSuspectsForCase` for linked suspects with no remaining open case.
+- An upheld expungement blanks PII via `maskIfExpunged`, sets `expunged`, and writes `suspect.expunged`. Never unmask an expunged record for routine reads.
+- Audit events that must remain: `suspect.archive`, `suspect.sighting`, `suspect.association.created`, `suspect.expunged`.
+
+### Anti-abuse
+- Per-user limits: SOS 3/hour, cases 5/hour, community posts 10/hour. Keep the limiters keyed on `user_id` with IP fallback.
+- `TrustScore` defaults to 100. `POST /sos/:id/false` deducts 20 once per alert; below 40 sets `SOSBannedUntil = now + 24h`, and `SendSOSAlert` must reject until it expires.
+- `POST /admin/users/:id/restrict` is super admin or same-LGA unit admin; it blocks LGA-scoped community posts only. `POST /admin/users/:id/ban` is super admin only and revokes credentials.
+- `validateText` must remain applied to SOS description, case title/description, and community title/content (2,000-char cap + SQLi signatures).
+
+### Agency oversight
+- Valid agency types are `police`, `nscdc`, `fire`, `frsc`.
+- Division admins create observers; observers are tenant-bound.
+- Observer queries must stay scoped to the tenant's (state, LGA) and allowed categories: police all; NSCDC infrastructure/vandalism/disaster; fire fire; FRSC road_accident/traffic.
+- Observer responses must never include coordinates, contact details, officer identity, or unsanitized free text.
+
+---
+
+## Regression Guards
+
+1. **Bank Account Encryption**: Bank account numbers must always be encrypted using `cryptoutil.Encrypt()` before saving to `bank_accounts` and decrypted via `AfterFind`. Never store plaintext account numbers.
+2. **Webhook Idempotency**: Payment webhooks must check `WebhookEvent` table for idempotency keys before processing or appending ledger entries.
+3. **Map POIs & Custom Landmarks**: Map POI layers and unit custom landmarks ("Safe House", "Known Hotspot", "Checkpoint") must be rendered correctly via `POILayer` and `MapView`.
+4. **Web Push Notifications**: Creating a `Notification` record must trigger `dispatchWebPush` to active `PushSubscription` endpoints without blocking request handlers.
+5. **Redis Caching & Graceful Fallback**: All Redis cache interactions must incorporate graceful fallback so database operations succeed seamlessly even if Redis is offline.
+6. **Officer Safety**: Panic must create `OfficerPanic` and notify unit admins plus agency observers; arrival must reject >200 m and only move `dispatched` → `on_scene`.
+7. **Suspect Visibility**: All suspect-scoped reads use `canReadSuspect`; writes use `checkAdminAccess`; never expose suspect PII to unauthorized roles; keep expunged records masked.
+8. **Auto-Archive & NDPA**: Terminal case status archives linked suspects; upheld expungement blanks PII and audits `suspect.expunged`.
+9. **Anti-Abuse**: SOS 3/h, cases 5/h, posts 10/h; TrustScore <40 → 24h SOS ban; restricted users blocked from LGA posts; banned/suspended users locked out at login and middleware.
+10. **Agency Observer Scoping**: Tenant (state, LGA) + agency category only; no coordinates/contact/officer PII in observer payloads.
+
+---
+
 ## Working rules
 
 1. Inspect before modifying.
@@ -187,13 +230,15 @@ Never treat an AI inference as equivalent to a verified fact. All knowledge carr
 
 ## Current production state
 
-- Backend and frontend are deployed on Render; PostgreSQL is hosted on Supabase.
+- Frontend is deployed on Vercel (`https://nativityguard.com` and `https://www.nativityguard.com`); backend API is deployed on Render (`https://nativityguard-backend.onrender.com`); PostgreSQL is hosted on Supabase.
 - Production domain: `nativityguard.com`.
 - Community reads and writes are live. The feed is scoped server-side to the caller's own place (locality → LGA → state → country → world) and replies are gated by that same visibility rule; the former `VITE_COMMUNITY_WRITES_ENABLED` gate is retired. Never trust a client-supplied place name — the server derives it (decisions D-011…D-016 in `resolution.md`).
 - Super-admin navigation must expose only real, usable capabilities. Do not reintroduce fake/Coming Soon fallbacks for implemented admin routes.
 - Unit analytics authorization is scoped: super admins may inspect any unit; unit admins may inspect only their own unit.
-- Super-admin user mutations already block self-role-change/self-suspension and validate role values.
-- Next security work: global settings authorization, last-super-admin protection, RSVP concurrency/capacity safety, real Community moderation, finance-route review, and final role-by-role authorization audit.
+- Super-admin user mutations block self-role-change/self-suspension, validate role values, and protect the last remaining active `super_admin` from deletion, suspension, ban, or demotion (PR #181).
+- Wave-1 fixes merged (PRs #179–#184): `integration-race` Go version synced to `backend/go.mod` (PR #179); retired Render static-site removed and Vercel + Render CORS/env configured (PR #180); last-super-admin protection (PR #181); finance-route authorization, atomic approvals, and encryption guards (PR #182); `UnitDetailPage` live `cases`/`sos`/`compliance` tabs with `ComingSoonPage.tsx` removed (PR #183); unreferenced demo `CommunityPage.tsx` and `mocks/community.ts` removed (PR #184).
+- Remaining security/reliability work: role-by-role authorization audit across routes and middleware, password-reset email delivery wiring, frontend reliability pass, global settings authorization, and RSVP concurrency/capacity safety.
+- PRs 6–8 are merged: officer safety (panic + 200 m arrival geofence), suspect workflow (locked reads, auto-archive, NDPA expungement), anti-abuse (rate limits, TrustScore, restrict/ban, input validation), and agency tenancy (police/NSCDC/fire/FRSC tenants with LGA-scoped observer dashboards).
 - Every production-facing control must be wired to a real backend action or removed/clearly unavailable. Never present mock/demo behavior as live.
 
 ---

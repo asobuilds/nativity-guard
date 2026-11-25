@@ -67,8 +67,12 @@ var (
 
 func categoryQuery(category string) string {
 	switch category {
+	case "local":
+		return `(Nigeria OR Lagos OR Abuja OR community OR state OR LGA OR "local government")`
 	case "security":
 		return `(crime OR robbery OR kidnapping OR banditry OR "armed attack")`
+	case "politics":
+		return `(politics OR election OR government OR president OR senate OR policy OR minister)`
 	case "community":
 		return `(community OR "public safety" OR "local government")`
 	case "weather":
@@ -181,10 +185,23 @@ func (s *NewsService) GetForCategories(categories []string, limit int) ([]NewsIt
 func pickCategory(text string, available []string) string {
 	for _, c := range available {
 		switch c {
+		case "local":
+			if strings.Contains(text, "local") || strings.Contains(text, "community") ||
+				strings.Contains(text, "state") || strings.Contains(text, "lagos") ||
+				strings.Contains(text, "abuja") || strings.Contains(text, "lga") {
+				return c
+			}
 		case "security":
 			if strings.Contains(text, "crime") || strings.Contains(text, "robber") ||
 				strings.Contains(text, "kidnap") || strings.Contains(text, "bandit") ||
 				strings.Contains(text, "attack") || strings.Contains(text, "police") {
+				return c
+			}
+		case "politics":
+			if strings.Contains(text, "politic") || strings.Contains(text, "elect") ||
+				strings.Contains(text, "govern") || strings.Contains(text, "presid") ||
+				strings.Contains(text, "senat") || strings.Contains(text, "minist") ||
+				strings.Contains(text, "policy") {
 				return c
 			}
 		case "community":

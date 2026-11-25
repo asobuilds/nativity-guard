@@ -7,6 +7,7 @@ import { PANEL_TO_HASH, PANEL_TITLES, panelFromHash } from '@/components/landing
 import { LandingToolContent } from '@/components/landing/LandingToolContent'
 import { readLandingAppearance, saveLandingAppearance } from '@/components/landing/landingAppearance'
 import { LandingHero } from '@/components/landing/LandingHero'
+import { LandingServiceNotice } from '@/components/landing/LandingServiceNotice'
 import type { ActionContext } from '@/components/landing/types'
 import '@/components/landing/referenceLanding.css'
 
@@ -64,6 +65,7 @@ export function LandingPage() {
     <div className="ng-ref-page" data-landing-palette={appearance.palette} data-landing-wallpaper={appearance.wallpaper}>
       <div className="ng-ref-shell">
         <LandingNavbar onOpen={openPanel} onReport={report} appearance={appearance} onAppearanceChange={value => setAppearance(saveLandingAppearance(value))} />
+        <LandingServiceNotice />
         <LandingHero onActionTrigger={triggerAction} onOpen={openPanel} />
         <LandingTrustFooter />
       </div>

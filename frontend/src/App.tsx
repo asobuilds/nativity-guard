@@ -24,6 +24,11 @@ const SosDetailPage = lazy(() => import('@/pages/citizen/SosDetailPage').then(m 
 const ReportIncidentPage = lazy(() => import('@/pages/citizen/ReportIncidentPage').then(m => ({ default: m.ReportIncidentPage })))
 const OfficerQueuePage = lazy(() => import('@/pages/officer/OfficerQueuePage').then(m => ({ default: m.OfficerQueuePage })))
 const OfficerCasePage = lazy(() => import('@/pages/officer/OfficerCasePage').then(m => ({ default: m.OfficerCasePage })))
+const WalkieTalkiePage = lazy(() => import('@/pages/officer/WalkieTalkiePage').then(m => ({ default: m.WalkieTalkiePage })))
+const TaskForceListPage = lazy(() => import('@/pages/taskforce/TaskForceListPage').then(m => ({ default: m.TaskForceListPage })))
+const TaskForcePage = lazy(() => import('@/pages/taskforce/TaskForcePage').then(m => ({ default: m.TaskForcePage })))
+const BookingRequestPage = lazy(() => import('@/pages/booking/BookingRequestPage').then(m => ({ default: m.BookingRequestPage })))
+const BookingListPage = lazy(() => import('@/pages/booking/BookingListPage').then(m => ({ default: m.BookingListPage })))
 const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })))
 const UnitsPage = lazy(() => import('@/pages/UnitsPage').then(m => ({ default: m.UnitsPage })))
 const UnitDetailPage = lazy(() => import('@/pages/UnitDetailPage').then(m => ({ default: m.UnitDetailPage })))
@@ -34,6 +39,7 @@ const TransfersPage = lazy(() => import('@/pages/admin/TransfersPage').then(m =>
 const AdminOfficersPage = lazy(() => import('@/pages/admin/AdminOfficersPage').then(m => ({ default: m.AdminOfficersPage })))
 const AdminOverviewPage = lazy(() => import('@/pages/admin/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
 const AdminFinancePage = lazy(() => import('@/pages/admin/AdminFinancePage').then(m => ({ default: m.AdminFinancePage })))
+const UnitFinancialLedgerPage = lazy(() => import('@/pages/admin/UnitFinancialLedgerPage').then(m => ({ default: m.UnitFinancialLedgerPage })))
 const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })))
 const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
@@ -48,6 +54,7 @@ const SuperAuditPage = lazy(() => import('@/pages/super/SuperAuditPage').then(m 
 const SuperAnalyticsPage = lazy(() => import('@/pages/super/SuperAnalyticsPage').then(m => ({ default: m.SuperAnalyticsPage })))
 const SuperSettingsPage = lazy(() => import('@/pages/super/SuperSettingsPage').then(m => ({ default: m.SuperSettingsPage })))
 const UnitsRegistryPage = lazy(() => import('@/pages/super/UnitsRegistryPage').then(m => ({ default: m.UnitsRegistryPage })))
+export const SuperAgencyManagementPage = lazy(() => import('@/pages/super/SuperAgencyManagementPage').then(m => ({ default: m.SuperAgencyManagementPage })))
 const UnitRegistrationPage = lazy(() => import('@/pages/super/UnitRegistrationPage').then(m => ({ default: m.UnitRegistrationPage })))
 const UnitDashboardPage = lazy(() => import('@/pages/admin/UnitDashboardPage').then(m => ({ default: m.UnitDashboardPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -62,16 +69,27 @@ const SessionsPage = lazy(() => import('@/pages/SessionsPage').then(m => ({ defa
 const AppealsPage = lazy(() => import('@/pages/AppealsPage').then(m => ({ default: m.AppealsPage })))
 const AiAssistantPage = lazy(() => import('@/pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })))
 const LGAChannelPage = lazy(() => import('@/pages/LGAChannelPage').then(m => ({ default: m.LGAChannelPage })))
+const CommunityChatPage = lazy(() => import('@/pages/CommunityChatPage').then(m => ({ default: m.CommunityChatPage })))
+const MessagesPage = lazy(() => import('@/pages/MessagesPage').then(m => ({ default: m.MessagesPage })))
 const VerifyIdentityPage = lazy(() => import('@/pages/VerifyIdentityPage').then(m => ({ default: m.VerifyIdentityPage })))
 const IdentityVerificationQueuePage = lazy(() => import('@/pages/admin/IdentityVerificationQueuePage').then(m => ({ default: m.IdentityVerificationQueuePage })))
 const UnitVerificationQueuePage = lazy(() => import('@/pages/admin/UnitVerificationQueuePage').then(m => ({ default: m.UnitVerificationQueuePage })))
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage').then(m => ({ default: m.FeedbackPage })))
 const FeedbackQueuePage = lazy(() => import('@/pages/admin/FeedbackQueuePage').then(m => ({ default: m.FeedbackQueuePage })))
+const ObserverDashboardPage = lazy(() => import('@/pages/observer/ObserverDashboardPage').then(m => ({ default: m.ObserverDashboardPage })))
 import type { Role } from '@/types/api'
 
-const ALL_ROLES: Role[] = ['citizen', 'officer', 'unit_admin', 'super_admin']
+const ALL_ROLES: Role[] = [
+  'citizen',
+  'officer',
+  'unit_admin',
+  'super_admin',
+  'agency_observer',
+  'agency_division_admin',
+]
 const STAFF: Role[] = ['officer', 'unit_admin', 'super_admin']
 const ADMIN_ROLES: Role[] = ['unit_admin', 'super_admin']
+const AGENCY_ROLES: Role[] = ['agency_observer', 'agency_division_admin']
 
 function PreferencesBootstrap() {
   usePreferences()
@@ -164,9 +182,11 @@ export function App() {
                   <Route path="/sessions" element={<SessionsPage />} />
                   <Route path="/alerts" element={<RequireRole roles={['citizen', 'super_admin']}><AlertsPage /></RequireRole>} />
                   <Route path="/alerts/:id" element={<RequireRole roles={['citizen', 'super_admin']}><AlertDetailPage /></RequireRole>} />
-                  <Route path="/news" element={<RequireRole roles={['citizen']}><NewsPage /></RequireRole>} />
-                  <Route path="/subscriptions" element={<RequireRole roles={['citizen']}><SubscriptionsPage /></RequireRole>} />
+                  <Route path="/news" element={<RequireRole roles={['citizen', 'super_admin']}><NewsPage /></RequireRole>} />
+                  <Route path="/subscriptions" element={<RequireRole roles={['citizen', 'super_admin']}><SubscriptionsPage /></RequireRole>} />
                   <Route path="/community" element={<RequireRole roles={['citizen', 'super_admin']}><LiveCommunityPage /></RequireRole>} />
+                  <Route path="/community/chat" element={<RequireRole roles={['citizen', 'unit_admin', 'super_admin']}><CommunityChatPage /></RequireRole>} />
+                  <Route path="/messages" element={<RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}><MessagesPage /></RequireRole>} />
                   <Route path="/admin/community" element={<RequireRole roles={ADMIN_ROLES}><LiveCommunityPage /></RequireRole>} />
                   <Route path="/admin/reports" element={<RequireRole roles={ADMIN_ROLES}><AdminReportsPage /></RequireRole>} />
                   <Route path="/appeals" element={<AppealsPage />} />
@@ -201,6 +221,47 @@ export function App() {
                       </RequireRole>
                     }
                   />
+                  <Route
+                    path="/officer/walkie-talkie"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <WalkieTalkiePage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/taskforce"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <TaskForceListPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/taskforce/:id"
+                    element={
+                      <RequireRole roles={STAFF}>
+                        <TaskForcePage />
+                      </RequireRole>
+                    }
+                  />
+
+                  <Route
+                    path="/bookings"
+                    element={
+                      <RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}>
+                        <BookingListPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/bookings/new"
+                    element={
+                      <RequireRole roles={['citizen', 'officer', 'unit_admin', 'super_admin']}>
+                        <BookingRequestPage />
+                      </RequireRole>
+                    }
+                  />
 
                   <Route path="/units/:id" element={<UnitDetailPage />} />
 
@@ -229,6 +290,7 @@ export function App() {
                   <Route path="/admin/officers/:unitId" element={<RequireRole roles={ADMIN_ROLES}><AdminOfficersPage /></RequireRole>} />
                   <Route path="/admin/overview" element={<RequireRole roles={ADMIN_ROLES}><AdminOverviewPage /></RequireRole>} />
                   <Route path="/admin/finance" element={<RequireRole roles={ADMIN_ROLES}><AdminFinancePage /></RequireRole>} />
+                  <Route path="/unit/finance" element={<RequireRole roles={['unit_admin', 'super_admin']}><UnitFinancialLedgerPage /></RequireRole>} />
                   <Route path="/admin/analytics" element={<RequireRole roles={ADMIN_ROLES}><AdminAnalyticsPage /></RequireRole>} />
                   <Route path="/admin/settings" element={<RequireRole roles={ADMIN_ROLES}><AdminSettingsPage /></RequireRole>} />
 
@@ -257,6 +319,15 @@ export function App() {
                     }
                   />
 
+                  <Route
+                    path="/observer/dashboard"
+                    element={
+                      <RequireRole roles={AGENCY_ROLES}>
+                        <ObserverDashboardPage />
+                      </RequireRole>
+                    }
+                  />
+
                   <Route path="/super/overview" element={<RequireRole roles={['super_admin']}><SuperOverviewPage /></RequireRole>} />
                   <Route path="/super/users" element={<RequireRole roles={['super_admin']}><SuperUsersPage /></RequireRole>} />
                   <Route path="/super/audit" element={<RequireRole roles={['super_admin']}><SuperAuditPage /></RequireRole>} />
@@ -267,6 +338,14 @@ export function App() {
                     element={
                       <RequireRole roles={['super_admin']}>
                         <UnitsRegistryPage />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="/super/agencies"
+                    element={
+                      <RequireRole roles={['super_admin']}>
+                        <SuperAgencyManagementPage />
                       </RequireRole>
                     }
                   />
