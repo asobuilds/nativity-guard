@@ -26,7 +26,7 @@ services:
       - key: WEBHOOK_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://nativityguard.com,https://www.nativityguard.com,https://nativityguard-frontend.onrender.com
+        value: https://nativityguard.com,https://www.nativityguard.com
       - key: MEDIA_REQUIRE_REMOTE
         value: "true"
       - key: MEDIA_ENDPOINT
@@ -44,29 +44,6 @@ services:
     healthCheckPath: /health
     numInstances: 1
     plan: free
-
-  # Frontend Service
-  - type: web
-    name: nativityguard-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://nativityguard-backend.onrender.com
-      - key: VITE_USE_MOCKS
-        value: "false"
-      - key: VITE_MEDIA_BASE
-        sync: false
-    headers:
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
 
 databases:
   - name: nativityguard-db
