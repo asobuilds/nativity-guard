@@ -40,6 +40,8 @@ func SetupTestDB() error {
 
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.AgencyTenant{},
+		&models.AgencyObserver{},
 		&models.SecurityUnit{},
 		&models.UnitMembership{},
 		&models.Officer{},
@@ -56,6 +58,7 @@ func SetupTestDB() error {
 		&models.Notification{},
 		&models.UnitAuth{},
 		&models.UnitInvite{},
+		&models.UnitLandmark{},
 		&models.UnitAdminSeat{},
 		&models.UnitAdminElection{},
 		&models.AdminVote{},
@@ -67,9 +70,11 @@ func SetupTestDB() error {
 		&models.CounterStatement{},
 		&models.Rating{},
 		&models.OfficerScore{},
+		&models.OfficerPanic{},
 		&models.UnitScore{},
 		&models.FinancialLedger{},
 		&models.LedgerSequence{},
+		&models.WebhookEvent{},
 		&models.UnitFinancialYear{},
 		&models.PlatformDonation{},
 		&models.BankAccount{},
@@ -90,6 +95,9 @@ func SetupTestDB() error {
 		&models.IdempotencyRecord{},
 		&models.AgeAudit{},
 		&models.AuditLog{},
+		&models.ActivityLog{},
+		&models.SystemHealth{},
+		&models.OTP{},
 		&models.SOSAlert{},
 		&models.SOSResponder{},
 		&models.CommunityEvent{},
@@ -98,6 +106,11 @@ func SetupTestDB() error {
 		&models.LocalIntelligenceVote{},
 		// Community content + the generic report table. Needed so integration
 		// tests can exercise ReportForumPost and the feed against real rows.
+		&models.CitizenChatRoom{},
+		&models.CitizenChatRoomMember{},
+		&models.CitizenChatMessage{},
+		&models.CitizenChatBlock{},
+		&models.CitizenChatReport{},
 		&models.ForumPost{},
 		&models.ForumReply{},
 		&models.CommunityAnnouncement{},
@@ -112,8 +125,20 @@ func SetupTestDB() error {
 		&models.VoiceCall{},
 		&models.CommunicationSync{},
 		&models.CommunityAlert{},
+		&models.TaskForce{},
+		&models.TaskForceMember{},
+		&models.TaskForceOfficer{},
+		&models.TaskForceInvite{},
+		&models.TaskForceChannel{},
+		&models.BookingRequest{},
 	); err != nil {
 		return fmt.Errorf("automigrate test db: %w", err)
+	}
+	if err := config.EnsureTaskForceIndexes(db); err != nil {
+		return fmt.Errorf("task force indexes: %w", err)
+	}
+	if err := config.EnsureCitizenChatIndexes(db); err != nil {
+		return fmt.Errorf("citizen chat indexes: %w", err)
 	}
 
 	testDB = db

@@ -31,6 +31,8 @@ func main() {
         log.Fatalf("auto-migration failed: %v", err)
     }
 
+	services.InitRedis()
+
     // Seed the current terms documents so /api/v1/terms/:role always has content.
     // Must run OUTSIDE the error check — it's a normal boot step, not a fallback.
     services.EnsureTermsSeeded()
@@ -84,6 +86,9 @@ func main() {
 	// Start background scheduler (elections, invites, expiry, account purge)
 	scheduler := services.NewSchedulerService()
 	scheduler.Start(1 * time.Hour)
+
+	// Local news has its own cadence and must not change the hourly jobs above.
+	scheduler.StartLocalNewsFetcher(30 * time.Minute)
 
 	port := os.Getenv("PORT")
 	if port == "" {

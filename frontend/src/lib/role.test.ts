@@ -11,7 +11,14 @@ import { ROLES, isKnownRole, normaliseRole } from './role'
 
 describe('the role vocabulary', () => {
   it('pins the literal strings the backend stores', () => {
-    expect(ROLES).toEqual(['citizen', 'officer', 'unit_admin', 'super_admin'])
+    expect(ROLES).toEqual([
+      'citizen',
+      'officer',
+      'unit_admin',
+      'super_admin',
+      'agency_division_admin',
+      'agency_observer',
+    ])
   })
 
   it('accepts each canonical role unchanged', () => {

@@ -87,6 +87,9 @@ func (s *PasswordResetService) RequestReset(identifier string) (*models.Password
 	} else {
 		// Phone identifier: digits-only match (no formatting rules yet).
 		digits := removeNonDigits(identifier)
+		if digits == "" {
+			return nil, "", nil
+		}
 		query = query.Where("phone = ?", digits)
 	}
 
@@ -117,22 +120,23 @@ func (s *PasswordResetService) RequestReset(identifier string) (*models.Password
 	// Deliver the raw code out-of-band. The service never returns an error
 	// for delivery failures — the caller already got a 200, and the code
 	// row is persisted regardless so the user can retry.
-	//
-	// Dispatch on every channel the user has populated. Empty phone or
-	// email is skipped — we never send to "".
-	go func() {
-		if resetNotifier == nil {
-			return
-		}
-		if user.Phone != "" {
-			resetNotifier.NotifySMS(user.Phone, rawCode)
-		}
-		if user.Email != "" {
-			resetNotifier.NotifyEmail(user.Email, user.FirstName, rawCode)
-		}
-	}()
+	go dispatchResetNotifications(resetNotifier, user, rawCode)
 
 	return &record, rawCode, nil
+}
+
+// dispatchResetNotifications sends the reset code on every channel the user
+// has populated (SMS and/or email). Empty phone or email is skipped.
+func dispatchResetNotifications(notifier ResetNotifier, user models.User, rawCode string) {
+	if notifier == nil {
+		return
+	}
+	if user.Phone != "" {
+		notifier.NotifySMS(user.Phone, rawCode)
+	}
+	if user.Email != "" {
+		notifier.NotifyEmail(user.Email, user.FirstName, rawCode)
+	}
 }
 
 // ResetWithToken validates a raw reset token, hashes the new password, and

@@ -6,7 +6,13 @@
  * Keep this file in sync with the backend — it is the frontend's contract.
  */
 
-export type Role = 'citizen' | 'officer' | 'unit_admin' | 'super_admin'
+export type Role =
+  | 'citizen'
+  | 'officer'
+  | 'unit_admin'
+  | 'super_admin'
+  | 'agency_division_admin'
+  | 'agency_observer'
 
 /**
  * The eight states the backend case workflow actually sets.
@@ -272,6 +278,8 @@ export interface SecurityUnit {
   status: string
   isVerified: boolean
   verificationStatus: string
+  /** NGN per guard per hour; zero means use the backend fallback rate. */
+  baseRate?: number
 
   // Section B — commander details (from the registration form)
   commanderName?: string
@@ -495,6 +503,108 @@ export interface UnitOfficersResponse {
   officers: UnitOfficer[]
 }
 
+export type TaskForceStatus = 'active' | 'disbanded'
+export type TaskForceMemberStatus = 'invited' | 'active' | 'left' | 'removed'
+export type TaskForceOfficerStatus = 'active' | 'removed'
+
+export interface TaskForce {
+  id: string
+  name: string
+  hostUnitId: string
+  status: TaskForceStatus
+  createdBy: string
+  createdAt: string
+  updatedAt?: string
+  hostUnit?: SecurityUnit
+}
+
+export interface TaskForceMember {
+  id: string
+  taskForceId: string
+  unitId: string
+  role: 'host' | 'member' | string
+  status: TaskForceMemberStatus
+  acceptedAt?: string | null
+  unit?: SecurityUnit
+}
+
+export interface TaskForceOfficer {
+  id: string
+  taskForceId: string
+  officerId: string
+  unitId: string
+  status: TaskForceOfficerStatus
+  enlistedAt: string
+  officer?: UnitOfficer
+  unit?: SecurityUnit
+}
+
+export interface TaskForceInviteSummary {
+  id: string
+  unitId: string
+  status: string
+  expiresAt?: string | null
+}
+
+export interface TaskForceChannelInfo {
+  id: string
+  unitId: string
+  name: string
+  type: string
+  status: string
+}
+
+export interface TaskForcePttState {
+  status?: string
+  speakerId?: string
+  speakerName?: string
+  expiresAt?: string
+}
+
+export interface TaskForceDetailResponse {
+  taskForce: TaskForce
+  members: TaskForceMember[]
+  officers: TaskForceOfficer[]
+  invites: TaskForceInviteSummary[]
+  channel?: TaskForceChannelInfo
+  canManage: boolean
+  canTransmit: boolean
+  online: number
+  ptt: TaskForcePttState
+}
+
+export interface TaskForceSummary {
+  taskForce: TaskForce
+  role: string
+  membershipStatus: string
+}
+
+export interface TaskForceListResponse {
+  taskForces: TaskForceSummary[]
+}
+
+export interface TaskForceEnlistResult {
+  officerId?: string
+  status: string
+  message?: string
+}
+
+export interface TaskForceEnlistResponse {
+  results: TaskForceEnlistResult[]
+  enlisted: number
+}
+
+export interface TaskForceCreateResponse {
+  message?: string
+  taskForce: TaskForce
+}
+
+export interface TaskForceInviteResponse {
+  invite: TaskForceInviteSummary & { maxUses?: number }
+  code: string
+  warning?: string
+}
+
 export interface CaseAssignmentsResponse {
   assignments: CaseOfficer[]
 }
@@ -671,4 +781,92 @@ export interface SystemHealthResponse {
 export interface UserActionResponse {
   message: string
   user: SuperAdminUser
+}
+
+/* ------------------------------------------------------------------ */
+/* Agency observer dashboard (`GET /observer/*`)                       */
+/* ------------------------------------------------------------------ */
+
+/** Location projection exposed to agency observers — no coordinates or addresses. */
+export interface ObserverLocation {
+  state: string
+  lga: string
+  ward?: string
+}
+
+/** One public-safe SOS or case row in the observer incident feed. */
+export interface ObserverIncident {
+  time: string
+  /** Incident category, or `uncategorized` when none was recorded. */
+  type: string
+  location: ObserverLocation
+  respondingUnit: string
+  status: string
+  description: string
+}
+
+/** `GET /observer/incidents` returns `{ incidents, page, limit, total }`. */
+export interface ObserverIncidentsResponse {
+  incidents: ObserverIncident[]
+  page: number
+  limit: number
+  total: number
+}
+
+/** Activity-derived summary of a responding unit inside the observer's LGA. */
+export interface ObserverUnitSummary {
+  time: string
+  type: string
+  location: ObserverLocation
+  respondingUnit: string
+  status: string
+  activeSOS: number
+  openCases: number
+}
+
+/** `GET /observer/units` returns `{ units }`. */
+export interface ObserverUnitsResponse {
+  units: ObserverUnitSummary[]
+}
+
+/* ------------------------------------------------------------------ */
+/* Booking & renting security units for events                         */
+/* ------------------------------------------------------------------ */
+
+export type BookingStatus = 'pending' | 'accepted' | 'declined' | 'paid' | 'completed' | 'cancelled'
+
+export interface BookingRequest {
+  id: string
+  userId: string
+  unitId: string
+  eventType: string
+  eventDate: string
+  eventLocation: string
+  durationHours: number
+  guardsNeeded: number
+  status: BookingStatus
+  notes?: string
+  quotationAmount: number
+  platformFee: number
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface BookingRequestCreateInput {
+  unitId: string
+  eventType: string
+  eventDate: string
+  eventLocation: string
+  durationHours: number
+  guardsNeeded: number
+  notes?: string
+}
+
+export interface BookingResponse {
+  message?: string
+  booking: BookingRequest
+}
+
+export interface BookingListResponse {
+  bookings: BookingRequest[]
 }

@@ -7,32 +7,53 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
+	"security-solution/models"
 	"security-solution/services"
 	"time"
 )
 
+// requestToken extracts the bearer token from the Authorization header.
+//
+// Browsers cannot set custom headers on a WebSocket handshake, so a token may
+// also be supplied as ?token=... — but only when the request is an actual
+// WebSocket upgrade. Query tokens are never accepted on ordinary HTTP requests.
+func requestToken(c *gin.Context) (string, bool) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		if !isWebSocketUpgrade(c) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.Abort()
+			return "", false
+		}
+		token := strings.TrimSpace(c.Query("token"))
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication token required"})
+			c.Abort()
+			return "", false
+		}
+		return token, true
+	}
+
+	parts := strings.Fields(authHeader)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+		c.Abort()
+		return "", false
+	}
+	return parts[1], true
+}
+
+func isWebSocketUpgrade(c *gin.Context) bool {
+	return strings.EqualFold(c.GetHeader("Upgrade"), "websocket")
+}
+
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header required",
-			})
-			c.Abort()
+		tokenString, ok := requestToken(c)
+		if !ok {
 			return
 		}
 
-		parts := strings.Fields(authHeader)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid authorization header format",
-			})
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
 		authService := services.NewAuthService()
 
 		token, err := authService.ValidateToken(tokenString)
@@ -67,6 +88,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "User not found",
 			})
+			c.Abort()
+			return
+		}
+
+		// Banned and suspended accounts are locked out immediately, even if
+		// they still hold a token. Pending accounts remain usable so they can
+		// finish onboarding (OTP verification is itself an authenticated route).
+		if user.Status == "banned" || user.Status == "suspended" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account is not active"})
 			c.Abort()
 			return
 		}
@@ -110,8 +140,26 @@ func AuthMiddleware() gin.HandlerFunc {
 
 func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var userObj *models.User
+		if userVal, ok := c.Get("user"); ok {
+			if u, ok := userVal.(*models.User); ok && u != nil {
+				if u.Status == "banned" || u.Status == "suspended" {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": "Account is not active",
+					})
+					c.Abort()
+					return
+				}
+				userObj = u
+			}
+		}
+
 		roleValue, exists := c.Get("role")
-		if !exists {
+		role, ok := roleValue.(string)
+		if (!exists || !ok || role == "") && userObj != nil {
+			role = userObj.Role
+		}
+		if role == "" && (userObj == nil || !userObj.IsSuperAdmin) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Access denied",
 			})
@@ -119,17 +167,12 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		role, ok := roleValue.(string)
-		if !ok || role == "" {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error": "Invalid role",
-			})
-			c.Abort()
-			return
-		}
-
 		for _, allowedRole := range allowedRoles {
 			if role == allowedRole {
+				c.Next()
+				return
+			}
+			if allowedRole == models.RoleSuperAdmin && userObj != nil && userObj.IsSuperAdmin {
 				c.Next()
 				return
 			}

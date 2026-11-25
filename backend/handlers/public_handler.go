@@ -30,7 +30,7 @@ func GetPublicCases(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"cases": cases,
+		"cases": publicCaseDTOs(cases),
 	})
 }
 
@@ -42,6 +42,6 @@ func GetPublicUnits(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"units": units,
+		"units": publicUnitDTOs(units),
 	})
 }

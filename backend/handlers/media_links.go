@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -115,15 +116,27 @@ func presignMedia(c *gin.Context, prefix string) {
 
 	storageSvc := services.NewFileStorageService()
 	r2 := storageSvc.R2()
+
+	now := time.Now().UTC()
+	dirName := strings.TrimSuffix(prefix, "/")
+	key := filepath.ToSlash(filepath.Join(dirName, now.Format("2006"), now.Format("01"), sha+ext))
+	expiresAt := time.Now().UTC().Add(presignTTL)
+
 	if r2 == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "direct upload is not configured"})
+		uploadEndpoint := "/sos/media/upload"
+		if strings.Contains(prefix, "report") {
+			uploadEndpoint = "/community/posts/report/upload"
+		} else if strings.Contains(prefix, "evidence") {
+			uploadEndpoint = "/evidence/upload"
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"uploadUrl": uploadEndpoint,
+			"key":       key,
+			"expiresAt": expiresAt,
+		})
 		return
 	}
 
-	now := time.Now().UTC()
-	key := path.Join(strings.TrimSuffix(prefix, "/"), now.Format("2006"), now.Format("01"), sha+ext)
-
-	expiresAt := time.Now().UTC().Add(presignTTL)
 	uploadURL, err := r2.PresignPut(c.Request.Context(), key, contentType, input.SizeBytes, map[string]string{
 		"sha256":            sha,
 		"original-filename": filename,

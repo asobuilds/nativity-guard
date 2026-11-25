@@ -4,10 +4,15 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/smtp"
+	"net/url"
 	"os"
+	"strings"
 
 	"security-solution/services"
 )
+
+// sendEmailFn is the transport used by email helpers; overridden in tests.
+var sendEmailFn = SendEmail
 
 type EmailConfig struct {
 	Host     string
@@ -95,7 +100,7 @@ func SendPasswordResetEmail(to, resetLink string) error {
 		<p>Stay safe,</p>
 		<p><strong>Nativity Guard Team</strong></p>
 	`, resetLink, resetLink)
-	return SendEmail(to, subject, body)
+	return sendEmailFn(to, subject, body)
 }
 
 func SendCaseStatusEmail(to, caseTitle, status, caseURL string) error {
@@ -185,10 +190,15 @@ func NewEmailNotifier() *emailNotifier {
 }
 
 // SendPasswordResetTokenEmail delivers the raw reset token via email.
-// The token is shown inline (not a clickable link) so the flow works
-// even before a BASE_URL is configured. TODO: once BASE_URL is set,
-// build a clickable reset link and reuse SendPasswordResetEmail.
+// When BASE_URL is configured, it builds a clickable reset link and reuses
+// SendPasswordResetEmail. When BASE_URL is unset, it falls back to showing
+// the raw token inline.
 func SendPasswordResetTokenEmail(to, token string) error {
+	if baseURL := strings.TrimSpace(os.Getenv("BASE_URL")); baseURL != "" {
+		resetLink := fmt.Sprintf("%s/auth/reset-password?token=%s", strings.TrimRight(baseURL, "/"), url.QueryEscape(token))
+		return SendPasswordResetEmail(to, resetLink)
+	}
+
 	subject := "🔐 Reset Your Nativity Guard Password"
 	body := fmt.Sprintf(`
 		<h1>Password Reset</h1>
@@ -201,5 +211,5 @@ func SendPasswordResetTokenEmail(to, token string) error {
 		<p>Stay safe,</p>
 		<p><strong>Nativity Guard Team</strong></p>
 	`, token)
-	return SendEmail(to, subject, body)
+	return sendEmailFn(to, subject, body)
 }

@@ -1,12 +1,24 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"math"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"security-solution/config"
 	"security-solution/models"
@@ -39,10 +51,9 @@ func CreateTransaction(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can create transactions"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -52,11 +63,21 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != unitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only create transactions for your unit"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only unit admins can create transactions for this unit"})
+		return
+	}
+
+	if math.IsNaN(input.Amount) || math.IsInf(input.Amount, 0) || input.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Amount must be positive"})
+		return
+	}
+
+	switch input.Type {
+	case "donation", "gift", "tax", "expense", "salary", "maintenance":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction type"})
+		return
 	}
 
 	requiredApprovals := 2
@@ -66,7 +87,7 @@ func CreateTransaction(c *gin.Context) {
 	if input.Amount > 5000000 {
 		requiredApprovals = 4
 	}
-	if userObj.Role == "super_admin" {
+	if userObj.IsSuperAdmin || userObj.Role == "super_admin" {
 		requiredApprovals = 1
 	}
 
@@ -112,7 +133,7 @@ func CreateTransaction(c *gin.Context) {
 	})
 }
 
-// ApproveTransaction approves a transaction
+// ApproveTransaction approves a transaction atomically with row locking.
 func ApproveTransaction(c *gin.Context) {
 	id := c.Param("id")
 	transactionID, err := uuid.Parse(id)
@@ -135,80 +156,116 @@ func ApproveTransaction(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can approve transactions"})
 		return
 	}
 
+	ledgerSvc := services.NewLedgerService()
 	var transaction models.Transaction
-	if err := config.DB.First(&transaction, "id = ?", transactionID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
-		return
-	}
+	var completed bool
+	var errStatus int
+	var errMsg string
 
-	if transaction.Status != "pending" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction is no longer pending"})
-		return
-	}
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&transaction, "id = ?", transactionID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				errStatus = http.StatusNotFound
+				errMsg = "Transaction not found"
+			}
+			return err
+		}
 
-	if userObj.UnitID == nil || *userObj.UnitID != transaction.UnitID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You can only approve transactions from your unit"})
-		return
-	}
+		if !callerIsUnitAdminOfUnit(userObj, transaction.UnitID) {
+			errStatus = http.StatusForbidden
+			errMsg = "You can only approve transactions from your unit"
+			return errors.New(errMsg)
+		}
 
-	var existingApproval models.TransactionApproval
-	if err := config.DB.Where("transaction_id = ? AND approver_id = ?", transaction.ID, userObj.ID).First(&existingApproval).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "You have already approved this transaction"})
-		return
-	}
+		if transaction.Status != "pending" {
+			errStatus = http.StatusBadRequest
+			errMsg = "Transaction is no longer pending"
+			return errors.New(errMsg)
+		}
 
-	approval := models.TransactionApproval{
-		TransactionID: transaction.ID,
-		ApproverID:    userObj.ID,
-		UnitID:        transaction.UnitID,
-		Status:        "approved",
-		Comment:       input.Comment,
-	}
+		var existingApproval models.TransactionApproval
+		if err := tx.Where("transaction_id = ? AND approver_id = ?", transaction.ID, userObj.ID).
+			First(&existingApproval).Error; err == nil {
+			errStatus = http.StatusBadRequest
+			errMsg = "You have already approved this transaction"
+			return errors.New(errMsg)
+		}
 
-	if err := config.DB.Create(&approval).Error; err != nil {
+		approval := models.TransactionApproval{
+			TransactionID: transaction.ID,
+			ApproverID:    userObj.ID,
+			UnitID:        transaction.UnitID,
+			Status:        "approved",
+			Comment:       input.Comment,
+		}
+		if err := tx.Create(&approval).Error; err != nil {
+			return err
+		}
+
+		transaction.ApprovalCount++
+		if transaction.ApprovalCount >= transaction.RequiredApprovals {
+			completed = true
+			transaction.Status = "approved"
+			transaction.ApprovedBy = &userObj.ID
+
+			if transaction.Type == "expense" || transaction.Type == "salary" || transaction.Type == "maintenance" {
+				var budget models.Budget
+				if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+					Where("unit_id = ? AND category = ? AND status = ?",
+						transaction.UnitID, transaction.Category, "active").
+					First(&budget).Error; err == nil {
+					budget.Spent += transaction.Amount
+					budget.Remaining = budget.Amount - budget.Spent
+					if err := tx.Save(&budget).Error; err != nil {
+						return err
+					}
+				}
+			}
+
+			direction := "out"
+			if transaction.Type == "donation" || transaction.Type == "gift" || transaction.Type == "tax" {
+				direction = "in"
+			}
+			txID := transaction.ID
+			if _, err := ledgerSvc.AppendTx(tx, services.LedgerEntryInput{
+				UnitID:       transaction.UnitID,
+				Direction:    direction,
+				EntryType:    transaction.Type,
+				Amount:       transaction.Amount,
+				Counterparty: transaction.Description,
+				Description:  transaction.Description,
+				SourceType:   "transaction",
+				SourceID:     &txID,
+				CreatedBy:    userObj.ID,
+			}); err != nil {
+				return err
+			}
+		}
+
+		return tx.Save(&transaction).Error
+	}); err != nil {
+		if errStatus != 0 {
+			c.JSON(errStatus, gin.H{"error": errMsg})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record approval"})
 		return
 	}
 
-	transaction.ApprovalCount++
-	config.DB.Save(&transaction)
-
-	if transaction.ApprovalCount >= transaction.RequiredApprovals {
-		transaction.Status = "approved"
-		transaction.ApprovedBy = &userObj.ID
-		config.DB.Save(&transaction)
-
-		if transaction.Type == "expense" || transaction.Type == "salary" || transaction.Type == "maintenance" {
-			var budget models.Budget
-			if err := config.DB.Where("unit_id = ? AND category = ? AND status = ?",
-				transaction.UnitID, transaction.Category, "active").First(&budget).Error; err == nil {
-				budget.Spent += transaction.Amount
-				budget.Remaining = budget.Amount - budget.Spent
-				config.DB.Save(&budget)
-			}
-		}
-
-		ledgerSvc := services.NewLedgerService()
-		txID := transaction.ID
-		_, _ = ledgerSvc.Append(services.LedgerEntryInput{
-			UnitID:       transaction.UnitID,
-			Direction:    "out",
-			EntryType:    transaction.Type,
-			Amount:       transaction.Amount,
-			Counterparty: transaction.Description,
-			Description:  transaction.Description,
-			SourceType:   "transaction",
-			SourceID:     &txID,
-			CreatedBy:    userObj.ID,
-		})
-
+	if completed {
+		services.DeleteCache("ledger:balance:" + transaction.UnitID.String())
 		c.JSON(http.StatusOK, gin.H{
 			"message":           "Transaction fully approved!",
 			"transaction":       transaction,
@@ -229,7 +286,7 @@ func ApproveTransaction(c *gin.Context) {
 	})
 }
 
-// RejectTransaction rejects a transaction
+// RejectTransaction rejects a transaction atomically with row locking.
 func RejectTransaction(c *gin.Context) {
 	id := c.Param("id")
 	transactionID, err := uuid.Parse(id)
@@ -252,31 +309,52 @@ func RejectTransaction(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can reject transactions"})
 		return
 	}
 
 	var transaction models.Transaction
-	if err := config.DB.First(&transaction, "id = ?", transactionID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+	var errStatus int
+	var errMsg string
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&transaction, "id = ?", transactionID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				errStatus = http.StatusNotFound
+				errMsg = "Transaction not found"
+			}
+			return err
+		}
+
+		if !callerIsUnitAdminOfUnit(userObj, transaction.UnitID) {
+			errStatus = http.StatusForbidden
+			errMsg = "You can only reject transactions from your unit"
+			return errors.New(errMsg)
+		}
+
+		if transaction.Status != "pending" {
+			errStatus = http.StatusBadRequest
+			errMsg = "Transaction is no longer pending"
+			return errors.New(errMsg)
+		}
+
+		transaction.Status = "rejected"
+		return tx.Save(&transaction).Error
+	}); err != nil {
+		if errStatus != 0 {
+			c.JSON(errStatus, gin.H{"error": errMsg})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reject transaction"})
 		return
 	}
-
-	if transaction.Status != "pending" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Transaction is no longer pending"})
-		return
-	}
-
-	if userObj.UnitID == nil || *userObj.UnitID != transaction.UnitID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You can only reject transactions from your unit"})
-		return
-	}
-
-	transaction.Status = "rejected"
-	config.DB.Save(&transaction)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":     "Transaction rejected",
@@ -284,7 +362,7 @@ func RejectTransaction(c *gin.Context) {
 	})
 }
 
-// GetTransactions gets all transactions for a unit
+// GetTransactions gets transactions for a unit (returns pending transactions by default)
 func GetTransactions(c *gin.Context) {
 	unitID := c.Param("id")
 	id, err := uuid.Parse(unitID)
@@ -298,17 +376,28 @@ func GetTransactions(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these transactions"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these transactions"})
+		return
+	}
+
+	statusFilter := c.Query("status")
+	if statusFilter == "" {
+		statusFilter = "pending"
 	}
 
 	var transactions []models.Transaction
-	if err := config.DB.Preload("Initiator").Preload("Approver").Where("unit_id = ?", id).Order("created_at desc").Find(&transactions).Error; err != nil {
+	query := config.DB.Preload("Initiator").Preload("Approver").Where("unit_id = ?", id)
+	if statusFilter != "all" {
+		query = query.Where("status = ?", statusFilter)
+	}
+	if err := query.Order("created_at desc").Limit(200).Find(&transactions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
 		return
 	}
@@ -332,7 +421,11 @@ func GetTransactionByID(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
 	var transaction models.Transaction
 	if err := config.DB.Preload("Initiator").Preload("Approver").First(&transaction, "id = ?", transactionID).Error; err != nil {
@@ -340,11 +433,9 @@ func GetTransactionByID(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != transaction.UnitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this transaction"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, transaction.UnitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this transaction"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -366,13 +457,15 @@ func GetTransactionSummary(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this summary"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view this summary"})
+		return
 	}
 
 	var totalIncome float64
@@ -451,10 +544,9 @@ func CreateBudget(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can create budgets"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -464,11 +556,14 @@ func CreateBudget(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != unitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only create budgets for your unit"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only unit admins can create budgets for this unit"})
+		return
+	}
+
+	if math.IsNaN(input.Amount) || math.IsInf(input.Amount, 0) || input.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Budget amount must be positive"})
+		return
 	}
 
 	budget := models.Budget{
@@ -509,17 +604,19 @@ func GetBudgets(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these budgets"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these budgets"})
+		return
 	}
 
 	var budgets []models.Budget
-	if err := config.DB.Where("unit_id = ?", id).Order("created_at desc").Find(&budgets).Error; err != nil {
+	if err := config.DB.Where("unit_id = ?", id).Order("created_at desc").Limit(200).Find(&budgets).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch budgets"})
 		return
 	}
@@ -549,10 +646,9 @@ func GenerateFinancialReport(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
-
-	if userObj.Role != "super_admin" && userObj.Role != "unit_admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can generate reports"})
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
 
@@ -562,11 +658,9 @@ func GenerateFinancialReport(c *gin.Context) {
 		return
 	}
 
-	if userObj.Role == "unit_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != unitID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You can only generate reports for your unit"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, unitID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only unit admins can generate reports for this unit"})
+		return
 	}
 
 	periodStart, err := time.Parse(time.RFC3339, input.PeriodStart)
@@ -578,6 +672,10 @@ func GenerateFinancialReport(c *gin.Context) {
 	periodEnd, err := time.Parse(time.RFC3339, input.PeriodEnd)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid period end"})
+		return
+	}
+	if periodEnd.Before(periodStart) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Period end must not be before period start"})
 		return
 	}
 
@@ -636,17 +734,19 @@ func GetFinancialReports(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
-	userObj := user.(*models.User)
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
 
-	if userObj.Role != "super_admin" {
-		if userObj.UnitID == nil || *userObj.UnitID != id {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these reports"})
-			return
-		}
+	if !callerIsUnitAdminOfUnit(userObj, id) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view these reports"})
+		return
 	}
 
 	var reports []models.FinancialReport
-	if err := config.DB.Preload("Generator").Where("unit_id = ?", id).Order("created_at desc").Find(&reports).Error; err != nil {
+	if err := config.DB.Preload("Generator").Where("unit_id = ?", id).Order("created_at desc").Limit(200).Find(&reports).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reports"})
 		return
 	}
@@ -680,4 +780,230 @@ func checkBudgetAlert(unitID uuid.UUID, category string, amount float64) {
 			config.DB.Create(&notification)
 		}
 	}
+}
+
+// GetLedgerBalance computes the net balance from FinancialLedger for a unit
+func GetLedgerBalance(c *gin.Context) {
+	unitIDParam := c.Param("id")
+	unitID, err := uuid.Parse(unitIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	userObj, ok := user.(*models.User)
+	if !ok || userObj == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
+		return
+	}
+
+	if !userObj.IsSuperAdmin && userObj.Role != "super_admin" {
+		var membership models.UnitMembership
+		if err := config.DB.
+			Where("unit_id = ? AND user_id = ? AND status = ?", unitID, userObj.ID, models.MembershipActive).
+			First(&membership).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not a member of this unit"})
+			return
+		}
+	}
+
+	cacheKey := "ledger:balance:" + unitID.String()
+	if val, err := services.GetCache(cacheKey); err == nil {
+		var cached gin.H
+		if json.Unmarshal([]byte(val), &cached) == nil {
+			c.JSON(http.StatusOK, cached)
+			return
+		}
+	}
+
+	var totalIn, totalOut float64
+	config.DB.Model(&models.FinancialLedger{}).
+		Select("COALESCE(SUM(CASE WHEN direction = 'in' THEN amount ELSE 0 END), 0)").
+		Where("unit_id = ? AND status = ?", unitID, "posted").
+		Scan(&totalIn)
+
+	config.DB.Model(&models.FinancialLedger{}).
+		Select("COALESCE(SUM(CASE WHEN direction = 'out' THEN amount ELSE 0 END), 0)").
+		Where("unit_id = ? AND status = ?", unitID, "posted").
+		Scan(&totalOut)
+
+	balance := totalIn - totalOut
+
+	response := gin.H{
+		"unitId":   unitID,
+		"balance":  balance,
+		"totalIn":  totalIn,
+		"totalOut": totalOut,
+		"currency": "NGN",
+	}
+
+	if respBytes, err := json.Marshal(response); err == nil {
+		services.SetCache(cacheKey, string(respBytes), 5*time.Minute)
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// DonationWebhook handles incoming donation webhooks idempotently
+func DonationWebhook(c *gin.Context) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot read request body"})
+		return
+	}
+
+	if !verifyDonationWebhookSignature(c.GetHeader("X-Webhook-Signature"), body) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid webhook signature"})
+		return
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+
+	var input struct {
+		EventID     string  `json:"eventId" binding:"required"`
+		Provider    string  `json:"provider" binding:"required"`
+		EventType   string  `json:"eventType"`
+		UnitID      string  `json:"unitId" binding:"required"`
+		Amount      float64 `json:"amount" binding:"required"`
+		DonorName   string  `json:"donorName"`
+		DonorEmail  string  `json:"donorEmail"`
+		Reference   string  `json:"reference"`
+		Description string  `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	unitID, err := uuid.Parse(input.UnitID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid unit ID"})
+		return
+	}
+
+	if math.IsNaN(input.Amount) || math.IsInf(input.Amount, 0) || input.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Amount must be positive"})
+		return
+	}
+
+	// Check idempotency in WebhookEvent table before opening a write transaction
+	var existing models.WebhookEvent
+	if err := config.DB.Where("idempotency_key = ?", input.EventID).First(&existing).Error; err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Webhook already processed (idempotent)",
+			"idempotencyKey": input.EventID,
+			"status":         "success",
+		})
+		return
+	}
+
+	var adminUser models.User
+	if err := config.DB.Where("unit_id = ? AND role IN (?)", unitID, []string{"unit_admin", "super_admin"}).First(&adminUser).Error; err != nil {
+		if err := config.DB.Where("role = ?", "super_admin").First(&adminUser).Error; err != nil {
+			var anyUser models.User
+			if err := config.DB.First(&anyUser).Error; err == nil {
+				adminUser = anyUser
+			}
+		}
+	}
+	createdBy := adminUser.ID
+	if createdBy == uuid.Nil {
+		createdBy = uuid.New()
+	}
+
+	donorName := input.DonorName
+	if donorName == "" {
+		donorName = "Anonymous Donor"
+	}
+	description := input.Description
+	if description == "" {
+		description = "Donation via " + input.Provider
+	}
+
+	now := time.Now().UTC()
+	webhookEvent := models.WebhookEvent{
+		IdempotencyKey: input.EventID,
+		Provider:       input.Provider,
+		EventType:      input.EventType,
+		Payload:        "{}",
+		Status:         "processed",
+		ProcessedAt:    &now,
+	}
+
+	ledgerSvc := services.NewLedgerService()
+	var ledgerEntry *models.FinancialLedger
+	alreadyProcessed := false
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var dup models.WebhookEvent
+		if err := tx.Where("idempotency_key = ?", input.EventID).First(&dup).Error; err == nil {
+			alreadyProcessed = true
+			return nil
+		}
+
+		if err := tx.Create(&webhookEvent).Error; err != nil {
+			alreadyProcessed = true
+			return err
+		}
+
+		var err error
+		ledgerEntry, err = ledgerSvc.AppendTx(tx, services.LedgerEntryInput{
+			UnitID:       unitID,
+			Direction:    "in",
+			EntryType:    "donation",
+			Amount:       input.Amount,
+			Counterparty: donorName,
+			Description:  description,
+			SourceType:   "donation",
+			SourceID:     &webhookEvent.ID,
+			CreatedBy:    createdBy,
+		})
+		return err
+	}); err != nil {
+		if alreadyProcessed {
+			c.JSON(http.StatusOK, gin.H{"message": "Webhook already processed"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to append to ledger: " + err.Error()})
+		return
+	}
+	if alreadyProcessed {
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Webhook already processed (idempotent)",
+			"idempotencyKey": input.EventID,
+			"status":         "success",
+		})
+		return
+	}
+
+	services.DeleteCache("ledger:balance:" + unitID.String())
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "Donation webhook processed successfully",
+		"ledgerEntry":  ledgerEntry,
+		"webhookEvent": webhookEvent,
+	})
+}
+
+// verifyDonationWebhookSignature checks the HMAC-SHA256 signature of the raw
+// request body. It fails closed when WEBHOOK_SECRET is not configured.
+func verifyDonationWebhookSignature(provided string, body []byte) bool {
+	secret := strings.TrimSpace(os.Getenv("WEBHOOK_SECRET"))
+	if secret == "" {
+		return false
+	}
+
+	providedMAC, err := hex.DecodeString(strings.ToLower(strings.TrimSpace(provided)))
+	if err != nil {
+		return false
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	return hmac.Equal(mac.Sum(nil), providedMAC)
 }

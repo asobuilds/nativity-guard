@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,36 +22,7 @@ func GetPublicUnitLedger(c *gin.Context) {
 		return
 	}
 
-	year := 0
-	if y := c.Query("year"); y != "" {
-		if v, err := strconv.Atoi(y); err == nil {
-			year = v
-		}
-	}
-
-	svc := services.NewLedgerService()
-	entries, err := svc.ListForUnit(unitID, year, 200)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load ledger"})
-		return
-	}
-
-	if year == 0 {
-		year = int(entries[0].Year)
-		for _, e := range entries {
-			if e.Year > year {
-				year = int(e.Year)
-			}
-		}
-	}
-	summary, _ := svc.SummaryForUnitYear(unitID, year)
-
-	c.JSON(http.StatusOK, gin.H{
-		"unitId":  unitID,
-		"year":    year,
-		"summary": summary,
-		"entries": entries,
-	})
+	respondUnitLedger(c, unitID)
 }
 
 // GetUnitLedger returns the ledger to an authenticated member of the unit.
@@ -68,7 +40,7 @@ func GetUnitLedger(c *gin.Context) {
 		return
 	}
 	userObj, ok := userValue.(*models.User)
-	if !ok {
+	if !ok || userObj == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user"})
 		return
 	}
@@ -78,6 +50,10 @@ func GetUnitLedger(c *gin.Context) {
 		return
 	}
 
+	respondUnitLedger(c, unitID)
+}
+
+func respondUnitLedger(c *gin.Context, unitID uuid.UUID) {
 	year := 0
 	if y := c.Query("year"); y != "" {
 		if v, err := strconv.Atoi(y); err == nil {
@@ -93,11 +69,15 @@ func GetUnitLedger(c *gin.Context) {
 	}
 
 	if year == 0 {
-		year = int(entries[0].Year)
-		for _, e := range entries {
-			if e.Year > year {
-				year = int(e.Year)
+		if len(entries) > 0 {
+			year = entries[0].Year
+			for _, e := range entries {
+				if e.Year > year {
+					year = e.Year
+				}
 			}
+		} else {
+			year = time.Now().UTC().Year()
 		}
 	}
 	summary, _ := svc.SummaryForUnitYear(unitID, year)
