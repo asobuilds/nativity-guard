@@ -242,6 +242,12 @@ func (r *recordingResetNotifier) NotifySMS(toPhone, _ string) {
 
 func TestAuth_ForgotPassword_EmailAndSMSDelivery_NoEnumeration(t *testing.T) {
 	testutil.TruncateAll(t)
+	if err := config.DB.AutoMigrate(&models.PasswordReset{}); err != nil {
+		t.Fatalf("automigrate password_resets: %v", err)
+	}
+	if err := config.DB.Exec("TRUNCATE TABLE password_resets CASCADE").Error; err != nil {
+		t.Fatalf("truncate password_resets: %v", err)
+	}
 
 	authSvc := services.NewAuthService()
 	u := &models.User{
