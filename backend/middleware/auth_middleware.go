@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
+	"security-solution/models"
 	"security-solution/services"
 	"time"
 )
@@ -139,8 +140,26 @@ func AuthMiddleware() gin.HandlerFunc {
 
 func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var userObj *models.User
+		if userVal, ok := c.Get("user"); ok {
+			if u, ok := userVal.(*models.User); ok && u != nil {
+				if u.Status == "banned" || u.Status == "suspended" {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": "Account is not active",
+					})
+					c.Abort()
+					return
+				}
+				userObj = u
+			}
+		}
+
 		roleValue, exists := c.Get("role")
-		if !exists {
+		role, ok := roleValue.(string)
+		if (!exists || !ok || role == "") && userObj != nil {
+			role = userObj.Role
+		}
+		if role == "" && (userObj == nil || !userObj.IsSuperAdmin) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Access denied",
 			})
@@ -148,17 +167,12 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		role, ok := roleValue.(string)
-		if !ok || role == "" {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error": "Invalid role",
-			})
-			c.Abort()
-			return
-		}
-
 		for _, allowedRole := range allowedRoles {
 			if role == allowedRole {
+				c.Next()
+				return
+			}
+			if allowedRole == models.RoleSuperAdmin && userObj != nil && userObj.IsSuperAdmin {
 				c.Next()
 				return
 			}
