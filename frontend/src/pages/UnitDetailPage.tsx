@@ -3,16 +3,19 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
+  FileText,
   Mail,
   MapPin,
   Navigation,
   Phone,
   Shield,
+  ShieldAlert,
   Users,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PriorityChip, StatusChip } from '@/components/ui/Chips'
 import { Skeleton, ErrorState } from '@/components/ui/States'
 import { useToast } from '@/components/ui/Toast'
 import { MapView } from '@/components/map/MapView'
@@ -20,6 +23,7 @@ import { UnitHero } from '@/components/unit/UnitHero'
 import { UnitStatsGrid } from '@/components/unit/UnitStatsGrid'
 import { UnitTabs, type UnitTabDef } from '@/components/unit/UnitTabs'
 import { UnitMemberRoster } from '@/components/unit/UnitMemberRoster'
+import { ComplianceMatrix } from '@/components/unit/ComplianceMatrix'
 import { GovernancePanel } from '@/components/unit/GovernancePanel'
 import { InviteManager } from '@/components/unit/InviteManager'
 import { api, ApiError } from '@/lib/apiClient'
@@ -29,8 +33,10 @@ import { useDirections } from '@/hooks/useDirections'
 import { useUnitPublicSummary } from '@/hooks/useUnitPublicSummary'
 import { useUnitAccess } from '@/hooks/useUnitAccess'
 import { useUnitRoster } from '@/hooks/useUnitRoster'
+import { useUnitInbox } from '@/hooks/useUnitInbox'
+import { useUnitCompliance } from '@/hooks/useUnitCompliance'
 import { useMembershipActions } from '@/hooks/useMembershipActions'
-import { formatDate } from '@/lib/format'
+import { formatDate, relativeTime } from '@/lib/format'
 import type { SecurityUnit } from '@/types/api'
 
 const MAP_HEIGHT = '56vh'
@@ -71,6 +77,10 @@ export function UnitDetailPage() {
     accessQuery.data?.isHeadAdmin === true || accessQuery.data?.role === 'unit_admin'
 
   const rosterQuery = useUnitRoster(id, isMember)
+  const inboxQuery = useUnitInbox(isAdmin ? id : undefined)
+  const complianceQuery = useUnitCompliance(
+    isAdmin && activeTab === 'compliance' ? id : undefined,
+  )
   const membership = useMembershipActions(id)
 
   const hasCoords =
@@ -141,11 +151,15 @@ export function UnitDetailPage() {
     ? [
         { id: 'overview', label: 'Overview' },
         { id: 'roster', label: 'Roster', badge: rosterCounts?.total },
-        { id: 'cases', label: 'Cases' },
-        { id: 'sos', label: 'SOS' },
+        ...(isAdmin
+          ? [
+              { id: 'cases', label: 'Cases', badge: inboxQuery.data?.pendingCaseCount },
+              { id: 'sos', label: 'SOS', badge: inboxQuery.data?.sosAlertCount },
+            ]
+          : []),
         { id: 'invites', label: 'Invites' },
         { id: 'governance', label: 'Governance' },
-        { id: 'compliance', label: 'Compliance' },
+        ...(isAdmin ? [{ id: 'compliance', label: 'Compliance' }] : []),
       ]
     : []
 
@@ -430,18 +444,122 @@ export function UnitDetailPage() {
         </Card>
       ) : null}
 
-      {isMember && activeTab === 'cases' ? (
-        <ComingSoonPanel
-          title="Cases"
-          description="Every case this unit is working, in one queue. Arrives in a later wave."
-        />
+      {isAdmin && activeTab === 'cases' ? (
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+                <FileText className="size-4 text-signal" aria-hidden />
+                Pending unit cases
+              </h2>
+              <p className="mt-1 text-xs text-ink-muted">
+                Cases awaiting assignment or dispatch in this unit.
+              </p>
+            </div>
+            <Link to="/unit/dashboard" className="text-xs font-medium text-signal hover:underline">
+              Unit dashboard →
+            </Link>
+          </div>
+          <div className="mt-4">
+            {inboxQuery.isLoading ? (
+              <div className="h-32 animate-pulse rounded-panel bg-surface-hi/60" />
+            ) : inboxQuery.isError ? (
+              <ErrorState
+                title="Could not load unit cases"
+                description="You may not have unit admin access to view this queue."
+                onRetry={() => void inboxQuery.refetch()}
+              />
+            ) : !inboxQuery.data || inboxQuery.data.pendingCases.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-ink-muted">
+                No cases awaiting action in this unit.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-panel border border-border bg-surface/60">
+                {inboxQuery.data.pendingCases.map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 p-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <PriorityChip level={c.priorityLevel} />
+                        <StatusChip status={c.status} />
+                      </div>
+                      <Link
+                        to={`/admin/cases/${c.id}`}
+                        className="mt-1 block truncate text-sm font-medium text-ink hover:text-signal"
+                      >
+                        {c.title}
+                      </Link>
+                      <p className="text-xs text-ink-faint">
+                        {c.trackingId} · {c.location || 'no location'} · {relativeTime(c.createdAt)}
+                      </p>
+                    </div>
+                    <Link
+                      to={`/admin/cases/${c.id}`}
+                      className="shrink-0 text-xs font-medium text-signal hover:underline"
+                    >
+                      Review →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
       ) : null}
 
-      {isMember && activeTab === 'sos' ? (
-        <ComingSoonPanel
-          title="SOS"
-          description="Alerts routed to this unit, live. Arrives in a later wave."
-        />
+      {isAdmin && activeTab === 'sos' ? (
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+                <ShieldAlert className="size-4 text-emergency" aria-hidden />
+                Unclaimed SOS alerts
+              </h2>
+              <p className="mt-1 text-xs text-ink-muted">
+                Pending SOS alerts routed to this unit.
+              </p>
+            </div>
+            <Link to="/unit/dashboard" className="text-xs font-medium text-signal hover:underline">
+              Unit dashboard →
+            </Link>
+          </div>
+          <div className="mt-4">
+            {inboxQuery.isLoading ? (
+              <div className="h-32 animate-pulse rounded-panel bg-surface-hi/60" />
+            ) : inboxQuery.isError ? (
+              <ErrorState
+                title="Could not load unit SOS alerts"
+                description="You may not have unit admin access to view this queue."
+                onRetry={() => void inboxQuery.refetch()}
+              />
+            ) : !inboxQuery.data || inboxQuery.data.sosAlerts.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-ink-muted">
+                No SOS alerts waiting for this unit.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-panel border border-border bg-surface/60">
+                {inboxQuery.data.sosAlerts.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">
+                        {s.description || 'SOS alert — no description'}
+                      </p>
+                      <p className="text-xs text-ink-faint">
+                        {relativeTime(s.createdAt)} · {s.latitude.toFixed(4)},{' '}
+                        {s.longitude.toFixed(4)}
+                      </p>
+                    </div>
+                    <Link
+                      to={`/sos/${s.id}`}
+                      className="shrink-0 text-xs font-medium text-signal hover:underline"
+                    >
+                      Open →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
       ) : null}
 
       {isMember && activeTab === 'invites' ? (
@@ -468,21 +586,28 @@ export function UnitDetailPage() {
         <GovernancePanel unitId={unit.id} isAdmin={isAdmin} />
       ) : null}
 
-      {isMember && activeTab === 'compliance' ? (
-        <ComingSoonPanel
-          title="Weekly compliance"
-          description="Available to unit admins in the Unit dashboard."
-        />
+      {isAdmin && activeTab === 'compliance' ? (
+        <Card className="p-5">
+          <h2 className="text-base font-semibold text-ink">Weekly compliance</h2>
+          <p className="mt-1 text-xs text-ink-muted">
+            Weekly update filings per active officer across the last 8 weeks.
+          </p>
+          <div className="mt-4">
+            {complianceQuery.isError ? (
+              <ErrorState
+                title="Could not load compliance matrix"
+                description="Weekly compliance is available to unit admins."
+                onRetry={() => void complianceQuery.refetch()}
+              />
+            ) : (
+              <ComplianceMatrix
+                compliance={complianceQuery.data}
+                isLoading={complianceQuery.isLoading}
+              />
+            )}
+          </div>
+        </Card>
       ) : null}
     </div>
-  )
-}
-
-function ComingSoonPanel({ title, description }: { title: string; description: string }) {
-  return (
-    <Card className="p-8 text-center">
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-ink-muted">{description}</p>
-    </Card>
   )
 }
