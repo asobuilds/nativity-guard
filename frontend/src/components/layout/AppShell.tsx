@@ -8,6 +8,8 @@ import {
   Bell,
   Bot,
   Building2,
+  ChevronDown,
+  ChevronRight,
   FileText,
   FolderKanban,
   Handshake,
@@ -38,11 +40,22 @@ import type { Role } from '@/types/api'
 import { MOBILE_PRIMARY_ROUTES } from '@/lib/mobileNav'
 
 
-interface NavItem {
+export interface NavItem {
   to: string
   label: string
   icon: ReactNode
   soon?: boolean
+}
+
+export interface NavGroup {
+  id: string
+  label: string
+  items: NavItem[]
+}
+
+export interface RoleNavConfig {
+  pinned: NavItem[]
+  groups: NavGroup[]
 }
 
 const AGENCY_NAV: NavItem[] = [
@@ -51,90 +64,239 @@ const AGENCY_NAV: NavItem[] = [
   { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
 ]
 
-const NAV: Record<Role, NavItem[]> = {
-  citizen: [
-    { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
-    { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
-    { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
-    { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
-    { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
-    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
-    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
-    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
-    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
-    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
-    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
-    { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
-    { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
-    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
-    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
-    { to: '/bookings/new', label: 'Request security', icon: <Shield className="size-4" /> },
-  ],
-  officer: [
-    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
-    { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
-    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
-    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
-    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
-    { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
-    { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
-    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
-    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
-    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
-  ],
-  unit_admin: [
-    { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
-    { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
-    { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
-    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
-    { to: '/admin/community', label: 'Community', icon: <Users className="size-4" /> },
-    { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
-    { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
-    { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
-    { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
-    { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
-    { to: '/admin/unit', label: 'Unit dashboard', icon: <LayoutDashboard className="size-4" /> },
-    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
-    { to: '/admin/officers', label: 'Units', icon: <Users className="size-4" /> },
-    { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
-    { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
-    { to: '/admin/unit-policy', label: 'Governance policy', icon: <Shield className="size-4" /> },
-    { to: '/admin/governance-audit', label: 'Governance overview', icon: <Shield className="size-4" /> },
-    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
-    { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
-    { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
-    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
-  ],
-  super_admin: [
-    { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
-    { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
-    { to: '/officer/walkie-talkie', label: 'Unit channels', icon: <Radio className="size-4" /> },
-    { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
-    { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
-    { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
-    { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
-    { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
-    { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
-    { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
-    { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
-    { to: '/super/agencies', label: 'Agencies', icon: <Building2 className="size-4" /> },
-    { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
-    { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
-    { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
-    { to: '/admin/community', label: 'Community management', icon: <ShieldAlert className="size-4" /> },
-    { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
-    { to: '/super/users', label: 'Users & roles', icon: <Users className="size-4" /> },
-    { to: '/admin/identity', label: 'Identity verification', icon: <Shield className="size-4" /> },
-    { to: '/admin/units-verification', label: 'Unit verification', icon: <Shield className="size-4" /> },
-    { to: '/admin/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
-    { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
-    { to: '/super/audit', label: 'Audit & oversight', icon: <FileText className="size-4" /> },
-    { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
-    { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
-    { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
-  ],
-  agency_observer: AGENCY_NAV,
-  agency_division_admin: AGENCY_NAV,
+export const NAV_GROUPS: Record<Role, RoleNavConfig> = {
+  citizen: {
+    pinned: [
+      { to: '/', label: 'Home', icon: <LayoutDashboard className="size-4" /> },
+      { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
+    ],
+    groups: [
+      {
+        id: 'citizen-safety',
+        label: 'Safety & Reporting',
+        items: [
+          { to: '/report', label: 'Report', icon: <FileText className="size-4" /> },
+          { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
+          { to: '/map', label: 'Safety map', icon: <MapIcon className="size-4" /> },
+          { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
+        ],
+      },
+      {
+        id: 'citizen-community',
+        label: 'Community & Messaging',
+        items: [
+          { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
+          { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
+          { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
+        ],
+      },
+      {
+        id: 'citizen-units',
+        label: 'Units & Bookings',
+        items: [
+          { to: '/units', label: 'Security units', icon: <Shield className="size-4" /> },
+          { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+          { to: '/bookings/new', label: 'Request security', icon: <Shield className="size-4" /> },
+        ],
+      },
+      {
+        id: 'citizen-support',
+        label: 'Support & Appeals',
+        items: [
+          { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
+          { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+        ],
+      },
+    ],
+  },
+  officer: {
+    pinned: [
+      { to: '/officer/queue', label: 'Case queue', icon: <FolderKanban className="size-4" /> },
+    ],
+    groups: [
+      {
+        id: 'officer-ops',
+        label: 'Operations & Field',
+        items: [
+          { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
+          { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
+          { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
+          { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
+        ],
+      },
+      {
+        id: 'officer-comms',
+        label: 'Communications',
+        items: [
+          { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
+          { to: '/lga', label: 'LGA channel', icon: <Building2 className="size-4" /> },
+        ],
+      },
+      {
+        id: 'officer-support',
+        label: 'Bookings & Support',
+        items: [
+          { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+          { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
+          { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+        ],
+      },
+    ],
+  },
+  unit_admin: {
+    pinned: [
+      { to: '/admin/overview', label: 'Overview', icon: <LayoutDashboard className="size-4" /> },
+    ],
+    groups: [
+      {
+        id: 'admin-ops',
+        label: 'Operations & Cases',
+        items: [
+          { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+          { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
+          { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
+          { to: '/officer/walkie-talkie', label: 'Walkie-talkie', icon: <Radio className="size-4" /> },
+          { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
+          { to: '/assistant', label: 'Safety assistant', icon: <Bot className="size-4" /> },
+        ],
+      },
+      {
+        id: 'admin-community',
+        label: 'Community & Messaging',
+        items: [
+          { to: '/admin/community', label: 'Community', icon: <Users className="size-4" /> },
+          { to: '/community/chat', label: 'Community chat', icon: <MessageSquare className="size-4" /> },
+          { to: '/messages', label: 'Messages', icon: <MessageSquare className="size-4" /> },
+          { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
+        ],
+      },
+      {
+        id: 'admin-unit',
+        label: 'Unit & Governance',
+        items: [
+          { to: '/admin/unit', label: 'Unit dashboard', icon: <LayoutDashboard className="size-4" /> },
+          { to: '/admin/officers', label: 'Units', icon: <Users className="size-4" /> },
+          { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
+          { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
+          { to: '/admin/settings', label: 'Unit settings', icon: <Shield className="size-4" /> },
+          { to: '/admin/unit-policy', label: 'Governance policy', icon: <Shield className="size-4" /> },
+          { to: '/admin/governance-audit', label: 'Governance overview', icon: <Shield className="size-4" /> },
+        ],
+      },
+      {
+        id: 'admin-support',
+        label: 'Bookings & Support',
+        items: [
+          { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+          { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
+          { to: '/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+        ],
+      },
+    ],
+  },
+  super_admin: {
+    pinned: [
+      { to: '/super/overview', label: 'Command center', icon: <LayoutDashboard className="size-4" /> },
+      { to: '/sos', label: 'Emergency SOS', icon: <ShieldAlert className="size-4" /> },
+    ],
+    groups: [
+      {
+        id: 'super-ops',
+        label: 'Operations & Intelligence',
+        items: [
+          { to: '/map', label: 'Operations map', icon: <MapIcon className="size-4" /> },
+          { to: '/officer/walkie-talkie', label: 'Unit channels', icon: <Radio className="size-4" /> },
+          { to: '/taskforce', label: 'Joint task forces', icon: <Handshake className="size-4" /> },
+          { to: '/alerts', label: 'Alerts', icon: <Megaphone className="size-4" /> },
+          { to: '/news', label: 'Live news', icon: <Newspaper className="size-4" /> },
+          { to: '/subscriptions', label: 'Alert subscriptions', icon: <Bell className="size-4" /> },
+        ],
+      },
+      {
+        id: 'super-cases',
+        label: 'Cases & Units',
+        items: [
+          { to: '/admin/cases', label: 'Case review', icon: <FolderKanban className="size-4" /> },
+          { to: '/admin/transfers', label: 'Transfers', icon: <FileText className="size-4" /> },
+          { to: '/super/units', label: 'Security units', icon: <Shield className="size-4" /> },
+          { to: '/super/agencies', label: 'Agencies', icon: <Building2 className="size-4" /> },
+          { to: '/admin/officers', label: 'Unit rosters', icon: <Users className="size-4" /> },
+          { to: '/unit/finance', label: 'Financial ledger', icon: <Wallet className="size-4" /> },
+        ],
+      },
+      {
+        id: 'super-community',
+        label: 'Community & Moderation',
+        items: [
+          { to: '/community', label: 'Community', icon: <Users className="size-4" /> },
+          { to: '/admin/community', label: 'Community management', icon: <ShieldAlert className="size-4" /> },
+          { to: '/admin/reports', label: 'Moderation', icon: <ShieldAlert className="size-4" /> },
+        ],
+      },
+      {
+        id: 'super-users',
+        label: 'Users & Verification',
+        items: [
+          { to: '/super/users', label: 'Users & roles', icon: <Users className="size-4" /> },
+          { to: '/admin/identity', label: 'Identity verification', icon: <Shield className="size-4" /> },
+          { to: '/admin/units-verification', label: 'Unit verification', icon: <Shield className="size-4" /> },
+        ],
+      },
+      {
+        id: 'super-oversight',
+        label: 'Oversight & Platform',
+        items: [
+          { to: '/super/audit', label: 'Audit & oversight', icon: <FileText className="size-4" /> },
+          { to: '/super/analytics', label: 'Analytics', icon: <BarChart3 className="size-4" /> },
+          { to: '/super/settings', label: 'Platform settings', icon: <Settings className="size-4" /> },
+        ],
+      },
+      {
+        id: 'super-support',
+        label: 'Bookings & Support',
+        items: [
+          { to: '/bookings', label: 'Bookings', icon: <CalendarDays className="size-4" /> },
+          { to: '/appeals', label: 'Appeals', icon: <FileText className="size-4" /> },
+          { to: '/admin/feedback', label: 'Feedback & support', icon: <MessageSquare className="size-4" /> },
+        ],
+      },
+    ],
+  },
+  agency_observer: {
+    pinned: AGENCY_NAV,
+    groups: [],
+  },
+  agency_division_admin: {
+    pinned: AGENCY_NAV,
+    groups: [],
+  },
+}
+
+/** Flatten pinned and grouped navigation items for a role. */
+export function flattenRoleNav(config: RoleNavConfig): NavItem[] {
+  return [...config.pinned, ...config.groups.flatMap((group) => group.items)]
+}
+
+export const NAV: Record<Role, NavItem[]> = {
+  citizen: flattenRoleNav(NAV_GROUPS.citizen),
+  officer: flattenRoleNav(NAV_GROUPS.officer),
+  unit_admin: flattenRoleNav(NAV_GROUPS.unit_admin),
+  super_admin: flattenRoleNav(NAV_GROUPS.super_admin),
+  agency_observer: flattenRoleNav(NAV_GROUPS.agency_observer),
+  agency_division_admin: flattenRoleNav(NAV_GROUPS.agency_division_admin),
+}
+
+/** Match a nav item route against the current location pathname. */
+export function isNavItemActive(itemTo: string, pathname: string): boolean {
+  if (itemTo === '/') return pathname === '/'
+  return pathname === itemTo || pathname.startsWith(`${itemTo}/`)
+}
+
+/** Return the IDs of all navigation groups containing an active route. */
+export function findActiveGroupIds(groups: NavGroup[], pathname: string): string[] {
+  return groups
+    .filter((group) => group.items.some((item) => isNavItemActive(item.to, pathname)))
+    .map((group) => group.id)
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -206,14 +368,65 @@ function NavItems({
   )
 }
 
+function NavGroupSection({
+  group,
+  isOpen,
+  hasActiveItem,
+  onToggle,
+  onNavigate,
+}: {
+  group: NavGroup
+  isOpen: boolean
+  hasActiveItem: boolean
+  onToggle: (groupId: string) => void
+  onNavigate?: () => void
+}) {
+  const panelId = `nav-group-${group.id}`
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={() => onToggle(group.id)}
+        className={cn(
+          'flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider transition-colors',
+          hasActiveItem
+            ? 'text-signal'
+            : 'text-ink-muted hover:bg-surface-hi hover:text-ink',
+        )}
+      >
+        <span className="truncate">{group.label}</span>
+        {isOpen ? (
+          <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+        )}
+      </button>
+      {isOpen ? (
+        <div id={panelId} className="mt-1 flex flex-col gap-0.5 pl-1">
+          <NavItems items={group.items} variant="sidebar" onNavigate={onNavigate} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function AppShell({ children }: { children?: ReactNode } = {}) {
   const { user, role, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const navConfig = role ? NAV_GROUPS[role] : null
   const items = role ? NAV[role] : []
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const mobileDrawerRef = useRef<HTMLElement>(null)
   const mobileDrawerCloseRef = useRef<HTMLButtonElement>(null)
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
+    if (!navConfig) return new Set()
+    const active = findActiveGroupIds(navConfig.groups, pathname)
+    if (active.length > 0) return new Set(active)
+    return navConfig.groups[0] ? new Set([navConfig.groups[0].id]) : new Set()
+  })
   const bottomItems = role
     ? MOBILE_PRIMARY_ROUTES[role].map(path => items.find(item => item.to === path)).filter((item): item is NavItem => Boolean(item))
     : []
@@ -222,9 +435,33 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
     setMobileNavOpen(false)
   }
 
+  function toggleGroup(groupId: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupId)) {
+        next.delete(groupId)
+      } else {
+        next.add(groupId)
+      }
+      return next
+    })
+  }
+
   useEffect(() => {
     setMobileNavOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (!navConfig) return
+    const active = findActiveGroupIds(navConfig.groups, pathname)
+    if (active.length === 0) return
+    setOpenGroups((prev) => {
+      if (active.every((id) => prev.has(id))) return prev
+      const next = new Set(prev)
+      for (const id of active) next.add(id)
+      return next
+    })
+  }, [navConfig, pathname])
 
   useEffect(() => {
     if (!mobileNavOpen) return
@@ -305,7 +542,21 @@ export function AppShell({ children }: { children?: ReactNode } = {}) {
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3" aria-label="Primary">
-          <NavItems items={items} variant="sidebar" onNavigate={closeMobileNav} />
+          {navConfig ? (
+            <>
+              <NavItems items={navConfig.pinned} variant="sidebar" onNavigate={closeMobileNav} />
+              {navConfig.groups.map((group) => (
+                <NavGroupSection
+                  key={group.id}
+                  group={group}
+                  isOpen={openGroups.has(group.id)}
+                  hasActiveItem={group.items.some((item) => isNavItemActive(item.to, pathname))}
+                  onToggle={toggleGroup}
+                  onNavigate={closeMobileNav}
+                />
+              ))}
+            </>
+          ) : null}
         </nav>
 
         <div className="border-t border-border p-3">
